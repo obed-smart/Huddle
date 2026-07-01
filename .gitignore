@@ -1,47 +1,25 @@
-### Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+# Server
+server/node_modules/
+server/dist/
+server/coverage/
+server/.env
+server/.env.*
 
-### Env
-.env
-.env.*
+# Client
+client/node_modules/
+client/dist/
+client/.next/
+client/.env
+client/.env.*
 
-### Logs
-logs/
+# Logs
 *.log
-npm-debug.log*
+logs/
 
-### Runtime
-/dist
-/build
-/out
-
-### OS
+# OS
 .DS_Store
 Thumbs.db
 
-### Editors
+# Editors
 .vscode/
 .idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-
-### Dev data and uploads
-/dev-data/
-/img/
-try.js
-
-### Test coverage
-/coverage/
-
-### Misc
-.parcel-cache/
-.cache/
-.next/
-/.turbo/
-.vite/

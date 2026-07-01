@@ -24,12 +24,6 @@
     "skipLibCheck": true
   },
 
-  "include": ["src/**/*"],
-  "exclude": ["node_modules"],
-  "paths": {
-    "@config/": ["src/config/"],
-    "@modules/": ["src/modules/"],
-    "@shared/": ["src/modules"],
-    "@shared": ["src/modules"]
-  }
+  "include": ["src/**/*", "drizzle.config.ts"],
+  "exclude": ["node_modules"]
 }
