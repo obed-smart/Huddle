@@ -1,9 +1,13 @@
+import { AuthUser } from "../shared/types";
+
 declare global {
   namespace Express {
-    interface User {
-      _id: string;
-      email: string;
-      role: string;
+    interface User extends AuthUser {
+      isNewUser?: boolean;
+    }
+
+    interface Request {
+      user: AuthUser;
     }
   }
 }

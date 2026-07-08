@@ -13,7 +13,7 @@ import {
   type InferSelectModel,
   type InferInsertModel,
 } from "drizzle-orm";
-import { globalRoleEnum } from "./enums";
+import { authProviderEnum, globalRoleEnum } from "./enums";
 
 export const usersTable = pgTable(
   "users",
@@ -23,7 +23,8 @@ export const usersTable = pgTable(
     displayName: varchar("display_name", { length: 255 }),
     email: varchar("email", { length: 255 }).notNull(),
     password: text("password_hash"),
-    googleId: text("googleId"),
+    provider: authProviderEnum("provider").default("local").notNull(),
+    googleId: text("google_id"),
     avatarUrl: text("avatar_url"),
     avatarColor: varchar("avatar_color", { length: 20 }),
     bio: varchar("bio", { length: 255 }),
@@ -45,9 +46,10 @@ export const usersTable = pgTable(
       .$onUpdate(() => new Date()),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
-  (table) => [
-    uniqueIndex("users_username_idx").on(table.username),
-    uniqueIndex("users_email_idx").on(table.email),
+  (t) => [
+    uniqueIndex("users_username_unique").on(t.username),
+    uniqueIndex("users_email_unique").on(t.email),
+    uniqueIndex("users_google_id_unique").on(t.googleId),
   ],
 );
 

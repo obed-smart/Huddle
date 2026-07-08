@@ -1,4 +1,3 @@
-import userRepository from "../user/user.repository";
 import Logger from "../../shared/utils/logger";
 import { INewUser, IUser } from "../../db/schema/schema.user";
 import AppError from "../../shared/utils/apiError";
@@ -10,17 +9,19 @@ import {
   hashPassword,
   hashToken,
 } from "../../shared/utils/utits";
+import UserService from "../user/user.services";
+import { AuthUser } from "../../shared/types";
 
 export const REFRESH_TOKEN_LIFESPAN_DAYS = 7;
 
 class AuthService {
   constructor(
-    private readonly userRepo: userRepository,
+    private readonly userService: UserService,
     private readonly logger: typeof Logger,
     private readonly authRepo: authRepository,
   ) {}
 
-  private generateToken(user: IUser) {
+  private generateToken(user: AuthUser) {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken();
 
@@ -30,50 +31,30 @@ class AuthService {
     };
   }
 
-  async createUser(userData: INewUser) {
-    let userExist = await this.userRepo.checkRegistrationConflict(
-      userData.username,
-      userData.email,
-    );
-
-    if (userExist) {
-      throw new AppError(
-        "Registration failed. Please try a different email or username.",
-        409,
-      );
-    }
-
-    const { password, ...rest } = userData;
-
-    if (!password) {
-      throw new AppError("Password is required", 400);
-    }
-
-    const hashedPassword = await hashPassword(password);
-
-    const user = await this.userRepo.create({
-      ...rest,
-      password: hashedPassword,
-    });
-
-    this.logger.info("new user created");
-
-    if (!user) {
-      throw new Error("Cannot generate tokens: User is undefined.");
-    }
-
-    const { accessToken, refreshToken } = this.generateToken(user);
+  private async storeRefreshToken(userId: string, refreshToken: string) {
+    let expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_LIFESPAN_DAYS);
 
     const hashTokens = hashToken(refreshToken);
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_LIFESPAN_DAYS);
-
     await this.authRepo.create({
-      userId: user.id,
+      userId: userId,
       tokenHash: hashTokens,
       expiresAt: expiresAt,
     });
+
+    return expiresAt;
+  }
+
+  async register(userData: INewUser) {
+    const user = await this.userService.createUser({
+      ...userData,
+      provider: "local",
+    });
+
+    const { accessToken, refreshToken } = this.generateToken(user);
+
+    const expiresAt = await this.storeRefreshToken(user.id, refreshToken);
 
     return {
       user,
@@ -86,16 +67,21 @@ class AuthService {
   async login(user: IUser) {
     const { accessToken, refreshToken } = this.generateToken(user);
 
-    const hashTokens = hashToken(refreshToken);
+    const expiresAt = await this.storeRefreshToken(user.id, refreshToken);
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_LIFESPAN_DAYS);
+    return {
+      accessToken,
+      refreshToken,
+      expiresAt,
+    };
+  }
 
-    await this.authRepo.create({
-      userId: user.id,
-      tokenHash: hashTokens,
-      expiresAt: expiresAt,
-    });
+  async googleCallback(user: AuthUser) {
+    const { accessToken, refreshToken } = this.generateToken(user);
+
+    this.logger.info(`User ${user.id} logged in with Google`);
+
+    const expiresAt = await this.storeRefreshToken(user.id, refreshToken);
 
     return {
       accessToken,

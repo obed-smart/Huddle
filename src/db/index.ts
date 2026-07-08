@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import * as userSchema from "./schema/schema.user";
+import * as schema from "./schema";
+
 import "dotenv/config";
 
 const pool = new Pool({
@@ -9,7 +10,7 @@ const pool = new Pool({
 
 export const db = drizzle({
   client: pool,
-  schema: { ...userSchema },
+  schema: { ...schema },
 });
 
 export async function testDatabaseConnection(): Promise<void> {

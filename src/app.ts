@@ -2,6 +2,7 @@ import express, { Request, Response } from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import passport from "passport";
+import cors from "cors";
 
 import "./config/passport";
 import httpLogger from "./middlewares/pino.http.middleware";
@@ -22,6 +23,13 @@ app.use(httpLogger);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+  }),
+);
 
 app.use(passport.initialize());
 

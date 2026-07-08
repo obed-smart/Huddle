@@ -4,10 +4,31 @@ import {
   usersTable as user,
 } from "../../db/schema/schema.user";
 import { db as dbInstance } from "../../db";
-import { eq, or } from "drizzle-orm";
+import { and, eq, ilike, ne, or, sql } from "drizzle-orm";
 import Logger from "../../shared/utils/logger";
+import { AuthUser, PublicUser } from "../../shared/types";
+import AppError from "../../shared/utils/apiError";
 
 type DbType = typeof dbInstance;
+
+export const authUserSelection = {
+  id: user.id,
+  email: user.email,
+  username: user.username,
+  displayName: user.displayName,
+  avatarUrl: user.avatarUrl,
+  globalRole: user.globalRole,
+  isEmailVerified: user.isEmailVerified,
+  bio: user.bio,
+};
+
+export const publicUserSelection = {
+  id: user.id,
+  username: user.username,
+  displayName: user.displayName,
+  avatarUrl: user.avatarUrl,
+  bio: user.bio,
+};
 
 class UserRepository {
   constructor(
@@ -16,19 +37,59 @@ class UserRepository {
     private readonly usersTable: typeof user,
   ) {}
 
-  async create(userData: INewUser) {
-    const [newUser] = await this.db
+  async create(userData: INewUser): Promise<AuthUser> {
+    const [user] = await this.db
       .insert(this.usersTable)
       .values(userData)
-      .returning();
+      .returning(authUserSelection);
 
-    return newUser;
+    if (!user) {
+      throw new Error("Failed to create user");
+    }
+
+    return user;
   }
 
   async findByEmail(email: IUser["email"]): Promise<IUser | null> {
     const user = await this.db.query.usersTable.findFirst({
       where: eq(this.usersTable.email, email),
     });
+
+    return user ?? null;
+  }
+
+  async findAuthUserById(id: string): Promise<AuthUser | null> {
+    const [user] = await this.db
+      .select(authUserSelection)
+      .from(this.usersTable)
+      .where(eq(this.usersTable.id, id));
+
+    return user ?? null;
+  }
+
+  async userNameExists(username: string): Promise<boolean> {
+    const result = await this.db.execute(
+      sql`SELECT EXISTS(SELECT 1 FROM ${this.usersTable} WHERE username = ${username}) AS "exists"`,
+    );
+
+    return result.rows[0]?.exists as boolean;
+  }
+
+  async findUserForLogin(identifier: string) {
+    const [user] = await this.db
+      .select({
+        id: this.usersTable.id,
+        email: this.usersTable.email,
+        password: this.usersTable.password,
+        globalRole: this.usersTable.globalRole,
+      })
+      .from(this.usersTable)
+      .where(
+        or(
+          eq(this.usersTable.email, identifier),
+          eq(this.usersTable.username, identifier),
+        ),
+      );
 
     return user ?? null;
   }
@@ -41,38 +102,40 @@ class UserRepository {
     return user ?? null;
   }
 
-  async findUserByGoogleId(id: IUser["googleId"]): Promise<IUser | null> {
-    if (!id) return null;
-
-    const user = await this.db.query.usersTable.findFirst({
-      where: eq(this.usersTable.googleId, id),
-    });
+  async findAuthUserByGoogleId(googleId: string): Promise<AuthUser | null> {
+    const [user] = await this.db
+      .select(authUserSelection)
+      .from(this.usersTable)
+      .where(eq(this.usersTable.googleId, googleId));
 
     return user ?? null;
   }
 
   /**
-   * Finds a user by matching EITHER their username OR their email.
-   * @param identifier The string containing the username or email input
-   * @returns IUser
+   * Finds a user by their username.
+   * @param username The string containing the username input
+   * @returns A user object if found, otherwise null.
    */
-  async findUserByUsernameOrEmail(identifier: string): Promise<IUser | null> {
+  async findUserByUsername(
+    username: IUser["username"],
+  ): Promise<PublicUser | null> {
     try {
-      if (!identifier) return null;
+      if (!username) return null;
 
-      const user = await this.db.query.usersTable.findFirst({
-        where: or(
-          eq(this.usersTable.username, identifier),
-          eq(this.usersTable.email, identifier),
-        ),
-      });
+      const [user] = await this.db
+        .select(publicUserSelection)
+        .from(this.usersTable)
+        .where(eq(this.usersTable.username, username.trim()));
 
-      return (user as IUser) ?? null;
+      return user ?? null;
     } catch (error) {
       this.logger.error(
-        `Error finding user by identifier (${identifier}): ${error}`,
+        `Error finding user by identifier (${username}): ${error}`,
       );
-      throw error;
+      throw new AppError(
+        "An error occurred while trying to find the user by username.",
+        500,
+      );
     }
   }
 
@@ -82,18 +145,43 @@ class UserRepository {
    * @param email
    * @returns
    */
-  async checkRegistrationConflict(
-    username: string,
-    email: string,
-  ): Promise<IUser | null> {
-    const existingUser = await this.db.query.usersTable.findFirst({
-      where: or(
-        eq(this.usersTable.username, username),
-        eq(this.usersTable.email, email),
-      ),
-    });
+  async checkRegistrationConflict(username: string, email: string) {
+    try {
+      return await this.db.query.usersTable.findFirst({
+        where: or(
+          eq(this.usersTable.username, username),
+          eq(this.usersTable.email, email),
+        ),
+      });
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
+  }
 
-    return existingUser ?? null;
+  async searchUsers(
+    query: string,
+    currentUserId: IUser["id"],
+    limit = 10,
+  ): Promise<PublicUser[]> {
+    try {
+      if (!query.trim()) return [];
+
+      const users = await this.db
+        .select(publicUserSelection)
+        .from(this.usersTable)
+        .where(
+          and(
+            ilike(this.usersTable.username, `%${query}%`),
+            ne(this.usersTable.id, currentUserId),
+          ),
+        )
+        .limit(limit);
+      return users;
+    } catch (error) {
+      this.logger.error(`Error searching users (${query}): ${error}`);
+      throw new AppError("An error occurred while searching for users.", 500);
+    }
   }
 }
 

@@ -1,8 +1,12 @@
+import { Request, Response } from "express";
+
 import { IUser } from "../../db/schema/schema.user";
 import { ApiResponse } from "../../shared/utils/apiResponse";
 import catchAsync from "../../shared/utils/catchAsyncHandler";
 import AuthService from "./auth.services";
-import { Response } from "express";
+import authServices from "./auth.services";
+import AppError from "../../shared/utils/apiError";
+import { AuthUser } from "../../shared/types";
 
 class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -17,20 +21,21 @@ class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 15 * 60 * 1000, 
+      maxAge: 15 * 60 * 1000,
     });
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: Number(expiedAt), 
+      maxAge: Number(expiedAt),
     });
   }
 
   register = catchAsync(async (req, res) => {
+    const displayName = `${req.body.firstName} ${req.body.lastName}`.trim();
     const { user, refreshToken, accessToken, expiresAt } =
-      await this.authService.createUser(req.body);
+      await this.authService.register({ ...req.body, displayName });
 
     this.setCookies(res, accessToken, refreshToken, expiresAt);
 
@@ -60,6 +65,23 @@ class AuthController {
         avataUrl: user.avatarUrl,
       }),
     );
+  });
+
+  googleCallback = catchAsync(async (req: Request, res: Response) => {
+    const authResult = req.user as
+      | { user: AuthUser; isNewUser: boolean }
+      | undefined;
+
+    if (!authResult?.user) {
+      throw new AppError("Unauthorized", 401);
+    }
+
+    const { accessToken, refreshToken, expiresAt } =
+      await this.authService.googleCallback(authResult.user);
+
+    this.setCookies(res, accessToken, refreshToken, expiresAt);
+
+    res.redirect(`${process.env.FRONTEND_URL!}/chat`);
   });
 }
 

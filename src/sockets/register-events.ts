@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { registerChatEvents } from "../modules/chat/chat.events";
+import { registerChatEvents } from "../modules/conversations/conversations.events";
 import { registerRoomEvents } from "../modules/room/room.events";
 
 // import { registerPresenceEvents } from "../modules/presence/presence.events";

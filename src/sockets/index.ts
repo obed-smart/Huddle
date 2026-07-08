@@ -8,7 +8,7 @@ export function createSocketServer(server: HttpServer) {
   logger.debug("SOCKET.IO");
   const io = new Server(server, {
     cors: {
-      origin: ["http://localhost:5173", "https://oauth.pstmn.io"],
+      origin: [process.env.FRONTEND_URL!, "https://oauth.pstmn.io"],
       credentials: true,
     },
     transports: ["polling", "websocket"],
@@ -18,8 +18,6 @@ export function createSocketServer(server: HttpServer) {
 
   io.on("connection", (socket) => {
     logger.info(`🔌 socket.io is connected`);
-
-   
 
     socket.on("message", (data) => {
       logger.debug(`message from websocket: ${data.text}`);

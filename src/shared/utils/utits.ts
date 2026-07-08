@@ -7,6 +7,8 @@ import AppError from "./apiError";
 import { IUser } from "../../db/schema/schema.user";
 import logger from "./logger";
 import { string } from "zod";
+import { AuthUser } from "../types";
+import { userService } from "../../modules/user/user.modules";
 
 const MAX_RETRIES = 5;
 
@@ -46,15 +48,15 @@ export const generateUniqueUsername = async (displayName: string) => {
 
       const uniqueName = `${cleanedName}_${id}`;
 
-      //   const usernameExist = await authRepository.usernameExist(uniqueName);
+      const usernameExist = await userService.userNameExists(uniqueName);
 
-      //   if (!usernameExist) {
-      //     return uniqueName;
-      //   }
+      if (!usernameExist) {
+        return uniqueName;
+      }
       retries++;
     }
 
-    return `${cleanedName}_${usernameId()}_${Date.now().toString().slice(-4)}`;
+    return `${cleanedName}_${usernameId()}`;
   } catch (error) {
     throw new AppError(
       "failed when generating username from google displayName",
@@ -86,9 +88,11 @@ export const verifySecret = (secrect: string) => {
   return jwt.verify(secrect, process.env.JWT_ACCESS_SECRET!) as IUser;
 };
 
-export const generateAccessToken = (user: IUser) => {
+export const generateAccessToken = (
+  user: Pick<AuthUser, "id" | "globalRole" | "username">,
+) => {
   const accessToken = jwt.sign(
-    { sub: user.id, email: user.email, username: user.username },
+    { sub: user.id, role: user.globalRole, username: user.username },
     process.env.JWT_ACCESS_SECRET!,
     {
       expiresIn: "15m",
