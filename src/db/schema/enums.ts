@@ -48,5 +48,4 @@ export const pingStatusEnum = pgEnum("ping_status", [
   "pending",
   "accepted",
   "declined",
-  "blocked",
 ]);

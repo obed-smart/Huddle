@@ -4,8 +4,31 @@ CREATE TYPE "public"."conversation_type" AS ENUM('direct', 'group');--> statemen
 CREATE TYPE "public"."conversation_visibility" AS ENUM('private', 'public');--> statement-breakpoint
 CREATE TYPE "public"."global_role" AS ENUM('user', 'admin');--> statement-breakpoint
 CREATE TYPE "public"."message_type" AS ENUM('text', 'image', 'video', 'audio', 'voice', 'file', 'system');--> statement-breakpoint
-CREATE TYPE "public"."ping_status" AS ENUM('pending', 'accepted', 'declined', 'blocked');--> statement-breakpoint
+CREATE TYPE "public"."ping_status" AS ENUM('pending', 'accepted', 'declined');--> statement-breakpoint
 CREATE TYPE "public"."presence_status" AS ENUM('online', 'away', 'busy', 'offline');--> statement-breakpoint
+CREATE TABLE "users" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"username" varchar(255) NOT NULL,
+	"display_name" varchar(255),
+	"email" varchar(255) NOT NULL,
+	"password_hash" text,
+	"provider" "auth_provider" DEFAULT 'local' NOT NULL,
+	"google_id" text,
+	"avatar_url" text,
+	"avatar_color" varchar(20),
+	"bio" varchar(255),
+	"global_role" "global_role" DEFAULT 'user' NOT NULL,
+	"is_email_verified" boolean DEFAULT false NOT NULL,
+	"email_verification_token" text,
+	"password_reset_otp" text,
+	"password_reset_expires_at" timestamp with time zone,
+	"password_reset_attempts" integer,
+	"last_seen_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone
+);
+--> statement-breakpoint
 CREATE TABLE "conversation_participants" (
 	"conversation_id" uuid NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -87,29 +110,6 @@ CREATE TABLE "refresh_tokens" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "users" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"username" varchar(255) NOT NULL,
-	"display_name" varchar(255),
-	"email" varchar(255) NOT NULL,
-	"password_hash" text,
-	"provider" "auth_provider" DEFAULT 'local' NOT NULL,
-	"google_id" text,
-	"avatar_url" text,
-	"avatar_color" varchar(20),
-	"bio" varchar(255),
-	"global_role" "global_role" DEFAULT 'user' NOT NULL,
-	"is_email_verified" boolean DEFAULT false NOT NULL,
-	"email_verification_token" text,
-	"password_reset_otp" text,
-	"password_reset_expires_at" timestamp with time zone,
-	"password_reset_attempts" integer,
-	"last_seen_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"deleted_at" timestamp with time zone
-);
---> statement-breakpoint
 ALTER TABLE "conversation_participants" ADD CONSTRAINT "conversation_participants_conversation_id_conversations_id_fk" FOREIGN KEY ("conversation_id") REFERENCES "public"."conversations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "conversation_participants" ADD CONSTRAINT "conversation_participants_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "conversation_participants" ADD CONSTRAINT "conversation_participants_last_read_message_id_messages_id_fk" FOREIGN KEY ("last_read_message_id") REFERENCES "public"."messages"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -126,15 +126,15 @@ ALTER TABLE "messages" ADD CONSTRAINT "messages_conversation_id_conversations_id
 ALTER TABLE "messages" ADD CONSTRAINT "messages_sender_id_users_id_fk" FOREIGN KEY ("sender_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "messages" ADD CONSTRAINT "messages_reply_to_message_id_messages_id_fk" FOREIGN KEY ("reply_to_message_id") REFERENCES "public"."messages"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "users_username_unique" ON "users" USING btree ("username");--> statement-breakpoint
+CREATE UNIQUE INDEX "users_email_unique" ON "users" USING btree ("email");--> statement-breakpoint
+CREATE UNIQUE INDEX "users_google_id_unique" ON "users" USING btree ("google_id");--> statement-breakpoint
 CREATE INDEX "conversation_participants_user_idx" ON "conversation_participants" USING btree ("user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "conversations_direct_key_unique" ON "conversations" USING btree ("direct_key");--> statement-breakpoint
+CREATE UNIQUE INDEX "conversations_direct_key_unique" ON "conversations" USING btree ("direct_key") WHERE "conversations"."ping_status" != 'declined';--> statement-breakpoint
 CREATE INDEX "conversations_last_message_at_idx" ON "conversations" USING btree ("last_message_at");--> statement-breakpoint
 CREATE INDEX "attachments_message_idx" ON "attachments" USING btree ("message_id");--> statement-breakpoint
 CREATE INDEX "message_mentions_conversation_user_idx" ON "message_mentions" USING btree ("conversation_id","mentioned_user_id");--> statement-breakpoint
 CREATE INDEX "message_reactions_message_idx" ON "message_reactions" USING btree ("message_id");--> statement-breakpoint
 CREATE INDEX "messages_conversation_idx" ON "messages" USING btree ("conversation_id","created_at");--> statement-breakpoint
 CREATE INDEX "refresh_tokens_user_id_idx" ON "refresh_tokens" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "refresh_token_hash_idx" ON "refresh_tokens" USING btree ("token_hash");--> statement-breakpoint
-CREATE UNIQUE INDEX "users_username_unique" ON "users" USING btree ("username");--> statement-breakpoint
-CREATE UNIQUE INDEX "users_email_unique" ON "users" USING btree ("email");--> statement-breakpoint
-CREATE UNIQUE INDEX "users_google_id_unique" ON "users" USING btree ("google_id");
+CREATE INDEX "refresh_token_hash_idx" ON "refresh_tokens" USING btree ("token_hash");

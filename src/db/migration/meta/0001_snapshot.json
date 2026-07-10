@@ -1,6 +1,6 @@
 {
-  "id": "e8bcf248-5b0f-41e4-8ab2-ca5cf73ae346",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "7f9f12f2-2ead-4b60-94e5-eba7ad7455ef",
+  "prevId": "e8bcf248-5b0f-41e4-8ab2-ca5cf73ae346",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -434,7 +434,6 @@
             }
           ],
           "isUnique": true,
-          "where": "\"conversations\".\"ping_status\" != 'declined'",
           "concurrently": false,
           "method": "btree",
           "with": {}

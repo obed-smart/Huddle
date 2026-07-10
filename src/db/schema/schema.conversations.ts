@@ -65,7 +65,8 @@ export const conversationsTable = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => [
-    uniqueIndex("conversations_direct_key_unique").on(t.directKey),
+    uniqueIndex("conversations_direct_key_unique")
+      .on(t.directKey),
 
     index("conversations_last_message_at_idx").on(t.lastMessageAt),
 

@@ -14,13 +14,22 @@ passport.use(
       logger.debug(`Loging in with identifier: ${identifier}`);
       try {
         const user = await userService.findUserForLogin(identifier);
+
+        logger.debug(
+          `User query result: ${user ? JSON.stringify({ id: user.id, username: user.username }) : "NULL"}`,
+        );
         if (!user) return done(null, false, { message: "invalid credentials" });
+
+        logger.debug(`User password hash present: ${!!user.password}`);
 
         if (!user.password) {
           return done(null, false, { message: "invalid credentials" });
         }
 
         const isMatch = await comparePassword(password, user.password);
+
+        logger.debug(`Bcrypt password match result: ${isMatch}`);
+
         if (!isMatch) {
           return done(null, false, { message: "invalid credentials" });
         }

@@ -17,13 +17,10 @@ export function createSocketServer(server: HttpServer) {
   io.use(authMiddleware);
 
   io.on("connection", (socket) => {
-    logger.info(`🔌 socket.io is connected`);
+    const { userId, username } = socket.data.user;
+    socket.join(`user:${userId}`);
 
-    socket.on("message", (data) => {
-      logger.debug(`message from websocket: ${data.text}`);
-
-      logger.debug(data);
-    });
+    logger.info(`🔌 @${username} connected (socket ${socket.id})`);
 
     // registerEvents(io, socket);
 

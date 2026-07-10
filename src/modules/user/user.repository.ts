@@ -69,7 +69,7 @@ class UserRepository {
 
   async userNameExists(username: string): Promise<boolean> {
     const result = await this.db.execute(
-      sql`SELECT EXISTS(SELECT 1 FROM ${this.usersTable} WHERE username = ${username}) AS "exists"`,
+      sql`SELECT EXISTS (SELECT 1 FROM ${this.usersTable} WHERE username = ${username}) AS "exists"`,
     );
 
     return result.rows[0]?.exists as boolean;
@@ -79,6 +79,7 @@ class UserRepository {
     const [user] = await this.db
       .select({
         id: this.usersTable.id,
+        username: this.usersTable.username,
         email: this.usersTable.email,
         password: this.usersTable.password,
         globalRole: this.usersTable.globalRole,

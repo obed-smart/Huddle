@@ -45,8 +45,22 @@ const errorMiddleware: ErrorRequestHandler = (
   res: Response,
   next: NextFunction,
 ) => {
-  err.statusCode = err.statusCode || 500;
-  err.status = err.status || "error";
+  const statusCode =
+    err.statusCode || (typeof err.status === "number" ? err.status : 500);
+
+  const statusText =
+    err.status && typeof err.status === "string"
+      ? err.status
+      : statusCode >= 400 && statusCode < 500
+        ? "fail"
+        : "error";
+
+  err.statusCode = statusCode;
+  err.status = statusText;
+
+  if (statusCode === 401 || err.name === "AuthenticationError") {
+    err.isOperational = true;
+  }
 
   let error = err;
 

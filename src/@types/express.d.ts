@@ -5,9 +5,8 @@ declare global {
     interface User extends AuthUser {
       isNewUser?: boolean;
     }
-
     interface Request {
-      user: AuthUser;
+      user?: Express.User; 
     }
   }
 }
