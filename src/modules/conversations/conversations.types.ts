@@ -1,4 +1,4 @@
-import { IConversation } from "../../db/schema";
+import { IConversation, IUser } from "../../db/schema";
 export interface SendMessageDto {
   roomId: string;
   content: string;
@@ -25,7 +25,19 @@ export interface ConversationResponseDto {
   description: IConversation["description"];
   avatarUrl: IConversation["avatarUrl"];
   requestedBy: IConversation["requestedBy"];
+  createdBy: IConversation["createdBy"];
   pingStatus: IConversation["pingStatus"];
   lastMessageAt: IConversation["lastMessageAt"];
   createdAt: IConversation["createdAt"];
+}
+
+export interface CallerDto {
+  id: IUser["id"];
+  username: IUser["username"];
+  avatarUrl: IUser["avatarUrl"];
+}
+
+export interface RealtimeGateway {
+  emitToRoom(roomName: string, event: string, payload: unknown): void;
+  emitToUser(userId: string, event: string, payload: unknown): void;
 }

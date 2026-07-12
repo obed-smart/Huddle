@@ -2,6 +2,7 @@ import { IUser } from "../../db/schema/schema.user";
 import { PublicUser } from "../../shared/types";
 import { ApiResponse } from "../../shared/utils/apiResponse";
 import catchAsync from "../../shared/utils/catchAsyncHandler";
+import logger from "../../shared/utils/logger";
 import UserService from "./user.services";
 
 class UserController {
@@ -29,6 +30,8 @@ class UserController {
       String(username ?? ""),
       currentUserId!,
     );
+
+    logger.debug({ users }, "return users");
 
     res.status(200).json(ApiResponse.success(users));
   });

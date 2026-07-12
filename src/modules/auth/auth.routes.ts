@@ -4,6 +4,7 @@ import passport from "passport";
 import authenticate from "../../middlewares/authentication.middleware";
 import validate from "../../middlewares/validation.middleware";
 import { loginSchema, registerSchema } from "./auth.validation";
+import AppError from "../../shared/utils/apiError";
 
 const router = Router();
 
@@ -15,7 +16,24 @@ router.post(
 router.post(
   "/login",
   validate(loginSchema, "body"),
-  passport.authenticate("local", { session: false, failWithError: true }),
+  (req, res, next) => {
+    passport.authenticate(
+      "local",
+      { session: false },
+      (
+        err: Error | null,
+        user: Express.User | false,
+        info: { message?: string },
+      ) => {
+        if (err) return next(err);
+        if (!user) {
+          throw new AppError(`${info?.message  || "Unauthorized"}`, 401);
+        }
+        req.user = user;
+        next();
+      },
+    )(req, res, next);
+  },
   authController.login,
 );
 

@@ -7,6 +7,7 @@ import AuthService from "./auth.services";
 import authServices from "./auth.services";
 import AppError from "../../shared/utils/apiError";
 import { AuthUser } from "../../shared/types";
+import env from "../../config/env";
 
 class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -21,7 +22,8 @@ class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 15 * 60 * 1000,
+      maxAge:
+        env.NODE_ENV === "production" ? 15 * 60 * 1000 : 1 * 60 * 60 * 1000,
     });
 
     res.cookie("refreshToken", refreshToken, {

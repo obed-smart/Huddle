@@ -12,10 +12,14 @@ class ConversationController {
     }
 
     const { id: targetId } = req.body;
-    const currentUserId = req.user.id;
+    const requesterPayload = {
+      id: req.user.id,
+      username: req.user.username,
+      avatarUrl: req.user?.avatarUrl,
+    };
 
     const conversation = await this.conversationService.createConversation(
-      currentUserId,
+      requesterPayload,
       targetId,
     );
 
@@ -23,30 +27,52 @@ class ConversationController {
   });
 
   acceptPing = catchAsync(async (req, res) => {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401);
+    }
     const { id: conversationId } = req.params;
-    const userId = req.user!.id;
+    const requesterPayload = {
+      id: req.user.id,
+      username: req.user.username,
+      avatarUrl: req.user?.avatarUrl,
+    };
 
     if (!conversationId) {
       throw new AppError("conversation ID parameter is required", 400);
     }
 
-    await this.conversationService.acceptPing(String(conversationId), userId);
+    await this.conversationService.acceptPing(
+      String(conversationId),
+      requesterPayload,
+    );
 
     res.status(200).json(ApiResponse.success({ message: "Ping accepted" }));
   });
 
   declinePing = catchAsync(async (req, res) => {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401);
+    }
+
     const { id: conversationId } = req.params;
-    const userId = req.user!.id;
+    const requesterPayload = {
+      id: req.user.id,
+      username: req.user.username,
+      avatarUrl: req.user?.avatarUrl,
+    };
 
     if (!conversationId) {
       throw new AppError("conversation ID parameter is required", 400);
     }
 
-    await this.conversationService.declinePing(String(conversationId), userId);
+    await this.conversationService.declinePing(
+      String(conversationId),
+      requesterPayload,
+    );
 
     res.status(200).json(ApiResponse.success({ message: "Ping declined" }));
   });
+  
 }
 
 export default ConversationController;

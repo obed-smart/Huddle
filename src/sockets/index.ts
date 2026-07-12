@@ -3,6 +3,7 @@ import { Server as HttpServer } from "http";
 import { authMiddleware } from "./auth.socket";
 import logger from "../shared/utils/logger";
 import { registerEvents } from "./register-events";
+import { setIoInstance } from "./socket.gateway";
 
 export function createSocketServer(server: HttpServer) {
   logger.debug("SOCKET.IO");
@@ -17,8 +18,13 @@ export function createSocketServer(server: HttpServer) {
   io.use(authMiddleware);
 
   io.on("connection", (socket) => {
-    const { userId, username } = socket.data.user;
+    const { sub: userId, username } = socket.data.user;
+
+    logger.debug(`socket user ${socket.data.user}`);
+
     socket.join(`user:${userId}`);
+
+    logger.debug(`user id: ${userId}`);
 
     logger.info(`🔌 @${username} connected (socket ${socket.id})`);
 
@@ -27,14 +33,11 @@ export function createSocketServer(server: HttpServer) {
     socket.on("disconnect", () => {
       const { userId, username } = socket.data.user;
 
-      // logger.info(`${username} (${socket.id}) disconnected`);
-
-      // socket.broadcast.emit("user-offline", {
-      //   userId,
-      //   username,
-      // });
+      logger.info(`${username} (${socket.id}) disconnected`);
     });
   });
+
+  setIoInstance(io);
 
   return io;
 }

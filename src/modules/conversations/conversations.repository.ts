@@ -22,6 +22,7 @@ export const conversationResponse = {
   description: conversation.description,
   avatarUrl: conversation.avatarUrl,
   requestedBy: conversation.requestedBy,
+  createdBy: conversation.createdBy,
   pingStatus: conversation.pingStatus,
   lastMessageAt: conversation.lastMessageAt,
   createdAt: conversation.createdAt,
@@ -104,7 +105,7 @@ class ConversationsRepository {
   async updateConversationStatus(
     conversationId: string,
     data: IUpdatePing,
-  ): Promise<IConversation | null> {
+  ): Promise<ConversationResponseDto | null> {
     const [result] = await this.db
       .update(this.conversationsTable)
       .set({
@@ -112,7 +113,7 @@ class ConversationsRepository {
         requestedBy: data.requestedBy,
       })
       .where(eq(this.conversationsTable.id, conversationId))
-      .returning();
+      .returning(conversationResponse);
 
     return result ?? null;
   }
