@@ -1,7 +1,8 @@
 import Logger from "../../shared/utils/logger";
 import AppError from "../../shared/utils/apiError";
 import MessageRepository from "./message.repository";
-import { INewMessage, IMessage } from "./message.types";
+import { IMessage, INewMessage } from "../../db/schema";
+import { MessageResponseDTO } from "./message.types";
 
 class MessageService {
   constructor(
@@ -9,20 +10,24 @@ class MessageService {
     private readonly logger: typeof Logger,
   ) {}
 
-  async createMessage(data: INewMessage): Promise<IMessage> {
-
+  async createMessage(data: INewMessage): Promise<MessageResponseDTO> {
+    const message = await this.messageRepo.createMessage(data);
+    return message;
   }
 
-  async getMessagesByConversation(conversationId: string): Promise<IMessage[]> {
-    try {
-      const messages =
-        await this.messageRepo.getMessagesByConversation(conversationId);
-      return messages;
-    } catch (error) {
-    //   this.logger.error("Error fetching messages:", error);
-      throw new AppError("Failed to fetch messages", 500);
-    }
-  }
+  // async getMessagesByConversation(
+  //   conversationId: string,
+  // ): Promise<MessageResponseDTO[]> {
+  //   try {
+  //     const messages =
+  //       await this.messageRepo.getMessagesByConversation(conversationId);
+
+  //     return messages;
+  //   } catch (error) {
+  //     //   this.logger.error("Error fetching messages:", error);
+  //     throw new AppError("Failed to fetch messages", 500);
+  //   }
+  // }
 
   async getMessageById(messageId: string): Promise<IMessage> {
     try {
@@ -32,7 +37,7 @@ class MessageService {
       }
       return message;
     } catch (error) {
-      this.logger.error("Error fetching message:", error);
+      this.logger.error({ error }, "Error fetching message:");
       throw new AppError("Failed to fetch message", 500);
     }
   }
@@ -42,7 +47,7 @@ class MessageService {
       const message = await this.messageRepo.updateMessage(messageId, content);
       return message;
     } catch (error) {
-      this.logger.error("Error updating message:", error);
+      this.logger.error({ error }, "Error updating message:");
       throw new AppError("Failed to update message", 500);
     }
   }
@@ -51,7 +56,7 @@ class MessageService {
     try {
       await this.messageRepo.deleteMessage(messageId);
     } catch (error) {
-      this.logger.error("Error deleting message:", error);
+      this.logger.error({ error }, "Error deleting message:");
       throw new AppError("Failed to delete message", 500);
     }
   }

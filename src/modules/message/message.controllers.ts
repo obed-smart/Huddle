@@ -8,12 +8,12 @@ class MessageController {
 
   createMessage = catchAsync(async (req: Request, res: Response) => {
     const { conversationId, content } = req.body;
-    const senderId = req.user?.id; // Assuming user is attached to request
+    const senderId = req.user?.id as string; // Assuming user is attached to request
 
     const message = await this.messageService.createMessage({
       conversationId,
       senderId,
-      content,
+      body: content,
     });
 
     res.status(201).json(ApiResponse.success(message));
@@ -33,7 +33,9 @@ class MessageController {
   getMessageById = catchAsync(async (req: Request, res: Response) => {
     const { messageId } = req.params;
 
-    const message = await this.messageService.getMessageById(messageId);
+    const message = await this.messageService.getMessageById(
+      messageId as string,
+    );
 
     res.status(200).json(ApiResponse.success(message));
   });

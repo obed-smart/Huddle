@@ -1,10 +1,11 @@
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { db as dBinstance } from "../../db";
 import {
   conversationsTable as conversation,
   IConversation,
   INewConversation,
   conversationParticipants,
+  INewConversationParticipant,
 } from "../../db/schema/schema.conversations";
 import {
   ConversationResponseDto,
@@ -13,6 +14,7 @@ import {
 } from "./conversations.types";
 import AppError from "../../shared/utils/apiError";
 import logger from "../../shared/utils/logger";
+import { IMessage } from "../../db/schema";
 
 export const conversationResponse = {
   id: conversation.id,
@@ -121,6 +123,86 @@ class ConversationsRepository {
   async deleteConversation(conversationId: string): Promise<void> {
     // Add your database delete logic here
     throw new Error("Method not implemented");
+  }
+
+  async findParticipantsByConversationId(
+    conversationId: string,
+  ): Promise<string[]> {
+    const participants = await this.db
+      .select({ userId: this.conversation_participants.userId })
+      .from(this.conversation_participants)
+      .innerJoin(
+        this.conversationsTable,
+        eq(
+          this.conversation_participants.conversationId,
+          this.conversationsTable.id,
+        ),
+      )
+      .where(
+        and(
+          eq(this.conversation_participants.conversationId, conversationId),
+          eq(this.conversationsTable.pingStatus, "accepted"),
+        ),
+      );
+
+    return participants.map((p) => p.userId);
+  }
+
+  //  async userNameExists(username: string): Promise<boolean> {
+  //     const result = await this.db.execute(
+  //       sql`SELECT EXISTS (SELECT 1 FROM ${this.usersTable} WHERE username = ${username}) AS "exists"`,
+  //     );
+
+  //     return result.rows[0]?.exists as boolean;
+  //   }
+
+  async checkParticipant(
+    conversationId: INewConversationParticipant["conversationId"],
+    userId: INewConversationParticipant["userId"],
+  ): Promise<boolean> {
+    const result = await this.db.execute(
+      sql`SELECT EXISTS (SELECT 1 FROM ${this.conversation_participants} WHERE conversation_id = ${conversationId} AND user_id = ${userId}) AS "exists"`,
+    );
+
+    return result.rows[0]?.exists as boolean;
+  }
+
+  async findAndUpdateParticipants(
+    conversationId: string,
+    userId: string,
+    lastMessageId: string,
+  ) {
+    try {
+      let isUpdated = false;
+      return this.db.transaction(async (tx) => {
+        const participant = await tx.query.conversationParticipants.findFirst({
+          where: and(
+            eq(this.conversation_participants.conversationId, conversationId),
+            eq(this.conversation_participants.userId, userId),
+          ),
+        });
+
+        if (!participant) {
+          throw new AppError(
+            "This chat is private, you can not send message",
+            403,
+          );
+        }
+
+        const alreadyReadPast = participant.lastReadMessageId === lastMessageId;
+
+        if (!alreadyReadPast) {
+          await tx.update(this.conversation_participants).set({
+            lastReadMessageId: lastMessageId,
+            lastReadAt: new Date(),
+          });
+          isUpdated = true;
+        }
+        return isUpdated;
+      });
+    } catch (error) {
+      logger.error(error);
+    }
   }
 }
 

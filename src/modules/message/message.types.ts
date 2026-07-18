@@ -1,14 +1,9 @@
-export interface IMessage {
-  id: string;
-  conversationId: string;
-  senderId: string;
-  content: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import type { IMessage } from "../../db/schema";
 
-export interface INewMessage {
-  conversationId: string;
-  senderId: string;
-  content: string;
-}
+export type MessageResponseDTO = {
+  id: IMessage["id"];
+  conversationId: IMessage["conversationId"];
+  senderId: IMessage["senderId"];
+  body: IMessage["body"];
+  createdAt: IMessage["createdAt"];
+};

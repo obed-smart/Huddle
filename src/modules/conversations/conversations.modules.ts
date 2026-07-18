@@ -20,4 +20,4 @@ const conversationService = new ConversationService(
 
 const conversationController = new ConversationController(conversationService);
 
-export { conversationController };
+export { conversationController, conversationService};

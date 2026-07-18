@@ -8,7 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "NODE_ENV=production node dist/index.js",
-    "client": "npx tsx watch test/socket/client.ts",
+    "client": "npx tsx test/socket/client.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

@@ -65,8 +65,7 @@ export const conversationsTable = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => [
-    uniqueIndex("conversations_direct_key_unique")
-      .on(t.directKey),
+    uniqueIndex("conversations_direct_key_unique").on(t.directKey),
 
     index("conversations_last_message_at_idx").on(t.lastMessageAt),
 
@@ -112,3 +111,10 @@ export const conversationParticipants = pgTable(
     index("conversation_participants_user_idx").on(t.userId),
   ],
 );
+
+export type IConversationParticipant = InferSelectModel<
+  typeof conversationParticipants
+>;
+export type INewConversationParticipant = InferInsertModel<
+  typeof conversationParticipants
+>;

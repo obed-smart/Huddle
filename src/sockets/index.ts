@@ -4,6 +4,7 @@ import { authMiddleware } from "./auth.socket";
 import logger from "../shared/utils/logger";
 import { registerEvents } from "./register-events";
 import { setIoInstance } from "./socket.gateway";
+import { onlineUsers } from "../shared/utils/utits";
 
 export function createSocketServer(server: HttpServer) {
   logger.debug("SOCKET.IO");
@@ -18,23 +19,42 @@ export function createSocketServer(server: HttpServer) {
   io.use(authMiddleware);
 
   io.on("connection", (socket) => {
-    const { sub: userId, username } = socket.data.user;
+    try {
+      const { sub: userId, username } = socket.data.user;
 
-    logger.debug(`socket user ${socket.data.user}`);
+      logger.debug(
+        { user: socket.data.user },
+        "socket connected with user data",
+      );
 
-    socket.join(`user:${userId}`);
+      socket.join(`user:${userId}`);
 
-    logger.debug(`user id: ${userId}`);
+      socket.on("message:send", (data) => {
+        logger.debug({ data }, "new message");
+      });
 
-    logger.info(`🔌 @${username} connected (socket ${socket.id})`);
+      if (!onlineUsers.has(userId)) {
+        onlineUsers.set(userId, new Set());
+      }
 
-    // registerEvents(io, socket);
+      onlineUsers.get(userId)!.add(socket.id);
 
-    socket.on("disconnect", () => {
-      const { userId, username } = socket.data.user;
+      logger.debug(`user id: ${userId}`);
 
-      logger.info(`${username} (${socket.id}) disconnected`);
-    });
+      logger.info(`🔌 @${username} connected (socket ${socket.id})`);
+
+      registerEvents(io, socket);
+
+      socket.on("disconnect", () => {
+        const { userId, username } = socket.data.user;
+
+        onlineUsers.delete(userId);
+
+        logger.info(`${username} (${socket.id}) disconnected`);
+      });
+    } catch (error) {
+      logger.error({ error }, "[Socket Error]");
+    }
   });
 
   setIoInstance(io);

@@ -109,6 +109,7 @@ class ConversationService {
       throw err;
     }
   }
+
   async findConversationById(conversationId: string) {
     const conversation =
       await this.conversationRepo.findConversationById(conversationId);
@@ -116,6 +117,17 @@ class ConversationService {
     if (!conversation) throw new AppError("Conversation Not found", 404);
 
     return conversation;
+  }
+
+  async findAcceptedDmParticipantIds(conversationId: string) {
+    const partucipant =
+      await this.conversationRepo.findParticipantsByConversationId(
+        conversationId,
+      );
+
+    if (!partucipant) throw new AppError("Conversation Not found", 404);
+
+    return partucipant;
   }
 
   async acceptPing(conversationId: string, caller: CallerDto) {
@@ -186,6 +198,28 @@ class ConversationService {
       conversationId: updated.id,
       requester: requesterPayload,
     });
+  }
+
+  async checkParticipant(conversationId: string, userId: string) {
+    const result = await this.conversationRepo.checkParticipant(
+      conversationId,
+      userId,
+    );
+
+    return result;
+  }
+
+  async findAndUpdateParticipants(
+    conversationId: string,
+    userId: string,
+    lastMessageId: string,
+  ) {
+    const isUpdated = await this.conversationRepo.findAndUpdateParticipants(
+      conversationId,
+      userId,
+      lastMessageId,
+    );
+    return isUpdated;
   }
 }
 
