@@ -13,10 +13,8 @@ export function messageEvent(io: Server, socket: Socket) {
   socket.on(
     "message:send",
     catchSocketAsync(async (data, callback) => {
-      const { tempId, conversationId, content } = data;
+      const { tempId, replyMesaageId, conversationId, content } = data;
       const userId = socket.data.user.sub;
-
-      logger.debug({ conversationId }, "conversation ID");
 
       const isParticipant = await conversationService.checkParticipant(
         conversationId,
@@ -35,7 +33,14 @@ export function messageEvent(io: Server, socket: Socket) {
         senderId: socket.data.user.sub,
         body: content,
         type: "text",
+        replyToMessageId: replyMesaageId ?? null,
       });
+
+      const repliedTo = replyMesaageId
+        ? await messageService.getMessageById(replyMesaageId)
+        : null;
+
+      logger.debug({ message }, "New message entry");
 
       callback?.({
         success: true,
@@ -49,6 +54,13 @@ export function messageEvent(io: Server, socket: Socket) {
         ...message,
         senderUsername: socket.data.user.username,
         tempId,
+        replyTo: repliedTo
+          ? {
+              id: repliedTo.id,
+              senderId: repliedTo.senderId,
+              content: repliedTo.body?.slice(0, 50),
+            }
+          : null,
       };
 
       for (const participantId of participantIds) {

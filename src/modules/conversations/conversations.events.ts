@@ -2,11 +2,14 @@ import { Server, Socket } from "socket.io";
 import { catchSocketAsync } from "../../sockets/socket-error-handler";
 import AppError from "../../shared/utils/apiError";
 import { conversationService } from "./conversations.modules";
+import logger from "../../shared/utils/logger";
 
 export function conversationEvent(io: Server, socket: Socket) {
   socket.on(
     "conversation:join",
-    catchSocketAsync(async (conversationId, callback) => {
+    catchSocketAsync(async (data, callback) => {
+      logger.debug({ data, type: typeof data }, "raw join payload");
+      const { conversationId } = data;
       const userId = socket.data.user.sub;
 
       const isParticipant = await conversationService.checkParticipant(

@@ -16,21 +16,23 @@ class AuthController {
     res: Response,
     accessToken: string,
     refreshToken: string,
-    expiedAt: Date,
+    expiresAt: Date,
   ) {
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
       maxAge:
-        env.NODE_ENV === "production" ? 15 * 60 * 1000 : 1 * 60 * 60 * 1000,
+        env.NODE_ENV === "production"
+          ? 15 * 60 * 1000
+          : 7 * 24 * 60 * 60 * 1000,
     });
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: Number(expiedAt),
+      expires: expiresAt,
     });
   }
 

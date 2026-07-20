@@ -94,9 +94,9 @@ export const generateAccessToken = (
 ) => {
   const accessToken = jwt.sign(
     { sub: user.id, role: user.globalRole, username: user.username },
-    process.env.JWT_ACCESS_SECRET!,
+    env.JWT_ACCESS_SECRET,
     {
-      expiresIn: env.NODE_ENV === "production" ? "15m" : "1h",
+      expiresIn: env.NODE_ENV === "production" ? "15m" : "7d",
     },
   );
   return accessToken;

@@ -28,6 +28,7 @@ class MessageService {
   //     throw new AppError("Failed to fetch messages", 500);
   //   }
   // }
+  
 
   async getMessageById(messageId: string): Promise<IMessage> {
     try {
@@ -38,6 +39,7 @@ class MessageService {
       return message;
     } catch (error) {
       this.logger.error({ error }, "Error fetching message:");
+      // this.logger
       throw new AppError("Failed to fetch message", 500);
     }
   }
