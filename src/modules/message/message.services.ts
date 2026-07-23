@@ -3,6 +3,7 @@ import AppError from "../../shared/utils/apiError";
 import MessageRepository from "./message.repository";
 import { IMessage, INewMessage } from "../../db/schema";
 import { MessageResponseDTO } from "./message.types";
+import logger from "../../shared/utils/logger";
 
 class MessageService {
   constructor(
@@ -28,14 +29,11 @@ class MessageService {
   //     throw new AppError("Failed to fetch messages", 500);
   //   }
   // }
-  
 
-  async getMessageById(messageId: string): Promise<IMessage> {
+  async getMessageById(messageId: string): Promise<IMessage | null> {
     try {
       const message = await this.messageRepo.getMessageById(messageId);
-      if (!message) {
-        throw new AppError("Message not found", 404);
-      }
+
       return message;
     } catch (error) {
       this.logger.error({ error }, "Error fetching message:");
@@ -62,6 +60,33 @@ class MessageService {
       throw new AppError("Failed to delete message", 500);
     }
   }
+
+  /**
+   * This for the message reaction
+   */
+
+  async addOrUpdateReactions(messageId: string, userId: string, emoji: string) {
+    await this.messageRepo.addOrUpdateReactions(messageId, userId, emoji);
+  }
+
+  async getReactionsSummary(messageId: string) {
+    const rows = await this.messageRepo.getReactionsSummary(messageId);
+
+    const summary: Record<string, string[]> = {};
+
+    for (const row of rows) {
+      if (!summary[row.emoji]) summary[row.emoji] = [];
+      summary[row.emoji]?.push(row.userId);
+    }
+
+    return summary;
+  }
+
+  async deleteReaction(messageId: string, userId: string) {
+    return await this.messageRepo.deleteReaction(messageId, userId);
+  }
 }
 
 export default MessageService;
+
+// /react 29241a81-c9fa-40cd-a4ad-4201c1e36928 🎉

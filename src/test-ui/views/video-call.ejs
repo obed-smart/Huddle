@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Huddle — Video call</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="screen">
+    <div class="card">
+      <div class="topbar">
+        <h1>🎥 Video · <span id="videoTitle"></span></h1>
+        <a class="button secondary small" href="/dashboard">← Back</a>
+      </div>
+
+      <div class="state-badge state-idle" id="videoState">idle</div>
+
+      <div class="participant-grid" id="videoGrid"></div>
+
+      <div class="controls">
+        <button id="videoMicBtn" class="on">🎙️ Mute</button>
+        <button id="videoCamBtn" class="on">🎥 Camera</button>
+        <button id="videoInviteBtn">➕ Invite</button>
+        <button id="videoLeaveBtn" class="leave">Leave</button>
+      </div>
+
+      <div class="dev">
+        <p>DEV — force call state:</p>
+        <div class="row" data-devstate="video">
+          <button data-state="calling">calling</button>
+          <button data-state="ringing">ringing</button>
+          <button data-state="connecting">connecting</button>
+          <button data-state="connected">connected</button>
+        </div>
+        <p>DEV — simulate a peer joining/leaving:</p>
+        <div class="row">
+          <button id="videoSimJoin">+ peer joins</button>
+          <button id="videoSimLeave">− peer leaves</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/video-call.js"></script>
+</body>
+</html>

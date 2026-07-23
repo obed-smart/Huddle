@@ -3,8 +3,15 @@ import logger from "../../shared/utils/logger";
 import { onlineUsers } from "../../shared/utils/utits";
 import { conversationService } from "../conversations/conversations.modules";
 import { messageService } from "./message.modules";
-import { catchSocketAsync } from "../../sockets/socket-error-handler";
+import { catchSocketAsync, validateSocketData } from "../../sockets/utils";
 import AppError from "../../shared/utils/apiError";
+import {
+  sendMessageSchema,
+  conversationIdSchema,
+  messageReadSchema,
+  reactionsAddSchema,
+  reactionRemoveSchema,
+} from "./message.validation";
 
 const TYPING_TIMEOUT_MS = 4000;
 const typingTimers = new Map<string, NodeJS.Timeout>();
@@ -13,7 +20,9 @@ export function messageEvent(io: Server, socket: Socket) {
   socket.on(
     "message:send",
     catchSocketAsync(async (data, callback) => {
-      const { tempId, replyMesaageId, conversationId, content } = data;
+      const { tempId, replyToMessageId, conversationId, content } =
+        validateSocketData(sendMessageSchema, data);
+
       const userId = socket.data.user.sub;
 
       const isParticipant = await conversationService.checkParticipant(
@@ -33,19 +42,18 @@ export function messageEvent(io: Server, socket: Socket) {
         senderId: socket.data.user.sub,
         body: content,
         type: "text",
-        replyToMessageId: replyMesaageId ?? null,
+        replyToMessageId: replyToMessageId ?? null,
       });
 
-      const repliedTo = replyMesaageId
-        ? await messageService.getMessageById(replyMesaageId)
+      const repliedTo = replyToMessageId
+        ? await messageService.getMessageById(replyToMessageId)
         : null;
 
-      logger.debug({ message }, "New message entry");
+      if (replyToMessageId && !repliedTo) {
+        throw new AppError("Message Not found", 404);
+      }
 
-      callback?.({
-        success: true,
-        message,
-      });
+      logger.debug({ message }, "New message entry");
 
       const participantIds =
         await conversationService.findAcceptedDmParticipantIds(conversationId);
@@ -63,10 +71,16 @@ export function messageEvent(io: Server, socket: Socket) {
           : null,
       };
 
+      logger.debug(repliedTo && "this is a reply message");
       for (const participantId of participantIds) {
         // io.to(`user:${participantId}`).emit("message:new", payload); // to be use in frontend
         socket.to(`user:${participantId}`).emit("message:new", payload);
       }
+
+      callback?.({
+        success: true,
+        message,
+      });
 
       // for (const participantId of participantIds) {
 
@@ -82,8 +96,7 @@ export function messageEvent(io: Server, socket: Socket) {
     "typing:start",
     catchSocketAsync(async (data) => {
       const { username, sub: userId } = socket.data.user;
-      const { conversationId } = data;
-      logger.debug("typing start");
+      const { conversationId } = validateSocketData(conversationIdSchema, data);
 
       const roomId = `conversation:${conversationId}`;
       const timerKey = `${conversationId}:${userId}`;
@@ -140,8 +153,15 @@ export function messageEvent(io: Server, socket: Socket) {
     "message:read",
     catchSocketAsync(async (data) => {
       const userId = socket.data.user.sub;
-      const { conversationId, lastMessageId } = data;
+      const { conversationId, lastMessageId } = validateSocketData(
+        messageReadSchema,
+        data,
+      );
       const message = await messageService.getMessageById(lastMessageId);
+
+      if (!message) {
+        throw new AppError("Message Not found", 404);
+      }
 
       if (message.conversationId !== conversationId) {
         throw new AppError("This message do not belong here", 403);
@@ -166,6 +186,84 @@ export function messageEvent(io: Server, socket: Socket) {
           username: socket.data.user.username,
         });
       }
+    }),
+  );
+
+  /**
+   * This for the message reaction
+   */
+
+  socket.on(
+    "reactions:add",
+    catchSocketAsync(async (data, callback) => {
+      const userId = socket.data.user.sub;
+      const { conversationId, messageId, emoji } = validateSocketData(
+        reactionsAddSchema,
+        data,
+      );
+
+      const message = await messageService.getMessageById(messageId);
+
+      if (!message) {
+        throw new AppError("Message Not found", 404);
+      }
+
+      await messageService.addOrUpdateReactions(messageId, userId, emoji);
+
+      const reactions = await messageService.getReactionsSummary(messageId);
+
+      socket.to(`conversation:${conversationId}`).emit("reactions:update", {
+        messageId,
+        reactions,
+        type: "add",
+        senderUserName: socket.data.user.username,
+      });
+
+      callback?.({
+        success: true,
+        message: emoji,
+      });
+    }),
+  );
+
+  socket.on(
+    "reactions:remove",
+    catchSocketAsync(async (data, callback) => {
+      const userId = socket.data.user.sub;
+      const { conversationId, messageId } = validateSocketData(
+        reactionRemoveSchema,
+        data,
+      );
+
+      const message = await messageService.getMessageById(messageId);
+
+      if (!message) {
+        throw new AppError("Message Not found", 404);
+      }
+
+      const deletedReaction = await messageService.deleteReaction(
+        messageId,
+        userId,
+      );
+
+      if (!deletedReaction) {
+        throw new AppError("Reaction Not found", 404);
+      }
+
+      const reactions = await messageService.getReactionsSummary(messageId);
+
+      socket.to(`conversation:${conversationId}`).emit("reactions:update", {
+        messageId,
+        emoji: deletedReaction.emoji,
+        reactions,
+        type: "remove",
+        senderUserName: socket.data.user.username,
+      });
+
+      callback?.({
+        success: true,
+        emoji: deletedReaction.emoji,
+      });
     }),
   );
 }

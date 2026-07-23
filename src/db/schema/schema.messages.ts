@@ -88,7 +88,7 @@ export const messageReactionsTable = pgTable(
       .defaultNow(),
   },
   (t) => [
-    primaryKey({ columns: [t.messageId, t.userId, t.emoji] }),
+    primaryKey({ columns: [t.messageId, t.userId] }),
     index("message_reactions_message_idx").on(t.messageId),
   ],
 );

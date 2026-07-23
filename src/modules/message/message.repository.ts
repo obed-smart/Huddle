@@ -1,7 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import { db as DbiInstance } from "../../db";
 import { IMessage, INewMessage } from "../../db/schema";
-import { messagesTable as messages } from "../../db/schema";
+import {
+  messagesTable as messages,
+  messageReactionsTable as messageReaction,
+} from "../../db/schema";
 import AppError from "../../shared/utils/apiError";
 import { MessageResponseDTO } from "./message.types";
 
@@ -17,6 +20,7 @@ class MessageRepository {
   constructor(
     private readonly db: typeof DbiInstance,
     private readonly messageTable: typeof messages,
+    private readonly messageReactionTable: typeof messageReaction,
   ) {}
 
   async createMessage(data: INewMessage): Promise<MessageResponseDTO> {
@@ -63,6 +67,58 @@ class MessageRepository {
     // Add your database delete logic here
     throw new Error("Method not implemented");
   }
+
+  /**
+   * This for the message reaction
+   */
+
+  async addOrUpdateReactions(messageId: string, userId: string, emoji: string) {
+    await this.db
+      .insert(this.messageReactionTable)
+      .values({
+        messageId,
+        userId,
+        emoji,
+      })
+      .onConflictDoUpdate({
+        target: [
+          this.messageReactionTable.messageId,
+          this.messageReactionTable.userId,
+        ],
+        set: { emoji },
+      });
+  }
+
+  async getReactionsSummary(messageId: string) {
+    const rows = this.db
+      .select({
+        userId: this.messageReactionTable.userId,
+        emoji: this.messageReactionTable.emoji,
+      })
+      .from(this.messageReactionTable)
+      .where(eq(this.messageReactionTable.messageId, messageId));
+
+    return rows;
+  }
+
+async deleteReaction(messageId: string, userId: string) {
+  const [deletedReaction] = await this.db
+    .delete(this.messageReactionTable)
+    .where(
+      and(
+        eq(this.messageReactionTable.messageId, messageId),
+        eq(this.messageReactionTable.userId, userId),
+      ),
+    )
+    .returning({
+      emoji: this.messageReactionTable.emoji,
+      messageId: this.messageReactionTable.messageId,
+      userId: this.messageReactionTable.userId,
+    });
+
+  return deletedReaction;
+}
+
 }
 
 export default MessageRepository;

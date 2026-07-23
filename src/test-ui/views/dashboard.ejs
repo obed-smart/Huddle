@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Huddle — Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="screen">
+    <div class="card">
+      <div class="topbar">
+        <h1>Hi, <%= displayName %></h1>
+        <form method="POST" action="/logout" style="margin:0;">
+          <button type="submit" class="secondary small">Log out</button>
+        </form>
+      </div>
+
+      <h2>Direct conversations</h2>
+      <div id="directList"></div>
+
+      <h2>Groups</h2>
+      <div id="groupList"></div>
+
+      <p class="hint">📞 voice &nbsp;·&nbsp; 🎥 video &nbsp;·&nbsp; 🧑‍🤝‍🧑 meet (chat + files + screen share)</p>
+    </div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

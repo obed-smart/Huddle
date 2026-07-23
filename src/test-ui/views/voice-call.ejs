@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Huddle — Voice call</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="screen">
+    <div class="card">
+      <div class="topbar">
+        <h1>🎙️ Voice · <span id="voiceTitle"></span></h1>
+        <a class="button secondary small" href="/dashboard">← Back</a>
+      </div>
+
+      <div class="state-badge state-idle" id="voiceState">idle</div>
+
+      <div class="participant-grid" id="voiceGrid"></div>
+
+      <div class="controls">
+        <button id="voiceMicBtn" class="on">🎙️ Mute</button>
+        <button id="voiceInviteBtn">➕ Invite</button>
+        <button id="voiceLeaveBtn" class="leave">Leave</button>
+      </div>
+
+      <div class="dev">
+        <p>DEV — force call state:</p>
+        <div class="row" data-devstate="voice">
+          <button data-state="calling">calling</button>
+          <button data-state="ringing">ringing</button>
+          <button data-state="connecting">connecting</button>
+          <button data-state="connected">connected</button>
+        </div>
+        <p>DEV — simulate a peer joining/leaving (one event, one tile):</p>
+        <div class="row">
+          <button id="voiceSimJoin">+ peer joins</button>
+          <button id="voiceSimLeave">− peer leaves</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/voice-call.js"></script>
+</body>
+</html>

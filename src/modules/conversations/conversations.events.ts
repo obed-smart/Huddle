@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { catchSocketAsync } from "../../sockets/socket-error-handler";
+import { catchSocketAsync } from "../../sockets/utils";
 import AppError from "../../shared/utils/apiError";
 import { conversationService } from "./conversations.modules";
 import logger from "../../shared/utils/logger";

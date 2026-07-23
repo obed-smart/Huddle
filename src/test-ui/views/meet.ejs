@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Huddle — Meet</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="screen">
+    <div class="card">
+      <div class="topbar">
+        <h1>🧑‍🤝‍🧑 Meet · <span id="meetTitle"></span></h1>
+        <a class="button secondary small" href="/dashboard">← Back</a>
+      </div>
+
+      <div class="meet-layout">
+        <div class="meet-main">
+          <div class="participant-grid" id="meetGrid"></div>
+
+          <div class="controls">
+            <button id="meetMicBtn" class="on">🎙️ Mute</button>
+            <button id="meetCamBtn" class="on">🎥 Camera</button>
+            <button id="meetShareBtn">🖥️ Share</button>
+            <button id="meetInviteBtn">➕ Invite</button>
+            <button id="meetLeaveBtn" class="leave">Leave</button>
+          </div>
+
+          <div class="dev">
+            <p>DEV — simulate a peer joining/leaving:</p>
+            <div class="row">
+              <button id="meetSimJoin">+ peer joins</button>
+              <button id="meetSimLeave">− peer leaves</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="meet-side">
+          <h3>Chat &amp; files</h3>
+          <div class="chat-log" id="meetChatLog"></div>
+          <div class="chat-input-row">
+            <input type="text" id="meetChatInput" placeholder="Message the meeting…" />
+            <button id="meetSendBtn" class="small">Send</button>
+            <label class="attach" title="Send an image">📎
+              <input type="file" id="meetFileInput" accept="image/*" class="hidden" />
+            </label>
+          </div>
+          <p class="hint">
+            TODO: send/receive over an <code>RTCDataChannel</code>. Images need
+            chunking — data channel messages have a size cap (~16KB is the
+            safe portable limit).
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/meet.js"></script>
+</body>
+</html>

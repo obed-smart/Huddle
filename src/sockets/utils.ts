@@ -1,6 +1,6 @@
-
 import logger from "../shared/utils/logger";
 import AppError from "../shared/utils/apiError";
+import { ZodType } from "zod";
 
 export function catchSocketAsync<T extends any[]>(
   handler: (...args: T) => Promise<void>,
@@ -30,4 +30,15 @@ export function catchSocketAsync<T extends any[]>(
       }
     }
   };
+}
+
+export function validateSocketData<T>(schema: ZodType<T>, data: unknown): T {
+  const result = schema.safeParse(data);
+
+  if (!result.success) {
+    const message = result.error.issues.map((i) => i.message).join(", ");
+    throw new AppError(message, 400);
+  }
+
+  return result.data;
 }

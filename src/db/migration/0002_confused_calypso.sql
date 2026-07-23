@@ -1,0 +1,2 @@
+ALTER TABLE "message_reactions" DROP CONSTRAINT "message_reactions_message_id_user_id_emoji_pk";--> statement-breakpoint
+ALTER TABLE "message_reactions" ADD CONSTRAINT "message_reactions_message_id_user_id_pk" PRIMARY KEY("message_id","user_id");

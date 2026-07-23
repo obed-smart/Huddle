@@ -1,11 +1,15 @@
 import { db } from "../../db";
-import { messagesTable } from "../../db/schema";
+import { messagesTable, messageReactionsTable } from "../../db/schema";
 import logger from "../../shared/utils/logger";
 import MessageController from "./message.controllers";
 import MessageRepository from "./message.repository";
 import MessageService from "./message.services";
 
-const messageRepository = new MessageRepository(db,messagesTable);
+const messageRepository = new MessageRepository(
+  db,
+  messagesTable,
+  messageReactionsTable,
+);
 
 const messageService = new MessageService(messageRepository, logger);
 

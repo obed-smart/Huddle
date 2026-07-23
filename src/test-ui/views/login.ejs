@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Huddle — Log in</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="screen">
+    <div class="card">
+      <h1>Huddle</h1>
+      <p class="hint" style="margin-bottom:14px;">Sign in to continue.</p>
+
+      <!-- TODO: this posts to your real auth endpoint -->
+      <form method="POST" action="/auth/login">
+        <input type="text" name="username" placeholder="Username or email" autocomplete="username" required />
+        <input type="password" name="password" placeholder="Password" autocomplete="current-password" required />
+        <button type="submit" class="full">Log in</button>
+      </form>
+
+      <hr class="div" />
+      <p class="hint" style="margin-bottom:8px;">Skip auth while testing the UI:</p>
+      <form method="POST" action="/demo-login">
+        <button type="submit" class="secondary full">Demo login</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
