@@ -1,5 +1,5 @@
 {
-  "id": "e8bcf248-5b0f-41e4-8ab2-ca5cf73ae346",
+  "id": "b72f6a2c-d36e-4429-9e04-b0b2b0ad30b5",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -215,12 +215,25 @@
           "notNull": true,
           "default": "'member'"
         },
+        "status": {
+          "name": "status",
+          "type": "participant_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'accepted'"
+        },
+        "invited_by": {
+          "name": "invited_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "joined_at": {
           "name": "joined_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         },
         "last_read_message_id": {
           "name": "last_read_message_id",
@@ -264,6 +277,36 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "conversation_participants_conversation_idx": {
+          "name": "conversation_participants_conversation_idx",
+          "columns": [
+            {
+              "expression": "conversation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "conversation_participants_status_idx": {
+          "name": "conversation_participants_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -291,6 +334,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "conversation_participants_invited_by_users_id_fk": {
+          "name": "conversation_participants_invited_by_users_id_fk",
+          "tableFrom": "conversation_participants",
+          "tableTo": "users",
+          "columnsFrom": [
+            "invited_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         },
         "conversation_participants_last_read_message_id_messages_id_fk": {
@@ -348,6 +404,12 @@
         },
         "direct_key": {
           "name": "direct_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invite_code": {
+          "name": "invite_code",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -434,7 +496,21 @@
             }
           ],
           "isUnique": true,
-          "where": "\"conversations\".\"ping_status\" != 'declined'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "conversations_invite_code_unique": {
+          "name": "conversations_invite_code_unique",
+          "columns": [
+            {
+              "expression": "invite_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -634,6 +710,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -796,12 +878,11 @@
         }
       },
       "compositePrimaryKeys": {
-        "message_reactions_message_id_user_id_emoji_pk": {
-          "name": "message_reactions_message_id_user_id_emoji_pk",
+        "message_reactions_message_id_user_id_pk": {
+          "name": "message_reactions_message_id_user_id_pk",
           "columns": [
             "message_id",
-            "user_id",
-            "emoji"
+            "user_id"
           ]
         }
       },
@@ -1093,6 +1174,15 @@
         "voice",
         "file",
         "system"
+      ]
+    },
+    "public.participant_status": {
+      "name": "participant_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "accepted",
+        "declined"
       ]
     },
     "public.ping_status": {

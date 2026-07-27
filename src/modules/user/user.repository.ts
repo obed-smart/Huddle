@@ -4,10 +4,11 @@ import {
   usersTable as user,
 } from "../../db/schema/schema.user";
 import { db as dbInstance } from "../../db";
-import { and, eq, ilike, ne, or, sql } from "drizzle-orm";
+import { and, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import Logger from "../../shared/utils/logger";
 import { AuthUser, PublicUser } from "../../shared/types";
 import AppError from "../../shared/utils/apiError";
+import { from } from "node:stream/iter";
 
 type DbType = typeof dbInstance;
 
@@ -182,6 +183,18 @@ class UserRepository {
     } catch (error) {
       this.logger.error(`Error searching users (${query}): ${error}`);
       throw new AppError("An error occurred while searching for users.", 500);
+    }
+  }
+
+  async filterValidInviteUser(invitedUsers: string[]) {
+    try {
+      return await this.db
+        .select({ userId: this.usersTable.id })
+        .from(this.usersTable)
+        .where(inArray(this.usersTable.id, invitedUsers));
+    } catch (error) {
+      this.logger.error({ error }, "Failed fetching valid invite user");
+      throw new AppError("Failed fetching valid invite user", 500);
     }
   }
 }

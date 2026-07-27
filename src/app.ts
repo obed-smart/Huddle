@@ -22,6 +22,7 @@ app.use(helmet());
 app.set("trust proxy", true);
 app.use(httpLogger);
 
+app.use(express.json());
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "test-ui/views"));
 app.use(express.static(path.join(__dirname, "test-ui/public")));

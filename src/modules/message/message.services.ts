@@ -85,6 +85,37 @@ class MessageService {
   async deleteReaction(messageId: string, userId: string) {
     return await this.messageRepo.deleteReaction(messageId, userId);
   }
+
+  /// This for the message mentions
+
+  async createMessageMention(
+    conversationId: string,
+    messageId: string,
+    validMentionIds: string[],
+  ) {
+    await this.messageRepo.createMessageMention(
+      conversationId,
+      messageId,
+      validMentionIds,
+    );
+  }
+
+  async updateMentionReadAt(
+    conversationId: string,
+    userId: string,
+    createdAt: IMessage["createdAt"],
+  ) {
+    try {
+      await this.messageRepo.updateMentionReadAt(
+        conversationId,
+        userId,
+        createdAt,
+      );
+    } catch (error) {
+      logger.error({ error }, "error Updating the mention readAt");
+      throw new AppError("Failed updating mentions readAt", 500);
+    }
+  }
 }
 
 export default MessageService;

@@ -1,15 +1,19 @@
 import { Server, Socket } from "socket.io";
-import { catchSocketAsync } from "../../sockets/utils";
+import { catchSocketAsync, validateSocketData } from "../../sockets/utils";
 import AppError from "../../shared/utils/apiError";
 import { conversationService } from "./conversations.modules";
 import logger from "../../shared/utils/logger";
+import { conversationIdEventSchema } from "./conversations.validation";
 
 export function conversationEvent(io: Server, socket: Socket) {
   socket.on(
     "conversation:join",
     catchSocketAsync(async (data, callback) => {
       logger.debug({ data, type: typeof data }, "raw join payload");
-      const { conversationId } = data;
+      const { conversationId } = validateSocketData(
+        conversationIdEventSchema,
+        data,
+      );
       const userId = socket.data.user.sub;
 
       const isParticipant = await conversationService.checkParticipant(

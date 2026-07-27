@@ -2,60 +2,79 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>Huddle — Meet</title>
-  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/call.css" />
 </head>
-<body>
-  <div class="screen">
-    <div class="card">
-      <div class="topbar">
-        <h1>🧑‍🤝‍🧑 Meet · <span id="meetTitle"></span></h1>
-        <a class="button secondary small" href="/dashboard">← Back</a>
+<body class="call-body">
+
+  <div class="call" id="callRoot">
+    <!-- MEET = bento grid of everyone. Tap a tile's expand button to
+         fullscreen just that person; tap again to return. -->
+    <div class="grid" id="grid"></div>
+    <div class="sharing hidden" id="sharing">Sharing your screen</div>
+
+    <div class="call-top">
+      <button class="back" id="backBtn" data-icon="arrow-left"></button>
+      <div>
+        <div class="call-name" id="callName"></div>
+        <div class="call-status">Meet · <span id="callStatus">00:00</span></div>
       </div>
+      <div class="top-actions">
+        <button class="top-btn" id="peopleBtn" data-icon="users"></button>
+      </div>
+    </div>
 
-      <div class="meet-layout">
-        <div class="meet-main">
-          <div class="participant-grid" id="meetGrid"></div>
+    <!-- floating emoji layer (reactions fly up through this) -->
+    <div class="react-layer" id="reactLayer"></div>
+    <div class="react-bar" id="reactBar"></div>
 
-          <div class="controls">
-            <button id="meetMicBtn" class="on">🎙️ Mute</button>
-            <button id="meetCamBtn" class="on">🎥 Camera</button>
-            <button id="meetShareBtn">🖥️ Share</button>
-            <button id="meetInviteBtn">➕ Invite</button>
-            <button id="meetLeaveBtn" class="leave">Leave</button>
-          </div>
+    <div class="dev-call">
+      <button id="devJoin">+ peer</button>
+      <button id="devLeave">− peer</button>
+    </div>
 
-          <div class="dev">
-            <p>DEV — simulate a peer joining/leaving:</p>
-            <div class="row">
-              <button id="meetSimJoin">+ peer joins</button>
-              <button id="meetSimLeave">− peer leaves</button>
-            </div>
-          </div>
-        </div>
+    <div class="controls">
+      <button class="ctrl" id="micBtn" data-icon="mic"></button>
+      <button class="ctrl" id="camBtn" data-icon="video"></button>
+      <button class="ctrl" id="shareBtn" data-icon="screen-share"></button>
+      <button class="ctrl" id="chatBtn" data-icon="message"></button>
+      <button class="ctrl" id="reactBtn" data-icon="smile"></button>
+      <button class="ctrl end" id="endBtn" data-icon="phone-off"></button>
+    </div>
 
-        <div class="meet-side">
-          <h3>Chat &amp; files</h3>
-          <div class="chat-log" id="meetChatLog"></div>
-          <div class="chat-input-row">
-            <input type="text" id="meetChatInput" placeholder="Message the meeting…" />
-            <button id="meetSendBtn" class="small">Send</button>
-            <label class="attach" title="Send an image">📎
-              <input type="file" id="meetFileInput" accept="image/*" class="hidden" />
-            </label>
-          </div>
-          <p class="hint">
-            TODO: send/receive over an <code>RTCDataChannel</code>. Images need
-            chunking — data channel messages have a size cap (~16KB is the
-            safe portable limit).
-          </p>
-        </div>
+    <!-- participants: meet only -->
+    <div class="panel" id="peoplePanel">
+      <div class="panel-head">
+        <h3>In this meet · <span id="pCount">0</span></h3>
+        <button class="iconbtn" id="peopleClose" data-icon="x"></button>
+      </div>
+      <div class="panel-body" id="peopleBody"></div>
+    </div>
+
+    <!-- chat + files: meet only -->
+    <div class="panel" id="chatPanel">
+      <div class="panel-head">
+        <h3>Chat</h3>
+        <button class="iconbtn" id="chatClose" data-icon="x"></button>
+      </div>
+      <div class="panel-body" id="meetLog"></div>
+      <div class="panel-foot">
+        <input type="text" id="meetInput" placeholder="Message" autocomplete="off" />
+        <button id="fileBtn" data-icon="paperclip"></button>
+        <button class="send" id="meetSend" data-icon="send"></button>
+        <input type="file" id="fileInput" class="hidden" />
       </div>
     </div>
   </div>
 
+  <script src="/js/icons.js"></script>
   <script src="/js/common.js"></script>
+  <script src="/js/call-state.js"></script>
+  <script src="/js/media.js"></script>
+  <script src="/js/grid.js"></script>
+  <script src="/js/call-ui.js"></script>
   <script src="/js/meet.js"></script>
 </body>
 </html>

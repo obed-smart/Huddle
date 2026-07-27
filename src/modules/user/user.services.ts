@@ -103,5 +103,12 @@ class UserService {
     const users = await this.userRepo.searchUsers(query, currentUserId);
     return users;
   }
+  /**
+   *  - Find valid users but Id
+   * @param invitedUsers - an array of invites user Id
+   */
+  async filterValidInviteUser(invitedUsers: string[]) {
+    return await this.userRepo.filterValidInviteUser(invitedUsers);
+  }
 }
 export default UserService;

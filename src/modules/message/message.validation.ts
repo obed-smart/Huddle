@@ -16,11 +16,16 @@ export const reactionRemoveSchema = z.object({
   messageId: z.uuid("invalid messageId"),
 });
 
+export const mentionSchema = z.object({
+  userId: z.uuid("invalid userId"),
+});
+
 export const sendMessageSchema = z.object({
   tempId: z.uuid("invalid tempId"),
   conversationId: z.uuid("invalid conversationId"),
   content: z.string().trim().min(1, "Message content is required"),
   replyToMessageId: z.uuid("invalid replyMessageId").optional(),
+  mentions: z.array(mentionSchema).max(50).optional(),
 });
 
 export const conversationIdSchema = z.object({

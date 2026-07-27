@@ -111,6 +111,7 @@ export const messageMentionsTable = pgTable(
     conversationId: uuid("conversation_id")
       .notNull()
       .references(() => conversationsTable.id, { onDelete: "cascade" }),
+    readAt: timestamp("read_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -121,5 +122,10 @@ export const messageMentionsTable = pgTable(
       t.conversationId,
       t.mentionedUserId,
     ),
+    // index("message_mention_conversation_user_readAt_idex").on(
+    //   t.conversationId,
+    //   t.mentionedUserId,
+    //   t.readAt,
+    // ),
   ],
 );

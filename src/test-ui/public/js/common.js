@@ -1,93 +1,83 @@
-// ============================================================
-// SHARED HELPERS — used by voice-call.js, video-call.js, meet.js
-//
-// The core idea: never render a fixed participant list. Render
-// yourself, then append exactly one tile per join event as it
-// arrives. Real wiring for a tile once you have actual media:
-//
-//   peerConnection.ontrack = (e) => {
-//     const tile = addTile(gridId, peerName, 'video');
-//     tile.querySelector('video').srcObject = e.streams[0];
-//   };
-// ============================================================
+/* ============================================================
+   common.js — GENERIC UTILITIES ONLY
+   No screen logic, no call logic. Loaded by every page.
+   ============================================================ */
 
-const FAKE_PEERS = ['Chris', 'Amaka', 'David', 'Tunde', 'Zainab', 'Ify'];
+/** Test peers the DEV buttons pull from. Delete with the dev blocks. */
+const PEERS = ['Chris', 'Amaka', 'David', 'Tunde', 'Zainab'];
 
-function addTile(gridId, name, kind /* 'audio' | 'video' */, opts = {}) {
-  const grid = document.getElementById(gridId);
-  const tile = document.createElement('div');
-  tile.className = 'tile ' + (kind === 'audio' ? 'audio' : '');
-  if (opts.pending) tile.classList.add('pending');
-  tile.dataset.participant = name;
-
-  // TODO: for video, replace this glyph with a <video autoplay playsinline>
-  // element and bind its srcObject in your ontrack handler.
-  tile.innerHTML =
-    (kind === 'audio' ? '🎙️' : '👤') +
-    '<span class="tile-name">' + name + '</span>' +
-    (opts.status ? '<span class="tile-status">' + opts.status + '</span>' : '');
-
-  grid.appendChild(tile);
-  return tile;
+/** Null-safe element access — a control that doesn't exist on the
+    current screen shouldn't throw and kill every handler after it. */
+const NOOP = new Proxy(
+  { style: {}, dataset: {}, classList: { toggle(){}, add(){}, remove(){}, contains(){ return false; } } },
+  { get(t, k) { return k in t ? t[k] : (() => {}); }, set() { return true; } }
+);
+function el(id) {
+  return document.getElementById(id) || NOOP;
 }
 
-function removeTile(gridId, name) {
-  const grid = document.getElementById(gridId);
-  const tile = grid.querySelector('[data-participant="' + CSS.escape(name) + '"]');
-  if (tile) tile.remove();
+/** Escape before inserting user text into innerHTML. */
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// Removes the most recently added peer. Never removes "You" — that's
-// your own local tile, not a peer who left.
-function removeLastPeer(gridId) {
-  const tiles = [...document.getElementById(gridId).querySelectorAll('.tile')];
-  for (let i = tiles.length - 1; i >= 0; i--) {
-    if (tiles[i].dataset.participant !== 'You') {
-      const name = tiles[i].dataset.participant;
-      tiles[i].remove();
-      return name;
-    }
+/** Reads ?id=&name= — how the target conversation travels between pages. */
+function getTarget() {
+  const p = new URLSearchParams(window.location.search);
+  return { id: p.get('id') || '', name: p.get('name') || 'Unknown' };
+}
+
+function chatUrl(t) {
+  return '/chat?id=' + encodeURIComponent(t.id) + '&name=' + encodeURIComponent(t.name);
+}
+
+function callUrl(type, t) {
+  const path = type === 'meet' ? 'meet' : type === 'voice' ? 'voice-call' : 'video-call';
+  return '/' + path + '?id=' + encodeURIComponent(t.id) + '&name=' + encodeURIComponent(t.name);
+}
+
+function kindLabel(t) {
+  return t === 'meet' ? 'Meet' : t === 'voice' ? 'Voice' : 'Video';
+}
+
+function bytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1048576).toFixed(1) + ' MB';
+}
+
+/** Brief message, used when a rule blocks an action. */
+function toast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.className = 'toast';
+    document.body.appendChild(t);
   }
-  return null;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-function tileNames(gridId) {
-  return [...document.getElementById(gridId).querySelectorAll('.tile')]
-    .map((t) => t.dataset.participant);
-}
-
-// Pull the next unused fake peer name for the DEV join buttons.
-function nextFakePeer(gridId) {
-  const taken = tileNames(gridId);
-  return FAKE_PEERS.find((n) => !taken.includes(n)) || null;
-}
-
-function setCallState(badgeId, state) {
-  const el = document.getElementById(badgeId);
-  el.textContent = state;
-  el.className = 'state-badge state-' + state;
-}
-
-// Toggle button helper for mute/camera controls.
-function bindToggle(btnId, labelOn, labelOff, onChange) {
-  const btn = document.getElementById(btnId);
-  if (!btn) return;
-  btn.textContent = labelOn;
-  btn.addEventListener('click', () => {
-    const nowOn = !btn.classList.contains('on');
-    btn.classList.toggle('on', nowOn);
-    btn.textContent = nowOn ? labelOn : labelOff;
-    if (onChange) onChange(nowOn);
-  });
-}
-
-// Reads ?id=&name= from the current URL — how target info travels
-// between pages now that this is a real multi-page app instead of
-// one file with JS-toggled sections.
-function getTargetFromQuery() {
-  const params = new URLSearchParams(window.location.search);
-  return {
-    id: params.get('id') || '',
-    name: params.get('name') || 'Unknown',
-  };
-}
+/* mm:ss timer — started only when a call actually connects, never
+   on dial, so ringing time isn't counted as talk time. */
+const CallTimer = {
+  id: null,
+  start(elId) {
+    const node = document.getElementById(elId);
+    if (!node || this.id) return;
+    let n = 0;
+    node.textContent = '00:00';
+    this.id = setInterval(() => {
+      n++;
+      node.textContent =
+        String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+    }, 1000);
+  },
+  stop() {
+    clearInterval(this.id);
+    this.id = null;
+  },
+};

@@ -1,7 +1,10 @@
 import { Router } from "express";
 import authenticate from "../../middlewares/authentication.middleware";
 import validate from "../../middlewares/validation.middleware";
-import { conversationIdSchema } from "./conversations.validation";
+import {
+  conversationIdSchema,
+  createGroupConversationSchema,
+} from "./conversations.validation";
 import { conversationController } from "./conversations.modules";
 
 const router = Router();
@@ -25,6 +28,13 @@ router.post(
   authenticate,
   validate(conversationIdSchema, "params"),
   conversationController.declinePing,
+);
+
+router.post(
+  "/groups",
+  authenticate,
+  validate(createGroupConversationSchema),
+  conversationController.createGroup,
 );
 
 export default router;

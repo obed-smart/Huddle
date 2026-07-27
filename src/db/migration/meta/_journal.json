@@ -5,22 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1783644542630,
-      "tag": "0000_orange_mordo",
+      "when": 1785109502339,
+      "tag": "0000_talented_metal_master",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1783648645004,
-      "tag": "0001_elite_stryfe",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1784675255923,
-      "tag": "0002_confused_calypso",
+      "when": 1785122122604,
+      "tag": "0001_jittery_lockheed",
       "breakpoints": true
     }
   ]

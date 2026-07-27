@@ -1,42 +1,128 @@
-// ============================================================
-// VIDEO CALL — same growth pattern as voice, plus camera. No chat.
-// ============================================================
+/* ============================================================
+   video-call.js — VIDEO CALL SCREEN
+   Camera on. Stage + PIP layout (stage.js). No chat panel —
+   chat is what makes a meet a meet.
 
-const target = getTargetFromQuery();
-document.getElementById('videoTitle').textContent = target.name;
+   BACK  = leave the screen, call keeps running (dashboard shows it)
+   END   = the call is over
+   ============================================================ */
 
-addTile('videoGrid', 'You', 'video');
-addTile('videoGrid', target.name, 'video', { pending: true, status: 'ringing' });
-setCallState('videoState', 'calling');
+const target = getTarget();
+el('callName').textContent = target.name;
 
-// TODO: socket.emit('call:invite', { toUserId: target.id, callType: 'video' })
+/* If you're returning to a call already in progress, don't re-ring —
+   pick up where it was. */
+let call = CallState.get();
+if (!call || call.convId !== target.id) {
+  CallState.start(target.id, target.name, 'video');
+  call = CallState.get();
+}
 
-bindToggle('videoMicBtn', '🎙️ Mute', '🔇 Unmute', (on) => {
-  // TODO: localStream.getAudioTracks()[0].enabled = on;
+const stage = new Stage('stage', 'strip', 'video');
+const answered = call.people.includes(target.name);
+stage.add({ id: 'peer', name: target.name, pending: !answered });
+stage.add({ id: 'self', name: 'You', self: true });
+call.people.filter(n => n !== 'You' && n !== target.name)
+    .forEach(n => stage.add({ id: 'p-' + n, name: n }));
+
+let phase = 'idle', ring = null;
+
+if (answered) {
+  phase = 'connected';
+  stage.connected('peer');
+  CallTimer.start('callStatus');
+} else {
+  startRinging();
+}
+
+/* Self-preview starts while it rings — matches every real video app:
+   you check your framing before they pick up. Nothing transmits yet,
+   since no peer connection exists. */
+Media.start({ audio: true, video: true }).then(s => { if (s) stage.attach('self', s); });
+
+/* ---------- ringing ----------
+   The timer starts on ANSWER, never on dial — otherwise ringing time
+   is counted as talk time, and that error follows you into whatever
+   call-duration row you write later. */
+function startRinging() {
+  phase = 'calling';
+  el('callStatus').textContent = 'Calling…';
+  clearTimeout(ring);
+  // Give up after 30s. The server needs its own timeout too: a tab
+  // that crashed will never send the give-up signal.
+  ring = setTimeout(() => {
+    if (phase === 'calling') { el('callStatus').textContent = 'No answer'; setTimeout(endCall, 1200); }
+  }, 30000);
+
+  // DEMO: the other side picks up after ~2.5s.
+  // Real: socket.on('call:accepted', markAnswered)
+  setTimeout(() => { if (phase === 'calling') markAnswered(); }, 2500);
+}
+
+function markAnswered() {
+  if (phase !== 'calling') return;
+  clearTimeout(ring);
+  phase = 'connected';
+  stage.connected('peer');
+  CallState.addPerson(target.name);
+  CallTimer.start('callStatus');
+}
+
+/* ---------- leave vs end ---------- */
+el('backBtn').addEventListener('click', () => {
+  CallTimer.stop(); clearTimeout(ring); Media.stop();
+  window.location.href = chatUrl(target);   // call stays live
 });
-bindToggle('videoCamBtn', '🎥 Camera', '📷 Camera off', (on) => {
-  // TODO: localStream.getVideoTracks()[0].enabled = on;
+
+el('endBtn').addEventListener('click', endCall);
+function endCall() {
+  CallTimer.stop(); clearTimeout(ring); Media.stop();
+  CallState.end();
+  window.location.href = chatUrl(target);
+}
+
+/* ---------- controls ---------- */
+let micOn = true;
+el('micBtn').addEventListener('click', function () {
+  micOn = !micOn;
+  this.classList.toggle('off', !micOn);
+  setIcon('micBtn', micOn ? 'mic' : 'mic-off');
+  Media.audio(micOn);
 });
 
-document.getElementById('videoInviteBtn').addEventListener('click', () => {
-  const peer = nextFakePeer('videoGrid');
-  if (!peer) return alert('No more dummy peers.');
-  addTile('videoGrid', peer, 'video', { pending: true, status: 'ringing' });
+let camOn = true;
+el('camBtn').addEventListener('click', function () {
+  camOn = !camOn;
+  this.classList.toggle('off', !camOn);
+  setIcon('camBtn', camOn ? 'video' : 'video-off');
+  Media.video(camOn);
 });
 
-document.getElementById('videoLeaveBtn').addEventListener('click', () => {
-  setCallState('videoState', 'ended');
-  setTimeout(() => { window.location.href = '/dashboard'; }, 500);
+/* ---------- dev ---------- */
+el('devJoin').addEventListener('click', () => {
+  const c = CallState.get(); if (!c) return;
+  const p = PEERS.find(n => !c.people.includes(n));
+  if (!p) return toast('No more test peers');
+  CallState.addPerson(p);
+  stage.add({ id: 'p-' + p, name: p });
+});
+el('devLeave').addEventListener('click', () => {
+  const c = CallState.get(); if (!c) return;
+  const p = c.people.filter(n => n !== 'You' && n !== target.name).pop();
+  if (!p) return;
+  CallState.removePerson(p);
+  stage.remove('p-' + p);
 });
 
-document.querySelectorAll('[data-devstate="video"] [data-state]').forEach((btn) =>
-  btn.addEventListener('click', () => setCallState('videoState', btn.dataset.state))
-);
-
-document.getElementById('videoSimJoin').addEventListener('click', () => {
-  const peer = nextFakePeer('videoGrid');
-  if (!peer) return alert('No more dummy peers.');
-  addTile('videoGrid', peer, 'video');
-  setCallState('videoState', 'connected');
+/* ---------- auto-hide chrome + reactions ---------- */
+CallUI.init('callRoot');
+CallReactions.init({
+  buttonId: 'reactBtn',
+  barId: 'reactBar',
+  layerId: 'reactLayer',
+  // TODO: broadcast so everyone sees it, and call CallReactions.fly()
+  // from your receive handler.
+  onSend: (emoji) => console.log('[reaction]', emoji),
 });
-document.getElementById('videoSimLeave').addEventListener('click', () => removeLastPeer('videoGrid'));
+
+paintIcons();

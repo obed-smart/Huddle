@@ -1,0 +1,151 @@
+/* ============================================================
+   shell.css — LOGIN, DASHBOARD, CHAT
+
+   LAYOUT MODEL
+   Mobile  : one pane at a time. Dashboard shows the list; chat
+             replaces it. Classic phone navigation.
+   Desktop : sidebar + main, side by side, like every real
+             messaging client. A 480px column centred in a 1920px
+             screen looks abandoned — this fills it.
+
+   Both routes stay separate pages. The sidebar is rendered on BOTH
+   dashboard and chat by sidebar.js; CSS decides which pane shows.
+   ============================================================ */
+
+body.shell{min-height:100vh;overflow-x:hidden}
+
+.app{display:flex;min-height:100vh;max-width:1400px;margin:0 auto}
+
+/* ---------- sidebar ---------- */
+.sidebar{width:100%;border-right:1px solid var(--line);padding:20px 14px 40px;
+display:flex;flex-direction:column}
+.sidebar-head{display:flex;align-items:center;gap:12px;padding:2px 6px 16px}
+.sidebar-head h1{font-size:20px;margin:0;font-weight:600;letter-spacing:-.01em}
+.sidebar-head .spacer{flex:1}
+
+.section{font-size:11px;text-transform:uppercase;color:var(--faint);
+letter-spacing:.06em;margin:18px 0 6px;padding:0 6px;font-weight:600}
+
+/* ---------- main pane ---------- */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;padding:0 16px}
+
+/* Mobile: show one pane. .app gets a class from the page. */
+@media(max-width:899px){
+  .app{max-width:520px}
+  .app.on-list .main{display:none}
+  .app.on-chat .sidebar{display:none}
+  .sidebar{border-right:none}
+  .main{padding:0 16px}
+}
+@media(min-width:900px){
+  .sidebar{width:340px;flex-shrink:0}
+  .main{padding:0 28px}
+}
+
+/* ---------- login ---------- */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.login-card{width:100%;max-width:340px}
+.login-card h1{font-size:26px;margin:0 0 6px;font-weight:600;letter-spacing:-.02em}
+.login-card p{font-size:13px;color:var(--dim);margin:0 0 22px}
+.field{width:100%;padding:11px 13px;background:var(--surface);border:1px solid var(--line);
+border-radius:9px;color:var(--text);font-size:14px;margin-bottom:10px;outline:none}
+.field:focus{border-color:#3a3a3f}
+.btn{width:100%;padding:11px;border-radius:9px;background:var(--accent);color:#fff;
+font-size:14px;font-weight:500}
+.btn.secondary{background:var(--surface);color:var(--text);border:1px solid var(--line)}
+.divider{display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--faint);font-size:11px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line)}
+
+/* ---------- on-call bar ---------- */
+.oncall{display:flex;align-items:center;gap:10px;background:#0e2a17;border:1px solid #1c4a2b;
+border-radius:10px;padding:11px 13px;margin:0 6px 14px;cursor:pointer}
+.oncall .pulse{width:8px;height:8px;border-radius:50%;background:var(--live);
+animation:pulse 1.4s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.oncall-text{flex:1;min-width:0}
+.oncall-title{font-size:13px;font-weight:500}
+.oncall-sub{font-size:11px;color:#6ee7a0;margin-top:1px}
+.oncall svg{width:16px;height:16px;color:#6ee7a0}
+
+/* ---------- conversation rows ---------- */
+.row{display:flex;align-items:center;gap:12px;padding:10px;border-radius:10px;cursor:pointer}
+.row:hover{background:var(--surface)}
+.row.active{background:var(--surface)}
+.row-text{flex:1;min-width:0}
+.row-name{font-size:14.5px}
+.row-sub{font-size:12px;color:var(--dim);margin-top:1px;white-space:nowrap;
+overflow:hidden;text-overflow:ellipsis}
+.row-sub.live{color:var(--live);display:flex;align-items:center;gap:5px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--live);
+animation:pulse 1.4s infinite;flex-shrink:0}
+
+/* ---------- empty state (desktop dashboard main pane) ---------- */
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+gap:12px;color:var(--faint);text-align:center;padding:40px}
+.empty svg{width:38px;height:38px;opacity:.4}
+.empty p{font-size:13px;margin:0}
+
+/* ---------- chat ---------- */
+.chat-head{display:flex;align-items:center;gap:11px;padding:16px 0;
+border-bottom:1px solid var(--line)}
+.chat-body{flex:1;overflow-y:auto;padding:16px 0 8px;min-height:0}
+.chat-foot{display:flex;gap:8px;align-items:center;padding:12px 0 20px;
+border-top:1px solid var(--line)}
+.chat-foot input{flex:1;padding:11px 14px;background:var(--surface);border:1px solid var(--line);
+border-radius:22px;color:var(--text);font-size:14px;outline:none}
+.chat-foot input:focus{border-color:#3a3a3f}
+.send-btn{width:38px;height:38px;border-radius:50%;background:var(--accent);
+display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.send-btn svg{width:17px;height:17px}
+
+/* On desktop the chat column shouldn't stretch to 1000px of text */
+.chat-body-inner{max-width:720px;margin:0 auto;width:100%}
+
+.msg{margin-bottom:10px;max-width:74%}
+.msg.mine{margin-left:auto}
+.bubble{display:inline-block;background:var(--surface);padding:9px 13px;border-radius:14px;
+font-size:14px;line-height:1.45}
+.msg.mine .bubble{background:var(--accent)}
+
+/* ---------- call card ---------- */
+.call-card{border:1px solid var(--line);border-radius:12px;padding:13px;margin:12px 0;
+background:var(--surface-2);max-width:400px}
+.call-card.live{border-color:#1c4a2b;background:#0e1a13}
+.cc-top{display:flex;align-items:center;gap:10px}
+.cc-icon{width:34px;height:34px;border-radius:50%;background:var(--surface);display:flex;
+align-items:center;justify-content:center;color:var(--dim);flex-shrink:0}
+.call-card.live .cc-icon{background:#14301f;color:var(--live)}
+.cc-body{flex:1;min-width:0}
+.cc-title{font-size:13.5px}
+.cc-meta{font-size:11.5px;color:var(--dim);margin-top:2px}
+.call-card.live .cc-meta{color:#6ee7a0}
+.cc-btn{margin-top:11px;width:100%;padding:9px;border-radius:8px;font-size:13px;
+font-weight:500;display:flex;align-items:center;justify-content:center;gap:7px}
+.cc-btn svg{width:16px;height:16px}
+.btn-join{background:var(--live);color:#04140a}
+.btn-return{background:var(--accent);color:#fff}
+
+/* ---------- call type menu ----------
+   A small popover anchored under the call button — NOT a sheet
+   sliding up from the bottom. A bottom sheet is for a primary,
+   full-attention choice; picking a call type is a quick pick, so
+   it should appear next to the thing you tapped and stay out of
+   the way. Same behaviour on mobile and desktop.               */
+.sheet{
+  position:absolute;z-index:90;width:210px;
+  background:#1a1a1d;border:1px solid #2c2c31;border-radius:12px;
+  padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.55);
+  /* anchored by JS to the call button */
+  transform-origin:top right;
+  transform:scale(.94) translateY(-6px);opacity:0;pointer-events:none;
+  transition:opacity .13s ease,transform .13s ease;
+}
+.sheet.open{transform:scale(1) translateY(0);opacity:1;pointer-events:auto}
+.sheet h3{display:none}          /* no header needed on a 3-item menu */
+.sheet-row{display:flex;align-items:center;gap:11px;padding:10px 10px;
+border-radius:8px;cursor:pointer}
+.sheet-row:hover{background:#26262b}
+.sheet-row .si{width:30px;height:30px;border-radius:50%;background:#25252a;
+display:flex;align-items:center;justify-content:center;color:var(--dim);flex-shrink:0}
+.sheet-row .si svg{width:16px;height:16px}
+.sheet-label{font-size:14px}

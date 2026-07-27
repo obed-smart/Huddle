@@ -18,9 +18,28 @@ class ConversationController {
       avatarUrl: req.user?.avatarUrl,
     };
 
-    const conversation = await this.conversationService.createConversation(
-      requesterPayload,
-      targetId,
+    const conversation =
+      await this.conversationService.createDirectConversation(
+        requesterPayload,
+        targetId,
+      );
+
+    res.status(201).json(ApiResponse.success(conversation));
+  });
+
+  createGroup = catchAsync(async (req, res) => {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401);
+    }
+
+    const creatorPayload = {
+      id: req.user.id,
+      username: req.user.username,
+      avatarUrl: req.user?.avatarUrl,
+    };
+    const conversation = await this.conversationService.createGroupConversation(
+      creatorPayload,
+      req.body,
     );
 
     res.status(201).json(ApiResponse.success(conversation));
@@ -72,7 +91,9 @@ class ConversationController {
 
     res.status(200).json(ApiResponse.success({ message: "Ping declined" }));
   });
-  
+
+  inviteUser = catchAsync(async (req, res) => {});
+  joinGroup = catchAsync(async (req, res) => {});
 }
 
 export default ConversationController;

@@ -8,6 +8,7 @@ import {
   conversationRoleEnum,
   conversationTypeEnum,
   conversationVisibilityEnum,
+  participantStatusEnum,
   pingStatusEnum,
 } from "./enums";
 import {
@@ -33,6 +34,7 @@ export const conversationsTable = pgTable(
     // "does this DM already exist" a single indexed lookup / insert-conflict
     // instead of an application-level race.
     directKey: text("direct_key"),
+    inviteCode: text("invite_code"),
 
     // group-only — must stay NULL for `direct` (enforced app-side; see note below)
     name: text("name"),
@@ -66,6 +68,7 @@ export const conversationsTable = pgTable(
   },
   (t) => [
     uniqueIndex("conversations_direct_key_unique").on(t.directKey),
+    uniqueIndex("conversations_invite_code_unique").on(t.inviteCode),
 
     index("conversations_last_message_at_idx").on(t.lastMessageAt),
 
@@ -94,9 +97,7 @@ export const conversationParticipants = pgTable(
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
     role: conversationRoleEnum("role").notNull().default("member"),
-    joinedAt: timestamp("joined_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    status: participantStatusEnum("status").notNull().default("accepted"),
     lastReadMessageId: uuid("last_read_message_id").references(
       (): AnyPgColumn => messagesTable.id,
     ),
@@ -109,6 +110,8 @@ export const conversationParticipants = pgTable(
   (t) => [
     primaryKey({ columns: [t.conversationId, t.userId] }),
     index("conversation_participants_user_idx").on(t.userId),
+    index("conversation_participants_conversation_idx").on(t.conversationId),
+    index("conversation_participants_status_idx").on(t.status),
   ],
 );
 

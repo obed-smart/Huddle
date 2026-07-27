@@ -3,30 +3,56 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Huddle — Dashboard</title>
-  <link rel="stylesheet" href="/css/style.css" />
+  <title>Huddle</title>
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/shell.css" />
 </head>
-<body>
-  <div class="screen">
-    <div class="card">
-      <div class="topbar">
-        <h1>Hi, <%= displayName %></h1>
-        <form method="POST" action="/logout" style="margin:0;">
-          <button type="submit" class="secondary small">Log out</button>
+<body class="shell">
+  <!-- on-list: mobile shows the sidebar only. Desktop shows both. -->
+  <div class="app on-list">
+
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <h1>Huddle</h1>
+        <span class="spacer"></span>
+        <form method="POST" action="/logout" style="margin:0">
+          <button class="iconbtn" type="submit" data-icon="log-out" title="Log out"></button>
         </form>
       </div>
 
-      <h2>Direct conversations</h2>
-      <div id="directList"></div>
+      <div class="oncall hidden" id="onCall">
+        <span class="pulse"></span>
+        <div class="oncall-text">
+          <div class="oncall-title" id="onCallTitle"></div>
+          <div class="oncall-sub" id="onCallSub"></div>
+        </div>
+        <span data-icon="chevron-right"></span>
+      </div>
 
-      <h2>Groups</h2>
-      <div id="groupList"></div>
+      <div class="section">Direct</div>
+      <div id="listDirect"></div>
 
-      <p class="hint">📞 voice &nbsp;·&nbsp; 🎥 video &nbsp;·&nbsp; 🧑‍🤝‍🧑 meet (chat + files + screen share)</p>
-    </div>
+      <div class="section">Groups</div>
+      <div id="listGroups"></div>
+    </aside>
+
+    <!-- Desktop only: fills the space next to the list -->
+    <main class="main">
+      <div class="empty">
+        <span data-icon="message"></span>
+        <p>Select a conversation to start</p>
+      </div>
+    </main>
+
   </div>
 
+  <script src="/js/icons.js"></script>
   <script src="/js/common.js"></script>
-  <script src="/js/dashboard.js"></script>
+  <script src="/js/call-state.js"></script>
+  <script src="/js/sidebar.js"></script>
+  <script>
+    renderSidebar(null);
+    paintIcons();
+  </script>
 </body>
 </html>

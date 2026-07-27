@@ -1,0 +1,169 @@
+/* ============================================================
+   call.css — FULLSCREEN CALL / MEET
+   Used by voice-call, video-call, meet. Nothing else.
+
+   Layer order: stage/grid 0 · scrims 10 · strip 20 · controls 60
+   · panels 70 · sheets 90. Anything new slots into that order.
+   ============================================================ */
+body.call-body{margin:0;height:100dvh;overflow:hidden;background:#000}
+
+.call{position:fixed;inset:0;background:#000;overflow:hidden;
+padding-top:env(safe-area-inset-top)}
+
+/* ---- 1:1 stage ---- */
+.stage{position:absolute;inset:0;z-index:0}
+.stage-tile{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+background:#000}
+.stage-tile video{width:100%;height:100%;object-fit:cover}
+.stage-tile .tile-name,.stage-tile .tile-badge{display:none}
+.tile-ph{width:104px;height:104px;border-radius:50%;background:#1a1d23;display:flex;
+align-items:center;justify-content:center;font-size:38px;font-weight:500;color:#71717a}
+.stage-label{position:absolute;left:16px;bottom:110px;z-index:10;font-size:13px;color:#d4d4d8}
+
+/* ---- top bar ---- */
+.call-top{position:absolute;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;
+gap:12px;padding:16px 16px 40px;background:linear-gradient(rgba(0,0,0,.7),transparent);
+pointer-events:none}
+.call-top>*{pointer-events:auto}
+.back{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.1);
+display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+.call-name{font-size:16px;font-weight:500}
+.call-status{font-size:12px;color:#a1a1aa;margin-top:2px}
+.top-actions{margin-left:auto;display:flex;gap:8px}
+.top-btn{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.1);
+display:flex;align-items:center;justify-content:center;color:#fff}
+
+/* ---- 1:1 PIP strip ---- */
+.strip{position:absolute;top:70px;right:14px;z-index:20;display:flex;flex-direction:column;gap:8px}
+.strip-tile{position:relative;width:94px;aspect-ratio:3/4;border-radius:12px;overflow:hidden;
+background:#141619;border:1px solid rgba(255,255,255,.1);cursor:pointer;display:flex;
+align-items:center;justify-content:center;transition:transform .12s}
+.strip-tile:active{transform:scale(.96)}
+.strip-tile.pending{border-style:dashed;opacity:.7}
+.strip-tile video{width:100%;height:100%;object-fit:cover}
+.strip-tile .tile-ph{width:44px;height:44px;font-size:18px}
+.tile-name{position:absolute;bottom:5px;left:5px;right:5px;font-size:10px;color:#e4e4e7;
+background:rgba(0,0,0,.55);padding:2px 6px;border-radius:5px;white-space:nowrap;
+overflow:hidden;text-overflow:ellipsis}
+.tile-badge{position:absolute;top:5px;left:5px;font-size:9px;background:rgba(0,0,0,.6);
+color:#d4d4d8;padding:2px 6px;border-radius:5px}
+
+/* ---- meet bento grid ---- */
+.grid{position:absolute;inset:0;z-index:0;display:grid;gap:6px;padding:74px 8px 100px;
+grid-template-columns:repeat(auto-fit,minmax(148px,1fr));grid-auto-rows:1fr}
+.grid.fs{grid-template-columns:1fr;padding:0}
+.grid-tile{position:relative;background:#141619;border-radius:12px;overflow:hidden;
+display:flex;align-items:center;justify-content:center;min-height:118px}
+.grid-tile video{width:100%;height:100%;object-fit:cover}
+.grid-tile .tile-ph{width:56px;height:56px;font-size:22px}
+.grid-tile.fs-on{border-radius:0}
+.grid-tile.fs-on .tile-ph{width:104px;height:104px;font-size:38px}
+.expand{position:absolute;top:7px;right:7px;width:28px;height:28px;border-radius:8px;
+background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;color:#fff}
+.expand svg{width:14px;height:14px}
+
+/* ---- controls ---- */
+.controls{position:absolute;left:0;right:0;bottom:0;z-index:60;display:flex;justify-content:center;
+gap:14px;padding:36px 16px calc(24px + env(safe-area-inset-bottom));
+background:linear-gradient(transparent,rgba(0,0,0,.85));flex-wrap:wrap}
+.ctrl{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.13);
+display:flex;align-items:center;justify-content:center;position:relative;color:#fff}
+.ctrl svg{width:22px;height:22px}
+.ctrl.off{background:#fafafa;color:#18181b}
+.ctrl.on{background:var(--live);color:#04140a}
+.ctrl.end{background:var(--danger)}
+.ctrl:active{transform:scale(.94)}
+
+.sharing{position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:25;
+background:#14301f;color:#6ee7a0;font-size:12px;padding:6px 13px;border-radius:16px;
+white-space:nowrap}
+
+/* ---- side panels (participants, meet chat) ---- */
+.panel{position:absolute;z-index:70;background:#0f0f11;border-top:1px solid var(--line);
+display:flex;flex-direction:column;left:0;right:0;bottom:0;height:60%;
+transform:translateY(100%);transition:transform .2s ease;padding:14px}
+.panel.open{transform:translateY(0)}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.panel-head h3{font-size:12px;text-transform:uppercase;color:var(--dim);margin:0;letter-spacing:.05em}
+.panel-body{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:7px;font-size:13px}
+.panel-foot{display:flex;gap:8px;align-items:center;margin-top:10px}
+.panel-foot input{flex:1;padding:9px 12px;background:var(--surface);border:1px solid var(--line);
+border-radius:18px;color:var(--text);font-size:14px;outline:none}
+.panel-foot button{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
+justify-content:center;flex-shrink:0;color:var(--dim)}
+.panel-foot .send{background:var(--accent);color:#fff}
+.panel-foot svg{width:16px;height:16px}
+
+.pmsg .from{color:var(--accent);font-weight:600;margin-right:5px}
+.pmsg.sys{color:var(--faint);font-style:italic;font-size:12px}
+
+.prow{display:flex;align-items:center;gap:10px;padding:7px 2px}
+.pav{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;
+align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.pname{flex:1;font-size:14px}
+.prow svg{width:15px;height:15px;color:var(--faint)}
+
+/* ---- file transfer row ----
+   Filename + progress, NOT an image preview: real sends go packet
+   by packet over the data channel, so the honest UI is a transfer
+   filling up. */
+.file{display:flex;align-items:center;gap:9px;background:var(--surface);border-radius:9px;
+padding:9px;margin-top:3px;max-width:250px}
+.file svg{width:17px;height:17px;color:var(--dim);flex-shrink:0}
+.file-info{flex:1;min-width:0}
+.file-name{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-bar{height:3px;background:#2a2a2e;border-radius:2px;overflow:hidden;margin:5px 0 3px}
+.file-fill{height:100%;background:var(--accent);transition:width .2s}
+.file-stat{font-size:10px;color:var(--faint)}
+
+.dev-call{position:absolute;z-index:35;left:14px;bottom:100px;display:flex;gap:6px;flex-wrap:wrap}
+.dev-call button{font-size:10px;padding:5px 9px;background:rgba(255,255,255,.09);
+border-radius:6px;color:#a1a1aa}
+
+/* ---- big screens ---- */
+@media(min-width:900px){
+  .strip-tile{width:170px}
+  .grid{grid-template-columns:repeat(auto-fit,minmax(230px,1fr));padding:88px 24px 112px;gap:10px}
+  .grid-tile{min-height:190px}
+  .ctrl{width:60px;height:60px}
+  .ctrl svg{width:24px;height:24px}
+  .tile-ph{width:132px;height:132px;font-size:48px}
+  .panel{top:0;bottom:0;right:0;left:auto;width:330px;height:auto;border-top:none;
+  border-left:1px solid var(--line);transform:translateX(100%)}
+  .panel.open{transform:translateX(0)}
+}
+@media(min-width:1600px){
+  .grid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));max-width:1500px;margin:0 auto}
+}
+
+/* ============================================================
+   AUTO-HIDING CHROME
+   Controls + top bar fade out when idle, return on tap. Without
+   this the chrome permanently covers the video.
+   ============================================================ */
+.call-top,.controls{transition:opacity .25s ease,transform .25s ease}
+.call.chrome-hidden .call-top{opacity:0;transform:translateY(-12px);pointer-events:none}
+.call.chrome-hidden .controls{opacity:0;transform:translateY(16px);pointer-events:none}
+.call.chrome-hidden .dev-call{opacity:0;pointer-events:none}
+.call.chrome-hidden .stage-label{opacity:0}
+
+/* ============================================================
+   REACTIONS
+   Ephemeral by design — a call reaction is a moment, not a
+   message, so nothing is stored.
+   ============================================================ */
+.react-bar{position:absolute;bottom:96px;left:50%;transform:translateX(-50%) translateY(8px);
+z-index:65;display:flex;gap:6px;background:rgba(22,22,25,.95);border:1px solid var(--line);
+border-radius:26px;padding:7px 10px;opacity:0;pointer-events:none;transition:all .16s ease}
+.react-bar.open{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.react-btn{font-size:22px;line-height:1;padding:5px;border-radius:50%;transition:transform .12s}
+.react-btn:hover{transform:scale(1.25)}
+
+/* floating emoji layer */
+.react-layer{position:absolute;inset:0;z-index:64;pointer-events:none;overflow:hidden}
+.react-fly{position:absolute;bottom:110px;font-size:30px;animation:fly-up 2.4s ease-out forwards}
+@keyframes fly-up{
+  0%{opacity:0;transform:translateY(0) scale(.5)}
+  15%{opacity:1;transform:translateY(-20px) scale(1.1)}
+  100%{opacity:0;transform:translateY(-260px) scale(.9)}
+}

@@ -3,26 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Huddle — Log in</title>
-  <link rel="stylesheet" href="/css/style.css" />
+  <title>Huddle</title>
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/shell.css" />
 </head>
-<body>
-  <div class="screen">
-    <div class="card">
+<body class="shell">
+  <div class="login-wrap">
+    <div class="login-card">
       <h1>Huddle</h1>
-      <p class="hint" style="margin-bottom:14px;">Sign in to continue.</p>
+      <p>Sign in to continue.</p>
 
-      <!-- TODO: this posts to your real auth endpoint -->
+      <!-- TODO: point at your real auth endpoint -->
       <form method="POST" action="/auth/login">
-        <input type="text" name="username" placeholder="Username or email" autocomplete="username" required />
-        <input type="password" name="password" placeholder="Password" autocomplete="current-password" required />
-        <button type="submit" class="full">Log in</button>
+        <input class="field" type="text" name="username" placeholder="Username or email" autocomplete="username" required />
+        <input class="field" type="password" name="password" placeholder="Password" autocomplete="current-password" required />
+        <button class="btn" type="submit">Log in</button>
       </form>
 
-      <hr class="div" />
-      <p class="hint" style="margin-bottom:8px;">Skip auth while testing the UI:</p>
+      <div class="divider">or</div>
+
       <form method="POST" action="/demo-login">
-        <button type="submit" class="secondary full">Demo login</button>
+        <button class="btn secondary" type="submit">Continue as demo user</button>
       </form>
     </div>
   </div>

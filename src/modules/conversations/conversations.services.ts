@@ -1,8 +1,9 @@
 import AppError from "../../shared/utils/apiError";
 import ConversationsRepository from "./conversations.repository";
 import logger from "../../shared/utils/logger";
-import { CallerDto } from "./conversations.types";
+import { CallerDto, IcreateGroupConversation } from "./conversations.types";
 import { RealtimeGateway } from "./conversations.types";
+import { userService } from "../user/user.modules";
 
 class ConversationService {
   constructor(
@@ -11,7 +12,7 @@ class ConversationService {
     private readonly realtime: RealtimeGateway,
   ) {}
 
-  async createConversation(caller: CallerDto, targetId: string) {
+  async createDirectConversation(caller: CallerDto, targetId: string) {
     if (caller.id === targetId) {
       throw new AppError("Can't start a conversation with yourself", 400);
     }
@@ -108,6 +109,57 @@ class ConversationService {
       }
       throw err;
     }
+  }
+
+  async createGroupConversation(
+    caller: CallerDto,
+    data: IcreateGroupConversation,
+  ) {
+    if (data.participantIds.includes(caller.id)) {
+      this.Logger.error("User invited themselves");
+      throw new AppError("You cannot invite yourself.", 403);
+    }
+
+    const uniqueValidUser = await userService.filterValidInviteUser(
+      data.participantIds,
+    );
+
+    if (uniqueValidUser.length < 2) {
+      throw new AppError(
+        "A group requires at least two valid participants on creation.",
+        400,
+      );
+    }
+
+    const requesterPayload = {
+      id: caller.id,
+      username: caller.username,
+      avatarUrl: caller.avatarUrl,
+    };
+
+    const conversation =
+      await this.conversationRepo.createGroupWithParticipants({
+        name: data.name,
+        visibility: data.visibility,
+        createdBy: caller.id,
+        description: data.description,
+        participantIds: uniqueValidUser.map((user) => user.userId),
+      });
+
+    for (const targetId of data.participantIds) {
+      try {
+        this.realtime.emitToUser(targetId, "invite:new", {
+          conversationId: conversation.id,
+          requester: requesterPayload,
+        });
+      } catch (error) {
+        this.Logger.warn({ error }, `Failed to notify participant ${targetId}`);
+      }
+    }
+
+    logger.info("[Groud Event] Group creation successfull");
+
+    return conversation;
   }
 
   async findConversationById(conversationId: string) {
@@ -220,6 +272,20 @@ class ConversationService {
       lastMessageId,
     );
     return isUpdated;
+  }
+  async filterValidMentions(
+    conversationId: string,
+    mentionedUserIds: string[],
+  ): Promise<string[]> {
+    try {
+      return await this.conversationRepo.filterValidMentions(
+        conversationId,
+        mentionedUserIds,
+      );
+    } catch (error) {
+      logger.error(error);
+      throw new AppError("failed while filtering mentioned suer", 500);
+    }
   }
 }
 

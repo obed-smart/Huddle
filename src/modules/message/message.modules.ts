@@ -1,5 +1,9 @@
 import { db } from "../../db";
-import { messagesTable, messageReactionsTable } from "../../db/schema";
+import {
+  messagesTable,
+  messageReactionsTable,
+  messageMentionsTable,
+} from "../../db/schema";
 import logger from "../../shared/utils/logger";
 import MessageController from "./message.controllers";
 import MessageRepository from "./message.repository";
@@ -9,6 +13,7 @@ const messageRepository = new MessageRepository(
   db,
   messagesTable,
   messageReactionsTable,
+  messageMentionsTable,
 );
 
 const messageService = new MessageService(messageRepository, logger);

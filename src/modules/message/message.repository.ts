@@ -1,9 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNull, lte } from "drizzle-orm";
 import { db as DbiInstance } from "../../db";
 import { IMessage, INewMessage } from "../../db/schema";
 import {
   messagesTable as messages,
   messageReactionsTable as messageReaction,
+  messageMentionsTable as messageMenstion,
 } from "../../db/schema";
 import AppError from "../../shared/utils/apiError";
 import { MessageResponseDTO } from "./message.types";
@@ -21,6 +22,7 @@ class MessageRepository {
     private readonly db: typeof DbiInstance,
     private readonly messageTable: typeof messages,
     private readonly messageReactionTable: typeof messageReaction,
+    private readonly messageMentionsTable: typeof messageMenstion,
   ) {}
 
   async createMessage(data: INewMessage): Promise<MessageResponseDTO> {
@@ -101,24 +103,71 @@ class MessageRepository {
     return rows;
   }
 
-async deleteReaction(messageId: string, userId: string) {
-  const [deletedReaction] = await this.db
-    .delete(this.messageReactionTable)
-    .where(
-      and(
-        eq(this.messageReactionTable.messageId, messageId),
-        eq(this.messageReactionTable.userId, userId),
-      ),
-    )
-    .returning({
-      emoji: this.messageReactionTable.emoji,
-      messageId: this.messageReactionTable.messageId,
-      userId: this.messageReactionTable.userId,
-    });
+  async deleteReaction(messageId: string, userId: string) {
+    const [deletedReaction] = await this.db
+      .delete(this.messageReactionTable)
+      .where(
+        and(
+          eq(this.messageReactionTable.messageId, messageId),
+          eq(this.messageReactionTable.userId, userId),
+        ),
+      )
+      .returning({
+        emoji: this.messageReactionTable.emoji,
+        messageId: this.messageReactionTable.messageId,
+        userId: this.messageReactionTable.userId,
+      });
 
-  return deletedReaction;
-}
+    return deletedReaction;
+  }
 
+  /// This is for message mentions
+
+  async createMessageMention(
+    conversationId: string,
+    messageId: string,
+    validMentionIds: string[],
+  ) {
+    await this.db
+      .insert(this.messageMentionsTable)
+      .values(
+        validMentionIds.map((userId) => ({
+          messageId,
+          mentionedUserId: userId,
+          conversationId,
+        })),
+      )
+      .onConflictDoNothing();
+  }
+
+  async updateMentionReadAt(
+    conversationId: string,
+    userId: string,
+    createdAt: IMessage["createdAt"],
+  ) {
+    await this.db
+      .update(this.messageMentionsTable)
+      .set({ readAt: new Date() })
+      .where(
+        and(
+          eq(this.messageMentionsTable.conversationId, conversationId),
+          eq(this.messageMentionsTable.mentionedUserId, userId),
+          isNull(this.messageMentionsTable.readAt),
+          inArray(
+            this.messageMentionsTable.messageId,
+            this.db
+              .select({ id: this.messageTable.id })
+              .from(this.messageTable)
+              .where(
+                and(
+                  eq(this.messageTable.conversationId, conversationId),
+                  lte(this.messageTable.createdAt, createdAt),
+                ),
+              ),
+          ),
+        ),
+      );
+  }
 }
 
 export default MessageRepository;

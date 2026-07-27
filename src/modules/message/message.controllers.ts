@@ -44,7 +44,10 @@ class MessageController {
     const { messageId } = req.params;
     const { content } = req.body;
 
-    const message = await this.messageService.updateMessage(messageId, content);
+    const message = await this.messageService.updateMessage(
+      messageId as string,
+      content,
+    );
 
     res.status(200).json(ApiResponse.success(message));
   });
@@ -52,7 +55,7 @@ class MessageController {
   deleteMessage = catchAsync(async (req: Request, res: Response) => {
     const { messageId } = req.params;
 
-    await this.messageService.deleteMessage(messageId);
+    // await this.messageService.deleteMessage(messageId);
 
     res.status(204).send();
   });

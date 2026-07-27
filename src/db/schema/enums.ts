@@ -49,3 +49,9 @@ export const pingStatusEnum = pgEnum("ping_status", [
   "accepted",
   "declined",
 ]);
+
+export const participantStatusEnum = pgEnum("participant_status", [
+  "pending",
+  "accepted",
+  "declined",
+]);

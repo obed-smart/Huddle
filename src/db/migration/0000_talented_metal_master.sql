@@ -4,6 +4,7 @@ CREATE TYPE "public"."conversation_type" AS ENUM('direct', 'group');--> statemen
 CREATE TYPE "public"."conversation_visibility" AS ENUM('private', 'public');--> statement-breakpoint
 CREATE TYPE "public"."global_role" AS ENUM('user', 'admin');--> statement-breakpoint
 CREATE TYPE "public"."message_type" AS ENUM('text', 'image', 'video', 'audio', 'voice', 'file', 'system');--> statement-breakpoint
+CREATE TYPE "public"."participant_status" AS ENUM('pending', 'accepted', 'declined');--> statement-breakpoint
 CREATE TYPE "public"."ping_status" AS ENUM('pending', 'accepted', 'declined');--> statement-breakpoint
 CREATE TYPE "public"."presence_status" AS ENUM('online', 'away', 'busy', 'offline');--> statement-breakpoint
 CREATE TABLE "users" (
@@ -33,7 +34,9 @@ CREATE TABLE "conversation_participants" (
 	"conversation_id" uuid NOT NULL,
 	"user_id" uuid NOT NULL,
 	"role" "conversation_role" DEFAULT 'member' NOT NULL,
-	"joined_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"status" "participant_status" DEFAULT 'accepted' NOT NULL,
+	"invited_by" uuid,
+	"joined_at" timestamp with time zone,
 	"last_read_message_id" uuid,
 	"last_read_at" timestamp with time zone,
 	"is_muted" boolean DEFAULT false NOT NULL,
@@ -46,6 +49,7 @@ CREATE TABLE "conversations" (
 	"type" "conversation_type" NOT NULL,
 	"visibility" "conversation_visibility" NOT NULL,
 	"direct_key" text,
+	"invite_code" text,
 	"name" text,
 	"description" text,
 	"avatar_url" text,
@@ -77,6 +81,7 @@ CREATE TABLE "message_mentions" (
 	"message_id" uuid NOT NULL,
 	"mentioned_user_id" uuid NOT NULL,
 	"conversation_id" uuid NOT NULL,
+	"read_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "message_mentions_message_id_mentioned_user_id_pk" PRIMARY KEY("message_id","mentioned_user_id")
 );
@@ -86,7 +91,7 @@ CREATE TABLE "message_reactions" (
 	"user_id" uuid NOT NULL,
 	"emoji" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "message_reactions_message_id_user_id_emoji_pk" PRIMARY KEY("message_id","user_id","emoji")
+	CONSTRAINT "message_reactions_message_id_user_id_pk" PRIMARY KEY("message_id","user_id")
 );
 --> statement-breakpoint
 CREATE TABLE "messages" (
@@ -112,6 +117,7 @@ CREATE TABLE "refresh_tokens" (
 --> statement-breakpoint
 ALTER TABLE "conversation_participants" ADD CONSTRAINT "conversation_participants_conversation_id_conversations_id_fk" FOREIGN KEY ("conversation_id") REFERENCES "public"."conversations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "conversation_participants" ADD CONSTRAINT "conversation_participants_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conversation_participants" ADD CONSTRAINT "conversation_participants_invited_by_users_id_fk" FOREIGN KEY ("invited_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "conversation_participants" ADD CONSTRAINT "conversation_participants_last_read_message_id_messages_id_fk" FOREIGN KEY ("last_read_message_id") REFERENCES "public"."messages"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "conversations" ADD CONSTRAINT "conversations_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "conversations" ADD CONSTRAINT "conversations_requested_by_users_id_fk" FOREIGN KEY ("requested_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -130,7 +136,10 @@ CREATE UNIQUE INDEX "users_username_unique" ON "users" USING btree ("username");
 CREATE UNIQUE INDEX "users_email_unique" ON "users" USING btree ("email");--> statement-breakpoint
 CREATE UNIQUE INDEX "users_google_id_unique" ON "users" USING btree ("google_id");--> statement-breakpoint
 CREATE INDEX "conversation_participants_user_idx" ON "conversation_participants" USING btree ("user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "conversations_direct_key_unique" ON "conversations" USING btree ("direct_key") WHERE "conversations"."ping_status" != 'declined';--> statement-breakpoint
+CREATE INDEX "conversation_participants_conversation_idx" ON "conversation_participants" USING btree ("conversation_id");--> statement-breakpoint
+CREATE INDEX "conversation_participants_status_idx" ON "conversation_participants" USING btree ("status");--> statement-breakpoint
+CREATE UNIQUE INDEX "conversations_direct_key_unique" ON "conversations" USING btree ("direct_key");--> statement-breakpoint
+CREATE UNIQUE INDEX "conversations_invite_code_unique" ON "conversations" USING btree ("invite_code");--> statement-breakpoint
 CREATE INDEX "conversations_last_message_at_idx" ON "conversations" USING btree ("last_message_at");--> statement-breakpoint
 CREATE INDEX "attachments_message_idx" ON "attachments" USING btree ("message_id");--> statement-breakpoint
 CREATE INDEX "message_mentions_conversation_user_idx" ON "message_mentions" USING btree ("conversation_id","mentioned_user_id");--> statement-breakpoint

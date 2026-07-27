@@ -7,14 +7,17 @@ import {
   conversationParticipants,
   INewConversationParticipant,
 } from "../../db/schema/schema.conversations";
+import { groupJoinRequestsTable as groupRequest } from "../../db/schema";
 import {
   ConversationResponseDto,
   ICreateDirectWithParticipants,
+  IcreateGroupConversation,
   IUpdatePing,
 } from "./conversations.types";
 import AppError from "../../shared/utils/apiError";
 import logger from "../../shared/utils/logger";
 import { IMessage } from "../../db/schema";
+import { inArray } from "drizzle-orm";
 
 export const conversationResponse = {
   id: conversation.id,
@@ -35,6 +38,7 @@ class ConversationsRepository {
     private readonly db: typeof dBinstance,
     private readonly conversationsTable: typeof conversation,
     private readonly conversation_participants: typeof conversationParticipants,
+    private readonly groupRequestTable: typeof groupRequest,
   ) {}
 
   async createDirectWithParticipants(
@@ -61,6 +65,49 @@ class ConversationsRepository {
           data.participantIds.map((userId) => ({
             conversationId: conversation.id,
             userId,
+          })),
+        );
+
+        return conversation;
+      });
+    } catch (err: any) {
+      logger.error(
+        {
+          code: (err as any).cause?.code,
+          constraint: (err as any).cause?.constraint,
+          detail: (err as any).cause?.detail,
+          message: (err as any).message,
+        },
+        "PG ERROR DETECTED:",
+      );
+      throw new AppError(err as string, err.code);
+    }
+  }
+
+  async createGroupWithParticipants(
+    data: IcreateGroupConversation,
+  ): Promise<ConversationResponseDto> {
+    try {
+      return this.db.transaction(async (tx) => {
+        const [conversation] = await tx
+          .insert(this.conversationsTable)
+          .values({
+            name: data.name,
+            type: "group",
+            visibility: data.visibility,
+            createdBy: data.createdBy,
+            description: data.description,
+          })
+          .returning(conversationResponse);
+
+        if (!conversation)
+          throw new AppError("Failed to create conversation entry", 500);
+
+       await tx.insert(this.groupRequestTable).values(
+          data.participantIds.map((userId) => ({
+            conversationId: conversation.id,
+            requestedUserId: userId,
+            invitedBy: conversation.createdBy
           })),
         );
 
@@ -203,6 +250,25 @@ class ConversationsRepository {
     } catch (error) {
       logger.error(error);
     }
+  }
+
+  async filterValidMentions(
+    conversationId: string,
+    mentionedUserIds: string[],
+  ): Promise<string[]> {
+    if (mentionedUserIds.length === 0) return [];
+
+    const validParticipants = await this.db
+      .select({ userId: this.conversation_participants.userId })
+      .from(this.conversation_participants)
+      .where(
+        and(
+          eq(this.conversation_participants.conversationId, conversationId),
+          inArray(this.conversation_participants.userId, mentionedUserIds),
+        ),
+      );
+
+    return validParticipants.map((p) => p.userId);
   }
 }
 

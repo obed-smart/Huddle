@@ -27,7 +27,7 @@ export interface ConversationResponseDto {
   requestedBy: IConversation["requestedBy"];
   createdBy: IConversation["createdBy"];
   pingStatus: IConversation["pingStatus"];
-  lastMessageAt: IConversation["lastMessageAt"];
+  // lastMessageAt: IConversation["lastMessageAt"];
   createdAt: IConversation["createdAt"];
 }
 
@@ -40,4 +40,12 @@ export interface CallerDto {
 export interface RealtimeGateway {
   emitToRoom(roomName: string, event: string, payload: unknown): void;
   emitToUser(userId: string, event: string, payload: unknown): void;
+}
+
+export interface IcreateGroupConversation {
+  name: IConversation["name"];
+  description: IConversation["description"];
+  visibility: IConversation["visibility"];
+  createdBy: IConversation["createdBy"];
+  participantIds: string[];
 }

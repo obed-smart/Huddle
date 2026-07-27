@@ -20,10 +20,14 @@ export function messageEvent(io: Server, socket: Socket) {
   socket.on(
     "message:send",
     catchSocketAsync(async (data, callback) => {
-      const { tempId, replyToMessageId, conversationId, content } =
+      const { tempId, replyToMessageId, conversationId, content, mentions } =
         validateSocketData(sendMessageSchema, data);
 
       const userId = socket.data.user.sub;
+
+      const requestedMentionIds = [
+        ...new Set(mentions?.map((m) => m.userId) ?? []),
+      ];
 
       const isParticipant = await conversationService.checkParticipant(
         conversationId,
@@ -36,6 +40,11 @@ export function messageEvent(io: Server, socket: Socket) {
           403,
         );
       }
+
+      const validMentionIds = await conversationService.filterValidMentions(
+        conversationId,
+        requestedMentionIds,
+      );
 
       const message = await messageService.createMessage({
         conversationId,
@@ -53,6 +62,14 @@ export function messageEvent(io: Server, socket: Socket) {
         throw new AppError("Message Not found", 404);
       }
 
+      if (validMentionIds.length > 0) {
+        await messageService.createMessageMention(
+          conversationId,
+          message.id,
+          validMentionIds,
+        );
+      }
+
       logger.debug({ message }, "New message entry");
 
       const participantIds =
@@ -62,6 +79,10 @@ export function messageEvent(io: Server, socket: Socket) {
         ...message,
         senderUsername: socket.data.user.username,
         tempId,
+        mentions:
+          validMentionIds.length > 0
+            ? validMentionIds.map((id) => `[${id.slice(0, 8)}...]`)
+            : null,
         replyTo: repliedTo
           ? {
               id: repliedTo.id,
@@ -77,9 +98,17 @@ export function messageEvent(io: Server, socket: Socket) {
         socket.to(`user:${participantId}`).emit("message:new", payload);
       }
 
+      for (const mentionedUserId of validMentionIds) {
+        if (mentionedUserId === userId) continue;
+        io.to(`user:${mentionedUserId}`).emit("mention:notify", {
+          conversationId: message.conversationId,
+          content: message.body,
+          senderUsername: socket.data.user.username,
+        });
+      }
       callback?.({
         success: true,
-        message,
+        message: message.id,
       });
 
       // for (const participantId of participantIds) {
@@ -157,6 +186,9 @@ export function messageEvent(io: Server, socket: Socket) {
         messageReadSchema,
         data,
       );
+
+      logger.debug("message read event recieved");
+
       const message = await messageService.getMessageById(lastMessageId);
 
       if (!message) {
@@ -177,7 +209,20 @@ export function messageEvent(io: Server, socket: Socket) {
         lastMessageId,
       );
 
+      logger.debug("checks update");
+
       if (updated) {
+        // mark any of this user's mentions in this conversation as read,
+        // up to and including the message they just read
+
+        logger.debug("yes it read updated");
+
+        await messageService.updateMentionReadAt(
+          conversationId,
+          userId,
+          message.createdAt,
+        );
+
         io.to(`conversation:${conversationId}`).emit("read:update", {
           conversationId,
           userId,

@@ -1,6 +1,7 @@
 import ConversationsRepository from "./conversations.repository";
 import { db } from "../../db";
 import { conversationsTable, conversationParticipants } from "../../db/schema";
+import { groupJoinRequestsTable } from "../../db/schema";
 import ConversationService from "./conversations.services";
 import ConversationController from "./conversation.controllers";
 import { socketGateway } from "../../sockets/socket.gateway";
@@ -10,6 +11,7 @@ const conversationRepo = new ConversationsRepository(
   db,
   conversationsTable,
   conversationParticipants,
+  groupJoinRequestsTable,
 );
 
 const conversationService = new ConversationService(
@@ -20,4 +22,4 @@ const conversationService = new ConversationService(
 
 const conversationController = new ConversationController(conversationService);
 
-export { conversationController, conversationService};
+export { conversationController, conversationService };

@@ -19,4 +19,5 @@ export const socketGateway: RealtimeGateway = {
   emitToUser(userId, event, payload) {
     socketGateway.emitToRoom(`user:${userId}`, event, payload);
   },
+  
 };
