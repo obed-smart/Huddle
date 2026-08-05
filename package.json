@@ -21,6 +21,7 @@
   "type": "commonjs",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "chalk": "^6.0.0",
     "cookie": "^2.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",

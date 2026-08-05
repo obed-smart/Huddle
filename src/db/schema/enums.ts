@@ -2,11 +2,7 @@ import { pgEnum } from "drizzle-orm/pg-core";
 
 export const globalRoleEnum = pgEnum("global_role", ["user", "admin"]);
 
-export const authProviderEnum = pgEnum("auth_provider", [
-  "local",
-  "google",
-]);
-
+export const authProviderEnum = pgEnum("auth_provider", ["local", "google"]);
 
 // status state machine to know the connnection statuse of the user
 export const presenceStatusEnum = pgEnum("presence_status", [
@@ -27,7 +23,7 @@ export const conversationVisibilityEnum = pgEnum("conversation_visibility", [
 ]);
 
 export const conversationRoleEnum = pgEnum("conversation_role", [
-  "owner",
+  "super_admin",
   "admin",
   "member",
 ]);

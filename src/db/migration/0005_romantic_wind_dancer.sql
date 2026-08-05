@@ -1,0 +1,2 @@
+DROP INDEX "group_join_requests_user_idx";--> statement-breakpoint
+CREATE UNIQUE INDEX "group_join_requests_user_conversation_idx" ON "group_join_requests" USING btree ("conversation_id","user_id") WHERE "group_join_requests"."status" = 'pending';

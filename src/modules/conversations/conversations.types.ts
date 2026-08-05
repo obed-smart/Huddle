@@ -27,19 +27,28 @@ export interface ConversationResponseDto {
   requestedBy: IConversation["requestedBy"];
   createdBy: IConversation["createdBy"];
   pingStatus: IConversation["pingStatus"];
-  // lastMessageAt: IConversation["lastMessageAt"];
+  lastMessageAt: IConversation["lastMessageAt"];
   createdAt: IConversation["createdAt"];
 }
 
 export interface CallerDto {
-  id: IUser["id"];
+  memberId?: string;
+  adminId?: string;
   username: IUser["username"];
-  avatarUrl: IUser["avatarUrl"];
+  avatarUrl?: IUser["avatarUrl"];
+  joinedBy?: "member" | "admin";
 }
 
 export interface RealtimeGateway {
-  emitToRoom(roomName: string, event: string, payload: unknown): void;
+  emitToRoom(
+    roomId: string,
+    event: string,
+    payload: unknown,
+    excludeIds?: string | string[],
+  ): void;
   emitToUser(userId: string, event: string, payload: unknown): void;
+  getSocketIdsForUser(userId: string): Promise<string[]>;
+  evacuateRoom(roomId: string): Promise<void>;
 }
 
 export interface IcreateGroupConversation {

@@ -16,6 +16,10 @@ const envSchema = z.object({
     emptyToUndefined,
     z.string("JWT_ACCESS_SECRET is required"),
   ),
+  FRONTEND_URL: z.preprocess(
+    emptyToUndefined,
+    z.string("FRONTEND_URL is required"),
+  ),
 });
 
 const parsed = envSchema.safeParse(process.env);

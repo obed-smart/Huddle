@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Huddle — Chat</title>
-  <link rel="stylesheet" href="/css/base.css" />
-  <link rel="stylesheet" href="/css/shell.css" />
+  <link rel="stylesheet" href="/css/base.css?v=<%= Date.now() %>" />
+  <link rel="stylesheet" href="/css/shell.css?v=<%= Date.now() %>" />
 </head>
 <body class="shell">
   <!-- on-chat: mobile shows the chat only. Desktop shows both panes. -->
@@ -15,7 +15,7 @@
       <div class="sidebar-head">
         <h1>Huddle</h1>
         <span class="spacer"></span>
-        <form method="POST" action="/logout" style="margin:0">
+        <form method="POST" action="/logout" class="inline-form">
           <button class="iconbtn" type="submit" data-icon="log-out" title="Log out"></button>
         </form>
       </div>
@@ -53,12 +53,57 @@
         <div class="chat-body-inner" id="chatInner"></div>
       </div>
 
+      <div class="dev dev-inline">
+        <button id="devReceive">simulate incoming photos</button>
+      </div>
+
       <div class="chat-foot">
-        <input type="text" id="msgInput" placeholder="Message" autocomplete="off" />
-        <button class="send-btn" id="sendBtn" data-icon="send"></button>
+        <!-- idle: normal composer -->
+        <div class="compose-row" id="composeRow">
+          <button class="iconbtn" id="attachBtn" data-icon="paperclip" title="Attach"></button>
+          <input type="text" id="msgInput" placeholder="Message" autocomplete="off" />
+          <button class="iconbtn" id="vnRecord" data-icon="mic" title="Record voice note"></button>
+          <button class="send-btn" id="sendBtn" data-icon="send"></button>
+        </div>
+
+        <!-- recording -->
+        <div class="compose-row vn-bar hidden" id="vnRecording">
+          <button class="iconbtn danger" id="vnCancel" data-icon="trash" title="Cancel"></button>
+          <span class="vn-dot"></span>
+          <span class="vn-time" id="vnTime">0:00</span>
+          <div class="vn-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <button class="send-btn" id="vnStop" data-icon="check" title="Stop"></button>
+        </div>
+
+        <!-- review before sending -->
+        <div class="compose-row vn-bar hidden" id="vnReview">
+          <button class="iconbtn danger" id="vnDiscard" data-icon="trash" title="Discard"></button>
+          <audio id="vnAudio" controls preload="metadata"></audio>
+          <span class="vn-time" id="vnReviewTime">0:00</span>
+          <button class="send-btn" id="vnSend" data-icon="send" title="Send"></button>
+        </div>
+
+        <input type="file" id="imgInput" accept="image/*" multiple class="sr-only" />
+        <input type="file" id="vidInput" accept="video/*" class="sr-only" />
+        <input type="file" id="fileAny" class="sr-only" />
       </div>
     </main>
 
+  </div>
+
+  <!-- Attach chooser. Separate entries because accept="image/*,video/*"
+       produces a confusing picker on phones, and because a single
+       image-looking button hides the fact that video works at all. -->
+  <div class="sheet" id="attachMenu">
+    <div class="sheet-row" data-attach="image">
+      <span class="si" data-icon="image"></span><span class="sheet-label">Photo</span>
+    </div>
+    <div class="sheet-row" data-attach="video">
+      <span class="si" data-icon="film"></span><span class="sheet-label">Video</span>
+    </div>
+    <div class="sheet-row" data-attach="file">
+      <span class="si" data-icon="file"></span><span class="sheet-label">File</span>
+    </div>
   </div>
 
   <div class="sheet" id="sheet">
@@ -74,10 +119,14 @@
     </div>
   </div>
 
-  <script src="/js/icons.js"></script>
-  <script src="/js/common.js"></script>
-  <script src="/js/call-state.js"></script>
-  <script src="/js/sidebar.js"></script>
-  <script src="/js/chat.js"></script>
+  <script src="/js/boot.js?v=<%= Date.now() %>"></script>
+  <script src="/js/icons.js?v=<%= Date.now() %>"></script>
+  <script src="/js/demo.js?v=<%= Date.now() %>"></script>
+  <script src="/js/common.js?v=<%= Date.now() %>"></script>
+  <script src="/js/call-state.js?v=<%= Date.now() %>"></script>
+  <script src="/js/chat-store.js?v=<%= Date.now() %>"></script>
+  <script src="/js/sidebar.js?v=<%= Date.now() %>"></script>
+  <script src="/js/voice-note.js?v=<%= Date.now() %>"></script>
+  <script src="/js/chat.js?v=<%= Date.now() %>"></script>
 </body>
 </html>

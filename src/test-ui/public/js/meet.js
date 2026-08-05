@@ -1,3 +1,8 @@
+/* Optional dependency check. Guarded, so boot.js can be deleted or
+   commented out and this page still runs — a diagnostic must never
+   be load-bearing. */
+if (typeof __reportMissing === 'function') __reportMissing([['CallState', typeof CallState], ['Grid', typeof Grid], ['Media', typeof Media], ['CallUI', typeof CallUI], ['el', typeof el]]);
+
 /* ============================================================
    meet.js — MEET SCREEN
    Bento grid (grid.js), participants panel, chat + file transfer.
@@ -12,11 +17,10 @@
 const target = getTarget();
 el('callName').textContent = target.name;
 
-let call = CallState.get();
-if (!call || call.convId !== target.id) {
-  CallState.start(target.id, target.name, 'meet');
-  call = CallState.get();
-}
+/* Same guard as the call screens: a dead meet URL must not spawn a
+   new meet. */
+if (requireActiveCall(target)) { throw new Error('redirecting'); }
+const call = CallState.get();
 
 /* Screen capture cannot survive a page load — getDisplayMedia needs
    a fresh user gesture. So whatever the state said, you are not
@@ -43,13 +47,13 @@ el('backBtn').addEventListener('click', () => {
   CallTimer.stop();
   Media.stop();          // ends the camera AND any screen capture
   CallState.clearSharing();
-  window.location.href = chatUrl(target);   // meet itself stays live
+  goReplace(chatUrl(target));   // meet stays live; drop this page from history
 });
 
 el('endBtn').addEventListener('click', () => {
   CallTimer.stop(); Media.stop();
   CallState.end();
-  window.location.href = chatUrl(target);
+  goReplace(chatUrl(target));
 });
 
 /* ---------- mic / camera ---------- */
@@ -90,6 +94,12 @@ function stopShare() {
   if (!sharing) return;
   sharing = false;
   CallState.setSharing(false);
+
+  // Actually end the capture. Without this the browser keeps
+  // recording (and Chrome keeps showing its "sharing" bar) while
+  // the tile just freezes on the last painted frame.
+  Media.stopShare();
+
   el('shareBtn').classList.remove('on');
   el('sharing').classList.add('hidden');
   grid.exit();
@@ -123,15 +133,41 @@ function renderPeople() {
   });
 }
 
-/* ---------- meet chat ---------- */
+/* ---------- meet chat ----------
+   Open by default when there's room for it (wide screens, grid
+   view). It closes automatically when you fullscreen a tile, since
+   the whole point of fullscreen is to look at one person — and it
+   reopens when you come back to the grid.
+
+   On a narrow screen it stays closed: a 60%-height sheet over a
+   phone-sized grid hides the call. */
 let meetMsgs = [{ sys: true, text: 'You joined' }];
 
+function panelHasRoom() {
+  return window.innerWidth >= 900;
+}
+
+function syncChatPanel() {
+  // Never auto-open over a fullscreened tile.
+  const fullscreen = !!grid.fsId;
+  if (fullscreen) {
+    el('chatPanel').classList.remove('open');
+  } else if (panelHasRoom() && !userClosedChat) {
+    el('chatPanel').classList.add('open');
+  }
+}
+
+let userClosedChat = false;
+
 el('chatBtn').addEventListener('click', () => {
-  el('chatPanel').classList.toggle('open');
+  const open = el('chatPanel').classList.toggle('open');
+  // Remember an explicit close so syncChatPanel doesn't fight the user.
+  userClosedChat = !open;
 });
-el('chatClose').addEventListener('click', () =>
-  el('chatPanel').classList.remove('open')
-);
+el('chatClose').addEventListener('click', () => {
+  el('chatPanel').classList.remove('open');
+  userClosedChat = true;
+});
 
 function sendMeetMsg() {
   const input = el('meetInput');
@@ -233,6 +269,19 @@ el('devLeave').addEventListener('click', () => {
 
 renderMeetChat();
 renderPeople();
+syncChatPanel();
+grid.onFullscreenChange(syncChatPanel);
+window.addEventListener('resize', syncChatPanel);
+
+/* DEV: a reaction arriving from someone else — this is what the
+   socket handler will call. Note the NAME comes with it. */
+el('devReact').addEventListener('click', () => {
+  const c = CallState.get();
+  const others = c ? c.people.filter((n) => n !== 'You') : [];
+  const who = others.length ? others[Math.floor(Math.random() * others.length)] : 'Chris';
+  const emoji = CallReactions.SET[Math.floor(Math.random() * CallReactions.SET.length)];
+  CallReactions.fly(emoji, who);
+});
 
 /* ---------- auto-hide chrome + reactions ---------- */
 CallUI.init('callRoot');
@@ -240,8 +289,11 @@ CallReactions.init({
   buttonId: 'reactBtn',
   barId: 'reactBar',
   layerId: 'reactLayer',
-  // TODO: broadcast so everyone sees it, and call CallReactions.fly()
-  // from your receive handler.
+  myName: 'You',
+  // TODO: socket.emit('call:reaction', { conversationId: target.id, emoji })
+  // and render everyone's (including your own) from the broadcast:
+  //   socket.on('call:reaction', ({ fromName, emoji }) =>
+  //     CallReactions.fly(emoji, fromName));
   onSend: (emoji) => console.log('[reaction]', emoji),
 });
 

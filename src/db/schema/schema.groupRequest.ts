@@ -1,7 +1,8 @@
 import { pgTable, uuid, text, timestamp, index } from "drizzle-orm/pg-core";
 import { conversationsTable } from "./schema.conversations";
 import { usersTable } from "./schema.user";
-import { InferInsertModel, InferSelectModel } from "drizzle-orm";
+import { InferInsertModel, InferSelectModel, sql } from "drizzle-orm";
+import { uniqueIndex } from "drizzle-orm/pg-core";
 
 export const groupJoinRequestsTable = pgTable(
   "group_join_requests",
@@ -10,7 +11,7 @@ export const groupJoinRequestsTable = pgTable(
     conversationId: uuid("conversation_id")
       .notNull()
       .references(() => conversationsTable.id, { onDelete: "cascade" }),
-    requestedUserId: uuid("requested_user_id")
+    userId: uuid("user_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
     invitedBy: uuid("invited_by").references(() => usersTable.id, {
@@ -25,11 +26,13 @@ export const groupJoinRequestsTable = pgTable(
     resolvedAt: timestamp("resolved_at", { withTimezone: true }), // when approved/declined, nullable until then
   },
   (t) => [
+    uniqueIndex("group_join_requests_user_conversation_idx")
+      .on(t.conversationId, t.userId)
+      .where(sql`${t.status} = 'pending'`),
     index("group_join_requests_conversation_idx").on(
       t.conversationId,
       t.status,
     ),
-    index("group_join_requests_user_idx").on(t.requestedUserId),
   ],
 );
 export type IGroupRequest = InferSelectModel<typeof groupJoinRequestsTable>;

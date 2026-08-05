@@ -1,0 +1,1 @@
+ALTER TABLE "conversation_participants" ADD COLUMN "max_conversation_admin" integer DEFAULT 10 NOT NULL;

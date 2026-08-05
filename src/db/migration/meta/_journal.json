@@ -15,6 +15,41 @@
       "when": 1785122122604,
       "tag": "0001_jittery_lockheed",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785195762386,
+      "tag": "0002_next_mikhail_rasputin",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785285740006,
+      "tag": "0003_robust_tarantula",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785629654289,
+      "tag": "0004_clever_dazzler",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785684679391,
+      "tag": "0005_romantic_wind_dancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785905306214,
+      "tag": "0006_boring_goliath",
+      "breakpoints": true
     }
   ]
 }

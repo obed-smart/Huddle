@@ -1,3 +1,8 @@
+/* Optional dependency check. Guarded, so boot.js can be deleted or
+   commented out and this page still runs — a diagnostic must never
+   be load-bearing. */
+if (typeof __reportMissing === 'function') __reportMissing([['CallState', typeof CallState], ['Stage', typeof Stage], ['Media', typeof Media], ['CallUI', typeof CallUI], ['UpgradeRequest', typeof UpgradeRequest], ['el', typeof el]]);
+
 /* ============================================================
    voice-call.js — VOICE CALL SCREEN
    Audio only. Stage + PIP layout (stage.js).
@@ -9,13 +14,11 @@
 const target = getTarget();
 el('callName').textContent = target.name;
 
-/* If you're returning to a call already in progress, don't re-ring —
-   pick up where it was. */
-let call = CallState.get();
-if (!call || call.convId !== target.id) {
-  CallState.start(target.id, target.name, 'voice');
-  call = CallState.get();
-}
+/* A call page is only valid while that call is live. Arriving here
+   from a stale history entry, a refresh, or a bookmark must NOT
+   start a new call — bounce back to the chat instead. */
+if (requireActiveCall(target)) { throw new Error('redirecting'); }
+const call = CallState.get();
 
 const stage = new Stage('stage', 'strip', 'audio');
 const answered = call.people.includes(target.name);
@@ -49,11 +52,11 @@ function startRinging() {
   // that crashed will never send the give-up signal.
   ring = setTimeout(() => {
     if (phase === 'calling') { el('callStatus').textContent = 'No answer'; setTimeout(endCall, 1200); }
-  }, 30000);
+  }, DEMO.ringTimeoutMs);
 
   // DEMO: the other side picks up after ~2.5s.
   // Real: socket.on('call:accepted', markAnswered)
-  setTimeout(() => { if (phase === 'calling') markAnswered(); }, 2500);
+  demoDelay(() => { if (phase === 'calling') markAnswered(); }, DEMO.answerCallMs);
 }
 
 function markAnswered() {
@@ -68,18 +71,19 @@ function markAnswered() {
 /* ---------- leave vs end ---------- */
 el('backBtn').addEventListener('click', () => {
   CallTimer.stop(); clearTimeout(ring); Media.stop();
-  window.location.href = chatUrl(target);   // call stays live
+  goReplace(chatUrl(target));   // call stays live; drop this page from history
 });
 
 el('endBtn').addEventListener('click', endCall);
 function endCall() {
   CallTimer.stop(); clearTimeout(ring); Media.stop();
   CallState.end();
-  window.location.href = chatUrl(target);
+  goReplace(chatUrl(target));
 }
 
 /* ---------- controls ---------- */
 let micOn = true;
+let camOn = true;
 el('micBtn').addEventListener('click', function () {
   micOn = !micOn;
   this.classList.toggle('off', !micOn);
@@ -109,9 +113,76 @@ CallReactions.init({
   buttonId: 'reactBtn',
   barId: 'reactBar',
   layerId: 'reactLayer',
-  // TODO: broadcast so everyone sees it, and call CallReactions.fly()
-  // from your receive handler.
+  myName: 'You',
+  // TODO: socket.emit('call:reaction', { conversationId: target.id, emoji })
+  // and render everyone's (including your own) from the broadcast:
+  //   socket.on('call:reaction', ({ fromName, emoji }) =>
+  //     CallReactions.fly(emoji, fromName));
   onSend: (emoji) => console.log('[reaction]', emoji),
+});
+
+/* ---------- voice → video upgrade ---------- */
+/* Has this call actually become video? Drives what the camera
+   button does. Declared before UpgradeRequest.init, which closes
+   over it. */
+let isVideo = false;
+
+UpgradeRequest.init({
+  peerName: target.name,
+  onAccepted: () => {
+    // Either side accepting turns this into a video call.
+    CallState.setType('video');
+    Media.start({ audio: true, video: true }).then((s) => {
+      if (s) stage.attach('self', s);
+    });
+    // The same button now means "camera on/off" instead of "ask for
+    // video". Its behaviour is decided by isVideo below, NOT by
+    // swapping handlers — see the note on the click handler.
+    isVideo = true;
+    camOn = true;
+    const btn = el('upgradeBtn');
+    btn.classList.remove('off');
+    btn.innerHTML = svg('video');
+    btn.title = 'Camera';
+    toast('Video is on');
+    // TODO: renegotiate the peer connection to add your video track
+  },
+});
+
+/* ONE handler, branching on state.
+   Before the upgrade this button asks for video; after it, it's a
+   plain camera toggle.
+
+   Do NOT do this by assigning .onclick later — addEventListener and
+   .onclick both fire, so the button would toggle the camera AND
+   send a fresh upgrade request on every tap. (That was a real bug
+   here.) */
+el('upgradeBtn').addEventListener('click', () => {
+  if (!isVideo) { UpgradeRequest.request(); return; }
+  camOn = !camOn;
+  const btn = el('upgradeBtn');
+  btn.classList.toggle('off', !camOn);
+  btn.innerHTML = svg(camOn ? 'video' : 'video-off');
+  Media.video(camOn);
+});
+
+/* DEV: simulate THEM asking you for video */
+el('devAskVideo').addEventListener('click', () => UpgradeRequest.incoming());
+
+/* DEV: simulate them ACCEPTING your request. There is no automatic
+   accept — silence must never turn a camera on — so this is the only
+   way to exercise the happy path while testing alone. */
+el('devAcceptVideo').addEventListener('click', () => UpgradeRequest.remoteAccepted());
+
+/* DEV: simulate someone else reacting, so you can see the name
+   badge on a reaction that isn't yours. Real: this is exactly what
+   your socket.on('call:reaction') handler does. */
+el('devReact').addEventListener('click', () => {
+  const c = CallState.get();
+  const others = c ? c.people.filter((n) => n !== 'You') : [];
+  const who = others.length ? others[Math.floor(Math.random() * others.length)] : 'Chris';
+  const emoji = CallReactions.SET[Math.floor(Math.random() * CallReactions.SET.length)];
+  CallReactions.fly(emoji, who);
 });
 
 paintIcons();

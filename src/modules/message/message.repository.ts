@@ -38,19 +38,19 @@ class MessageRepository {
     return message;
   }
 
-  // async getMessagesByConversation(
-  //   conversationId: string,
-  //   limit: number = 50,
-  // ): Promise<MessageResponseDTO[]> {
-  //   const messages = await this.db.query.messagesTable.findMany({
-  //     where: eq(this.messageTable.conversationId, conversationId),
-  //     orderBy: (messages, { desc }) => [desc(messages.createdAt)],
-  //     limit,
-  //     columns: messageResponds,
-  //   });
+  async getMessagesByConversation(
+    conversationId: string,
+    limit: number = 50,
+  ): Promise<MessageResponseDTO[]> {
+    const messages = await this.db.query.messagesTable.findMany({
+      where: eq(this.messageTable.conversationId, conversationId),
+      orderBy: (messages, { desc }) => [desc(messages.createdAt)],
+      limit,
+      columns: messageResponds,
+    });
 
-  //   return messages;
-  // }
+    return messages;
+  }
 
   async getMessageById(messageId: string): Promise<IMessage | null> {
     const message = await this.db.query.messagesTable.findFirst({

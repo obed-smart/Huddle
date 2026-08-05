@@ -29,10 +29,10 @@ export function messageEvent(io: Server, socket: Socket) {
         ...new Set(mentions?.map((m) => m.userId) ?? []),
       ];
 
-      const isParticipant = await conversationService.checkParticipant(
-        conversationId,
-        userId,
-      );
+      const { exists, isParticipant, type } =
+        await conversationService.checkParticipant(conversationId, userId);
+
+      if (!exists || !type) throw new AppError("Conversation not found", 404);
 
       if (!isParticipant) {
         throw new AppError(
@@ -73,7 +73,10 @@ export function messageEvent(io: Server, socket: Socket) {
       logger.debug({ message }, "New message entry");
 
       const participantIds =
-        await conversationService.findAcceptedDmParticipantIds(conversationId);
+        await conversationService.findAcceptedParticipantIds(
+          conversationId,
+          type,
+        );
 
       const payload = {
         ...message,

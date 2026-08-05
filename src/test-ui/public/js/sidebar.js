@@ -33,7 +33,7 @@ function renderSidebar(activeId) {
     el('onCallTitle').textContent = call.convName;
     el('onCallSub').textContent = kindLabel(call.type) + ' · ' + call.people.length + ' in call';
     bar.onclick = () => {
-      window.location.href = callUrl(call.type, { id: call.convId, name: call.convName });
+      go(callUrl(call.type, { id: call.convId, name: call.convName }));
     };
   } else {
     bar.classList.add('hidden');

@@ -6,12 +6,14 @@ import ConversationService from "./conversations.services";
 import ConversationController from "./conversation.controllers";
 import { socketGateway } from "../../sockets/socket.gateway";
 import logger from "../../shared/utils/logger";
+import { usersTable } from "../../db/schema";
 
 const conversationRepo = new ConversationsRepository(
   db,
   conversationsTable,
   conversationParticipants,
   groupJoinRequestsTable,
+  usersTable,
 );
 
 const conversationService = new ConversationService(

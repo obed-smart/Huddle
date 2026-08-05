@@ -10,8 +10,11 @@ import { string } from "zod";
 import { AuthUser } from "../types";
 import { userService } from "../../modules/user/user.modules";
 import env from "../../config/env";
+import { conversationService } from "../../modules/conversations/conversations.modules";
 
 const MAX_RETRIES = 5;
+
+const nanoid = customAlphabet("abcdefghijkmnopqrstuvwxyz23456789", 10);
 
 export const hashPassword = async (password: string) => {
   if (!password) {
@@ -107,3 +110,25 @@ export const generateRefreshToken = () => {
 };
 
 export const onlineUsers = new Map<string, Set<string>>();
+
+export const generateCode = async () => {
+  let retries = 0;
+
+  try {
+    while (retries < MAX_RETRIES) {
+      const secretId = nanoid();
+
+      const exists = await conversationService.checkInviteCode(secretId);
+
+      if (!exists) {
+        return secretId;
+      }
+
+      retries++;
+    }
+    throw new AppError("Could not generate unique ID after retries", 500);
+  } catch (error) {
+    logger.error({ error }, "Error generating ID:");
+    throw new AppError("Failed to generate unique ID", 500);
+  }
+};

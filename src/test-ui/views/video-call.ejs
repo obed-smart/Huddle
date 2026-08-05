@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>Huddle — Video call</title>
-  <link rel="stylesheet" href="/css/base.css" />
-  <link rel="stylesheet" href="/css/call.css" />
+  <link rel="stylesheet" href="/css/base.css?v=<%= Date.now() %>" />
+  <link rel="stylesheet" href="/css/call.css?v=<%= Date.now() %>" />
 </head>
 <body class="call-body">
 
@@ -33,6 +33,7 @@
     <div class="dev-call">
       <button id="devJoin">+ peer</button>
       <button id="devLeave">− peer</button>
+      <button id="devReact">peer reacts</button>
     </div>
 
     <div class="controls">
@@ -43,12 +44,14 @@
     </div>
   </div>
 
-  <script src="/js/icons.js"></script>
-  <script src="/js/common.js"></script>
-  <script src="/js/call-state.js"></script>
-  <script src="/js/media.js"></script>
-  <script src="/js/stage.js"></script>
-  <script src="/js/call-ui.js"></script>
-  <script src="/js/video-call.js"></script>
+  <script src="/js/boot.js?v=<%= Date.now() %>"></script>
+  <script src="/js/icons.js?v=<%= Date.now() %>"></script>
+  <script src="/js/demo.js?v=<%= Date.now() %>"></script>
+  <script src="/js/common.js?v=<%= Date.now() %>"></script>
+  <script src="/js/call-state.js?v=<%= Date.now() %>"></script>
+  <script src="/js/media.js?v=<%= Date.now() %>"></script>
+  <script src="/js/stage.js?v=<%= Date.now() %>"></script>
+  <script src="/js/call-ui.js?v=<%= Date.now() %>"></script>
+  <script src="/js/video-call.js?v=<%= Date.now() %>"></script>
 </body>
 </html>

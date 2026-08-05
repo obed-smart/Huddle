@@ -3,6 +3,7 @@ import { userController } from "./user.modules";
 import authenticate from "../../middlewares/authentication.middleware";
 import validate from "../../middlewares/validation.middleware";
 import { searchUserSchema } from "./user.validation";
+import { conversationController } from "../conversations/conversations.modules";
 
 const router = Router();
 
@@ -19,6 +20,12 @@ router.get(
   authenticate,
   validate(searchUserSchema, "params"),
   userController.getUserByUsername,
+);
+
+router.get(
+  "/me/pending-invites",
+  authenticate,
+  conversationController.pendingGroupInvites,
 );
 
 export default router;

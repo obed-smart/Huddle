@@ -16,10 +16,10 @@ export function conversationEvent(io: Server, socket: Socket) {
       );
       const userId = socket.data.user.sub;
 
-      const isParticipant = await conversationService.checkParticipant(
-        conversationId,
-        userId,
-      );
+      const { exists, isParticipant, type } =
+        await conversationService.checkParticipant(conversationId, userId);
+
+      if (!exists || !type) throw new AppError("Conversation not found", 404);
 
       if (!isParticipant) {
         throw new AppError(

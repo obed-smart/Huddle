@@ -22,13 +22,16 @@ import {
 import { InferInsertModel, InferSelectModel, sql } from "drizzle-orm";
 
 import { messagesTable } from "./schema.messages";
+import { integer } from "drizzle-orm/pg-core";
 
 export const conversationsTable = pgTable(
   "conversations",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     type: conversationTypeEnum("type").notNull(),
-    visibility: conversationVisibilityEnum("visibility").notNull(),
+    visibility: conversationVisibilityEnum("visibility")
+      .notNull()
+      .default("private"),
 
     // DM dedup key: sorted `userA:userB`. Unique constraint is what makes
     // "does this DM already exist" a single indexed lookup / insert-conflict
@@ -76,6 +79,28 @@ export const conversationsTable = pgTable(
       "direct_conversations_are_private",
       sql`${t.type} != 'direct' OR ${t.visibility} = 'private'`,
     ),
+    check(
+      "conversation_type_invariants",
+      sql`
+    (
+      ${t.type} = 'direct'
+      AND ${t.visibility} = 'private'
+      AND ${t.name} IS NULL
+      AND ${t.description} IS NULL
+      AND ${t.avatarUrl} IS NULL
+      AND ${t.inviteCode} IS NULL
+      AND ${t.directKey} IS NOT NULL
+    )
+    OR
+    (
+      ${t.type} = 'group'
+      AND ${t.name} IS NOT NULL
+      AND ${t.directKey} IS NULL
+      AND ${t.pingStatus} IS NULL
+      AND ${t.requestedBy} IS NULL
+    )
+`,
+    ),
   ],
 );
 
@@ -99,7 +124,10 @@ export const conversationParticipants = pgTable(
     role: conversationRoleEnum("role").notNull().default("member"),
     status: participantStatusEnum("status").notNull().default("accepted"),
     lastReadMessageId: uuid("last_read_message_id").references(
-      (): AnyPgColumn => messagesTable.id,
+      () => messagesTable.id,
+      {
+        onDelete: "set null",
+      },
     ),
     lastReadAt: timestamp("last_read_at", { withTimezone: true }),
     isMuted: boolean("is_muted").notNull().default(false),

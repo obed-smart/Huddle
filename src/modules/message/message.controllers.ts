@@ -24,7 +24,9 @@ class MessageController {
       const { conversationId } = req.params;
 
       const messages =
-        await this.messageService.getMessagesByConversation(conversationId);
+        await this.messageService.getMessagesByConversation(
+          conversationId as string
+        );
 
       res.status(200).json(ApiResponse.success(messages));
     },

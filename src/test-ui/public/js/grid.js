@@ -50,8 +50,13 @@ class Grid {
     v.srcObject = stream;
   }
 
-  full(id) { this.fsId = id; this.draw(); }
-  exit()   { this.fsId = null; this.draw(); }
+  full(id) { this.fsId = id; this.draw(); this._changed(); }
+  exit()   { this.fsId = null; this.draw(); this._changed(); }
+
+  /* Lets the host screen react to entering/leaving fullscreen —
+     the meet uses it to get its chat panel out of the way. */
+  onFullscreenChange(fn) { this._onFs = fn; }
+  _changed() { if (this._onFs) this._onFs(this.fsId); }
 
   /* Fullscreen HIDES the other tiles rather than removing them, so
      their streams stay bound and returning to the grid is instant. */

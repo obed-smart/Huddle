@@ -29,9 +29,7 @@ export function createSocketServer(server: HttpServer) {
 
       socket.join(`user:${userId}`);
 
-      socket.on("message:send", (data) => {
-        logger.debug({ data }, "new message");
-      });
+     
 
       if (!onlineUsers.has(userId)) {
         onlineUsers.set(userId, new Set());

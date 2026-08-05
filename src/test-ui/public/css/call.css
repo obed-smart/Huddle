@@ -148,22 +148,70 @@ border-radius:6px;color:#a1a1aa}
 .call.chrome-hidden .stage-label{opacity:0}
 
 /* ============================================================
-   REACTIONS
-   Ephemeral by design — a call reaction is a moment, not a
-   message, so nothing is stored.
+   REACTIONS — named, floating from the tap point
+   The name is the point: an anonymous emoji in a six-person meet
+   tells you nothing about who reacted.
    ============================================================ */
 .react-bar{position:absolute;bottom:96px;left:50%;transform:translateX(-50%) translateY(8px);
-z-index:65;display:flex;gap:6px;background:rgba(22,22,25,.95);border:1px solid var(--line);
+z-index:65;display:flex;gap:6px;background:rgba(22,22,25,.96);border:1px solid var(--line);
 border-radius:26px;padding:7px 10px;opacity:0;pointer-events:none;transition:all .16s ease}
 .react-bar.open{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
 .react-btn{font-size:22px;line-height:1;padding:5px;border-radius:50%;transition:transform .12s}
 .react-btn:hover{transform:scale(1.25)}
 
-/* floating emoji layer */
 .react-layer{position:absolute;inset:0;z-index:64;pointer-events:none;overflow:hidden}
-.react-fly{position:absolute;bottom:110px;font-size:30px;animation:fly-up 2.4s ease-out forwards}
-@keyframes fly-up{
-  0%{opacity:0;transform:translateY(0) scale(.5)}
-  15%{opacity:1;transform:translateY(-20px) scale(1.1)}
-  100%{opacity:0;transform:translateY(-260px) scale(.9)}
+
+/* One floating reaction: emoji + who sent it. Rises to ~80% of the
+   container then fades — it should clear the frame, not the chrome. */
+.react-fly{
+  position:absolute;display:flex;align-items:center;gap:6px;
+  transform:translate(-50%,-50%);
+  animation:rf-rise 2.4s cubic-bezier(.22,.7,.3,1) forwards;
+  will-change:transform,opacity;
+}
+.rf-emoji{font-size:30px;line-height:1}
+.rf-name{
+  font-size:11px;font-weight:600;color:#e7e7ea;
+  background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.12);
+  padding:3px 8px;border-radius:11px;white-space:nowrap;
+  backdrop-filter:blur(4px);
+}
+@keyframes rf-rise{
+  0%   {opacity:0;transform:translate(-50%,-50%) scale(.6)}
+  12%  {opacity:1;transform:translate(-50%,-50%) scale(1.06)}
+  85%  {opacity:1}
+  100% {opacity:0;
+        transform:translate(calc(-50% + var(--drift,0px)),calc(-50% + var(--rise,-400px))) scale(.92)}
+}
+
+/* ============================================================
+   VOICE → VIDEO UPGRADE PROMPTS
+   A request the other side can refuse, not a local toggle.
+   ============================================================ */
+.prompt{position:absolute;z-index:75;opacity:0;pointer-events:none;transition:all .18s ease}
+.prompt.open{opacity:1;pointer-events:auto}
+
+/* your outgoing request */
+.up-waiting{top:50%;left:50%;transform:translate(-50%,-46%);width:270px;
+background:rgba(21,21,24,.97);border:1px solid var(--line);border-radius:14px;
+padding:18px;text-align:center}
+.up-waiting.open{transform:translate(-50%,-50%)}
+.up-waiting .t{font-size:14px;margin-bottom:4px}
+.up-waiting .s{font-size:11.5px;color:var(--dim);margin-bottom:14px}
+.up-waiting button{width:100%;padding:9px;border-radius:8px;background:#2a2a2f;
+color:var(--text);font-size:13px}
+
+/* their incoming request */
+.up-prompt{left:14px;right:14px;bottom:104px;background:rgba(21,21,24,.98);
+border:1px solid var(--line);border-radius:14px;padding:15px;
+transform:translateY(10px)}
+.up-prompt.open{transform:translateY(0)}
+.up-prompt .t{font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:9px}
+.up-prompt .t svg{width:18px;height:18px;color:var(--accent);flex-shrink:0}
+.up-actions{display:flex;gap:8px}
+.up-actions button{flex:1;padding:10px;border-radius:9px;font-size:13.5px;font-weight:500}
+.up-accept{background:var(--live);color:#04140a}
+.up-decline{background:#2a2a2f;color:var(--text)}
+@media(min-width:900px){
+  .up-prompt{left:auto;right:24px;bottom:112px;width:330px}
 }

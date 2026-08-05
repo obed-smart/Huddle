@@ -16,19 +16,19 @@ class MessageService {
     return message;
   }
 
-  // async getMessagesByConversation(
-  //   conversationId: string,
-  // ): Promise<MessageResponseDTO[]> {
-  //   try {
-  //     const messages =
-  //       await this.messageRepo.getMessagesByConversation(conversationId);
+  async getMessagesByConversation(
+    conversationId: string,
+  ): Promise<MessageResponseDTO[]> {
+    try {
+      const messages =
+        await this.messageRepo.getMessagesByConversation(conversationId);
 
-  //     return messages;
-  //   } catch (error) {
-  //     //   this.logger.error("Error fetching messages:", error);
-  //     throw new AppError("Failed to fetch messages", 500);
-  //   }
-  // }
+      return messages;
+    } catch (error) {
+      //   this.logger.error("Error fetching messages:", error);
+      throw new AppError("Failed to fetch messages", 500);
+    }
+  }
 
   async getMessageById(messageId: string): Promise<IMessage | null> {
     try {

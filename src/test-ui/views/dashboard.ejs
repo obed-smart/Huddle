@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Huddle</title>
-  <link rel="stylesheet" href="/css/base.css" />
-  <link rel="stylesheet" href="/css/shell.css" />
+  <link rel="stylesheet" href="/css/base.css?v=<%= Date.now() %>" />
+  <link rel="stylesheet" href="/css/shell.css?v=<%= Date.now() %>" />
 </head>
 <body class="shell">
   <!-- on-list: mobile shows the sidebar only. Desktop shows both. -->
@@ -15,7 +15,7 @@
       <div class="sidebar-head">
         <h1>Huddle</h1>
         <span class="spacer"></span>
-        <form method="POST" action="/logout" style="margin:0">
+        <form method="POST" action="/logout" class="inline-form">
           <button class="iconbtn" type="submit" data-icon="log-out" title="Log out"></button>
         </form>
       </div>
@@ -46,13 +46,12 @@
 
   </div>
 
-  <script src="/js/icons.js"></script>
-  <script src="/js/common.js"></script>
-  <script src="/js/call-state.js"></script>
-  <script src="/js/sidebar.js"></script>
-  <script>
-    renderSidebar(null);
-    paintIcons();
-  </script>
+  <!-- <script src="/js/boot.js?v=<%= Date.now() %>"></script> -->
+  <script src="/js/icons.js?v=<%= Date.now() %>"></script>
+  <script src="/js/demo.js?v=<%= Date.now() %>"></script>
+  <script src="/js/common.js?v=<%= Date.now() %>"></script>
+  <script src="/js/call-state.js?v=<%= Date.now() %>"></script>
+  <script src="/js/sidebar.js?v=<%= Date.now() %>"></script>
+  <script src="/js/dashboard.js?v=<%= Date.now() %>"></script>
 </body>
 </html>
