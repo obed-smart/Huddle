@@ -12,6 +12,7 @@ import {
   joinRequestResolveSchema,
   joinRequestRespondSchema,
   leaveConversationSchema,
+  timelineQuerySchema,
   updateAdminRoleSchema,
   updateConversationSchema,
 } from "./conversations.validation";
@@ -28,14 +29,14 @@ router.post(
 );
 
 router.post(
-  "/:id/accept",
+  "/pings/:id/accept-response",
   authenticate,
   validate(conversationIdSchema, "params"),
   conversationController.acceptPing,
 );
 
 router.post(
-  "/:id/decline",
+  "/pings/:id/decline-response",
   authenticate,
   validate(conversationIdSchema, "params"),
   conversationController.declinePing,
@@ -108,15 +109,23 @@ router.get(
   conversationController.pendingJoinRequests,
 );
 
+router.get(
+  "/:conversationId/messages",
+  authenticate,
+  validate(conversationParamsSchema, "params"),
+  validate(timelineQuerySchema, "query"),
+  conversationController.getMessages,
+);
+
 router.patch(
-  "/:conversationId/admins/:userId",
+  "/:conversationId/participants/:userId/role",
   authenticate,
   validate(conversationUserSchemaParams, "params"),
   requireGroupAdmin,
   validate(updateAdminRoleSchema),
   conversationController.updateAdminRole,
 );
-  
+
 router.delete(
   "/:conversationId/participants/me",
   authenticate,

@@ -85,17 +85,23 @@ export const updateConversationSchema = z
     avatarUrl: z.url("Avatar URL must be a valid URL"),
     visibility: z.enum(conversationVisibilityEnum.enumValues),
   })
-  .partial()
-  .superRefine((data, ctx) => {
-    if (Object.keys(data).length === 0) {
-      ctx.addIssue({
-        code: "custom",
-        message: "At least one field must be provided",
-      });
-    }
-  });
+  .partial();
 
-  export type IupdateConversationSchema = z.infer<typeof updateConversationSchema>;
+export const timelineQuerySchema = z.object({
+  limit: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 50)),
+
+  before: z.iso
+    .datetime({ message: "Invalid date format" })
+    .optional()
+    .transform((val) => (val ? new Date(val) : undefined)),
+});
+
+export type IupdateConversationSchema = z.infer<
+  typeof updateConversationSchema
+>;
 
 export type IjoinRequestResolveSchema = z.infer<
   typeof joinRequestResolveSchema

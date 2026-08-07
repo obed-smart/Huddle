@@ -11,6 +11,7 @@ import {
 } from "./conversations.validation";
 import { IGroupRequest } from "../../db/schema";
 import { generateCode } from "../../shared/utils/utits";
+import { messageService } from "../message/message.modules";
 
 class ConversationService {
   constructor(
@@ -366,6 +367,16 @@ class ConversationService {
     const result =
       await this.conversationRepo.approveGroupJoinRequest(requestId);
 
+    await messageService.createSystemEvent({
+      conversationId: request.conversationId,
+      actorId: caller?.memberId!,
+      type: "user_join",
+      metadata: {
+        joinedUserId: caller.memberId,
+        invitedBy: request.invitedBy ?? null,
+      },
+    });
+
     this.roomEvent("group:join", result.conversationId, requesterPayload);
 
     return { status: "accepted", conversationId: result.conversationId };
@@ -407,6 +418,16 @@ class ConversationService {
 
     const result =
       await this.conversationRepo.approveGroupJoinRequest(requestId);
+
+    await messageService.createSystemEvent({
+      conversationId: request.conversationId,
+      actorId: caller?.adminId!,
+      type: "user_added",
+      metadata: {
+        joinedUserId: request.userId,
+        invitedBy: request.invitedBy ?? null,
+      },
+    });
 
     this.roomEvent("group:join", result.conversationId, requesterPayload);
 
@@ -481,7 +502,7 @@ class ConversationService {
       caller.memberId!,
     );
 
-    if (requestPending) {
+    if (requestPending && !requestPending.invitedBy) {
       throw new AppError("Your request is still pending", 400);
     }
 
@@ -494,7 +515,7 @@ class ConversationService {
       throw new AppError("Your are a member", 400);
     }
 
-    if (conversation.visibility === "private") {
+    if (conversation.visibility === "private" && !requestPending?.invitedBy) {
       await this.conversationRepo.createRequest({
         conversationId: String(conversation?.id),
         userId: caller.memberId!,
@@ -515,8 +536,19 @@ class ConversationService {
     const requesterPayload: CallerDto = {
       username: caller.username,
       memberId: caller.memberId!,
-      joinedBy: "member",
+      joinedBy: requestPending?.invitedBy ? "admin" : "member",
     };
+
+    await messageService.createSystemEvent({
+      conversationId: conversation.id,
+      actorId: caller?.memberId!,
+      type: "user_join",
+      metadata: {
+        joinedUserId: caller?.memberId!,
+        username: caller.username,
+        invitedBy: requestPending?.invitedBy ?? null,
+      },
+    });
 
     await this.roomEvent(
       "group:join",
@@ -567,12 +599,21 @@ class ConversationService {
         adminId: caller.adminId!,
         username: caller.username,
         memberId: requestPending.userId,
-        joinedBy: "admin",
+        joinedBy: requestPending?.invitedBy ? "admin" : "member",
       };
 
       const result = await this.conversationRepo.approveGroupJoinRequest(
         requestPending.id,
       );
+
+      await messageService.createSystemEvent({
+        conversationId: conversationId,
+        actorId: caller?.adminId!,
+        type: "user_join",
+        metadata: {
+          joinedUserId: userId,
+        },
+      });
 
       this.roomEvent("group:join", result.conversationId, requesterPayload);
 
@@ -590,6 +631,16 @@ class ConversationService {
       username: caller.username,
       avatarUrl: caller.avatarUrl,
     };
+
+    await messageService.createSystemEvent({
+      conversationId: conversationId,
+      actorId: caller?.adminId!,
+      type: "group_invite",
+      metadata: {
+        invitedUserId: userId,
+        invitedBy: caller.adminId,
+      },
+    });
 
     try {
       this.realtime.emitToUser(userId, "invite:new", {
@@ -645,6 +696,15 @@ class ConversationService {
       memberId: userId,
       joinedBy: "admin",
     };
+
+    await messageService.createSystemEvent({
+      conversationId: conversationId,
+      actorId: caller?.adminId!,
+      type: "user_remove",
+      metadata: {
+        removedUserId: userId,
+      },
+    });
 
     this.roomEvent("group:leave", conversationId, requesterPayload);
   }
@@ -719,6 +779,15 @@ class ConversationService {
       joinedBy: "member",
     };
 
+    await messageService.createSystemEvent({
+      conversationId: conversationId,
+      actorId: caller?.memberId!,
+      type: "user_leave",
+      metadata: {
+        username: caller.username,
+      },
+    });
+
     this.roomEvent("group:leave", conversationId, requesterPayload);
   }
 
@@ -748,6 +817,13 @@ class ConversationService {
       changes,
     );
 
+    await messageService.createSystemEvent({
+      conversationId: conversation.id,
+      actorId: requesterId,
+      type: "conversation_updated",
+      metadata: changes,
+    });
+
     this.realtime.emitToRoom(conversationId, "group-settings:updated", {
       conversationId,
       updates: data,
@@ -773,6 +849,15 @@ class ConversationService {
 
     await this.conversationRepo.deleteConversation(conversationId);
 
+    await messageService.createSystemEvent({
+      conversationId: conversation.id,
+      actorId: requesterId,
+      type: "conversation_deleted",
+      metadata: {
+        username,
+      },
+    });
+
     this.realtime.emitToRoom(conversationId, "group:deleted", {
       conversationId,
       deletedBy: { id: requesterId, username },
@@ -788,7 +873,16 @@ class ConversationService {
       });
     }, 1000);
   }
-  
+
+  async getMessages(conversationId: string, before?: Date, limit = 50) {
+    await this.findConversationById(conversationId);
+
+    return await this.conversationRepo.getTimeline(
+      conversationId,
+      before,
+      limit,
+    );
+  }
 }
 
 export default ConversationService;

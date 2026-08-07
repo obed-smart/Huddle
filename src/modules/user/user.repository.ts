@@ -9,6 +9,7 @@ import Logger from "../../shared/utils/logger";
 import { AuthUser, PublicUser } from "../../shared/types";
 import AppError from "../../shared/utils/apiError";
 import { from } from "node:stream/iter";
+import { UpdateUserDto } from "./user.validation";
 
 type DbType = typeof dbInstance;
 
@@ -195,6 +196,27 @@ class UserRepository {
     } catch (error) {
       this.logger.error({ error }, "Failed fetching valid invite user");
       throw new AppError("Failed fetching valid invite user", 500);
+    }
+  }
+
+  async updateUserProfile(
+    userId: string,
+    updateData: Partial<UpdateUserDto>,
+  ): Promise<PublicUser | null> {
+    try {
+      const [updatedUser] = await this.db
+        .update(this.usersTable)
+        .set({ ...updateData, updatedAt: new Date() })
+        .where(eq(this.usersTable.id, userId))
+        .returning(publicUserSelection);
+
+      return updatedUser ?? null;
+    } catch (error) {
+      this.logger.error(
+        { error },
+        `Failed to update user profile for userId: ${userId}`,
+      );
+      throw new AppError("Failed to update user profile", 500);
     }
   }
 }

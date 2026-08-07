@@ -3,6 +3,7 @@ import Logger from "../../shared/utils/logger";
 import { INewUser } from "../../db/schema/schema.user";
 import AppError from "../../shared/utils/apiError";
 import { hashPassword } from "../../shared/utils/utits";
+import { UpdateUserDto } from "./user.validation";
 
 class UserService {
   constructor(
@@ -110,5 +111,30 @@ class UserService {
   async filterValidInviteUser(invitedUsers: string[]) {
     return await this.userRepo.filterValidInviteUser(invitedUsers);
   }
+
+  async updateUser(userId: string, updateData: UpdateUserDto) {
+    const user = await this.userRepo.findUserById(userId);
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
+    const newUser: Partial<UpdateUserDto> = {};
+
+    for (const key of Object.keys(updateData) as (keyof UpdateUserDto)[]) {
+      if (updateData[key] !== undefined && updateData[key] !== user[key]) {
+        (newUser as any)[key] = updateData[key];
+      }
+    }
+
+    if (Object.keys(newUser).length === 0) {
+      return user;
+    }
+
+    const updatedUser = await this.userRepo.updateUserProfile(userId, newUser);
+
+    return updatedUser;
+  }
+
+  
 }
 export default UserService;

@@ -26,7 +26,6 @@ export const usersTable = pgTable(
     provider: authProviderEnum("provider").default("local").notNull(),
     googleId: text("google_id"),
     avatarUrl: text("avatar_url"),
-    avatarColor: varchar("avatar_color", { length: 20 }),
     bio: varchar("bio", { length: 255 }),
     globalRole: globalRoleEnum("global_role").default("user").notNull(),
     isEmailVerified: boolean("is_email_verified").default(false).notNull(),

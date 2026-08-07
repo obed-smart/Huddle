@@ -2,7 +2,7 @@ import Logger from "../../shared/utils/logger";
 import AppError from "../../shared/utils/apiError";
 import MessageRepository from "./message.repository";
 import { IMessage, INewMessage } from "../../db/schema";
-import { MessageResponseDTO } from "./message.types";
+import { MessageResponseDTO, systemEventDTO } from "./message.types";
 import logger from "../../shared/utils/logger";
 
 class MessageService {
@@ -14,6 +14,10 @@ class MessageService {
   async createMessage(data: INewMessage): Promise<MessageResponseDTO> {
     const message = await this.messageRepo.createMessage(data);
     return message;
+  }
+
+  async createSystemEvent(input: systemEventDTO) {
+    return await this.messageRepo.createSystemEvent(input);
   }
 
   async getMessagesByConversation(
@@ -42,10 +46,18 @@ class MessageService {
     }
   }
 
-  async updateMessage(messageId: string, content: string): Promise<IMessage> {
+  async updateMessage(
+    messageId: string,
+    content: string,
+    senderId: string,
+  ): Promise<MessageResponseDTO | null> {
     try {
-      const message = await this.messageRepo.updateMessage(messageId, content);
-      return message;
+      const message = await this.messageRepo.editMessage(
+        messageId,
+        content,
+        senderId,
+      );
+      return message ?? null;
     } catch (error) {
       this.logger.error({ error }, "Error updating message:");
       throw new AppError("Failed to update message", 500);

@@ -3,6 +3,8 @@ import {
   messagesTable,
   messageReactionsTable,
   messageMentionsTable,
+  systemEventsTable,
+  conversationTimeline,
 } from "../../db/schema";
 import logger from "../../shared/utils/logger";
 import MessageController from "./message.controllers";
@@ -14,6 +16,8 @@ const messageRepository = new MessageRepository(
   messagesTable,
   messageReactionsTable,
   messageMentionsTable,
+  systemEventsTable,
+  conversationTimeline,
 );
 
 const messageService = new MessageService(messageRepository, logger);

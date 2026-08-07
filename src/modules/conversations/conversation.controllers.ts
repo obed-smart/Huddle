@@ -355,6 +355,23 @@ class ConversationController {
       }),
     );
   });
+
+  getMessages = catchAsync(async (req, res) => {
+    const { conversationId } = req.params;
+
+    const { limit, before } = req.query;
+
+    const beforeDate = before ? new Date(before as string) : undefined;
+    const numericLimit = limit ? parseInt(limit as string, 10) : 50;
+
+    const history = await this.conversationService.getMessages(
+      conversationId as string,
+      beforeDate,
+      numericLimit,
+    );
+
+    res.status(200).json(ApiResponse.success(history));
+  });
 }
 
 export default ConversationController;

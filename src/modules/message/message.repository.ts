@@ -1,13 +1,16 @@
-import { and, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte } from "drizzle-orm";
 import { db as DbiInstance } from "../../db";
 import { IMessage, INewMessage } from "../../db/schema";
 import {
   messagesTable as messages,
   messageReactionsTable as messageReaction,
   messageMentionsTable as messageMenstion,
+  systemEventsTable as conversationlog,
+  conversationTimeline,
 } from "../../db/schema";
 import AppError from "../../shared/utils/apiError";
-import { MessageResponseDTO } from "./message.types";
+import { MessageResponseDTO, systemEventDTO } from "./message.types";
+import logger from "../../shared/utils/logger";
 
 export const messageResponds = {
   id: messages.id,
@@ -23,33 +26,84 @@ class MessageRepository {
     private readonly messageTable: typeof messages,
     private readonly messageReactionTable: typeof messageReaction,
     private readonly messageMentionsTable: typeof messageMenstion,
+    private readonly conversationlogTable: typeof conversationlog,
+    private readonly conversationTimelineTable: typeof conversationTimeline,
   ) {}
 
   async createMessage(data: INewMessage): Promise<MessageResponseDTO> {
-    const [message] = await this.db
-      .insert(this.messageTable)
-      .values(data)
-      .returning(messageResponds);
+    try {
+      return await this.db.transaction(async (tx) => {
+        const timestamp = new Date();
 
-    if (!message) {
-      throw new AppError("Failed to create message", 500);
+        const [message] = await tx
+          .insert(this.messageTable)
+          .values(data)
+          .returning(messageResponds);
+
+        if (!message) {
+          throw new AppError("Failed to create message records", 500);
+        }
+
+        await tx.insert(this.conversationTimelineTable).values({
+          conversationId: message.conversationId,
+          createdAt: message.createdAt,
+          type: "message",
+          refId: message.id,
+        });
+        return message;
+      });
+    } catch (error) {
+      logger.error({ error }, "Failed creating message");
+      throw new AppError("Failed creating message", 500);
     }
+  }
 
-    return message;
+  async createSystemEvent(input: systemEventDTO) {
+    try {
+      return await this.db.transaction(async (tx) => {
+        const [event] = await tx
+          .insert(this.conversationlogTable)
+          .values(input)
+          .returning();
+
+        if (!event) {
+          throw new AppError("Failed to record system event logs", 500);
+        }
+
+        
+        await tx.insert(this.conversationTimelineTable).values({
+          conversationId: event.conversationId,
+          createdAt: event.createdAt,
+          type: "event",
+          refId: event.id,
+        });
+
+        return event;
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError(
+        error instanceof Error
+          ? error.message
+          : "Internal database timeline failure",
+        500,
+      );
+    }
   }
 
   async getMessagesByConversation(
     conversationId: string,
     limit: number = 50,
   ): Promise<MessageResponseDTO[]> {
-    const messages = await this.db.query.messagesTable.findMany({
-      where: eq(this.messageTable.conversationId, conversationId),
-      orderBy: (messages, { desc }) => [desc(messages.createdAt)],
-      limit,
-      columns: messageResponds,
-    });
+    // Use .select(messageResponds) instead of .query
+    const messages = await this.db
+      .select(messageResponds)
+      .from(this.messageTable)
+      .where(eq(this.messageTable.conversationId, conversationId))
+      .orderBy(desc(this.messageTable.createdAt))
+      .limit(limit);
 
-    return messages;
+    return messages as MessageResponseDTO[];
   }
 
   async getMessageById(messageId: string): Promise<IMessage | null> {
@@ -60,9 +114,28 @@ class MessageRepository {
     return message ?? null;
   }
 
-  async updateMessage(messageId: string, content: string): Promise<IMessage> {
-    // Add your database update logic here
-    throw new Error("Method not implemented");
+  async editMessage(
+    messageId: string,
+    content: string,
+    senderId: string,
+  ): Promise<MessageResponseDTO | null> {
+    try {
+      const [updatedMessage] = await this.db
+        .update(this.messageTable)
+        .set({ body: content, editedAt: new Date() })
+        .where(
+          and(
+            eq(this.messageTable.id, messageId),
+            eq(this.messageTable.senderId, senderId),
+          ),
+        )
+        .returning(messageResponds);
+
+      return updatedMessage ?? null;
+    } catch (error) {
+      logger.error({ err: error }, "Error editing message:");
+      throw new AppError("Failed to edit message", 500);
+    }
   }
 
   async deleteMessage(messageId: string): Promise<void> {

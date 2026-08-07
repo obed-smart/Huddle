@@ -149,3 +149,100 @@ export type IConversationParticipant = InferSelectModel<
 export type INewConversationParticipant = InferInsertModel<
   typeof conversationParticipants
 >;
+
+/**
+ * SYSTEM EVENT TIMELINE ARCHITECTURE
+ *
+ * PROBLEM:
+ * Storing system events (e.g., admin updates, users joining/leaving, adding members)
+ * inside the main 'messages' table creates a messy schema with too many nullable
+ * fields, sparse columns, or complex, unmaintainable type enums.
+ *
+ * SOLUTION:
+ * This unified timeline table acts as a central hub for all conversation events.
+ * Specific system events are offloaded to their own dedicated tables, while this
+ * timeline provides a unified, chronological stream. Conversations can query this
+ * timeline directly to render a clean, orderly mix of regular messages and system logs.
+ */
+
+export const conversationTimeline = pgTable(
+  "conversation_timeline",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversationsTable.id),
+    createdAt: timestamp("created_at").notNull(),
+    type: text("type", { enum: ["message", "event"] }).notNull(),
+    refId: uuid("ref_id").notNull(),
+  },
+  (table) => [
+    index("conversation_cursor_idx").on(table.conversationId, table.createdAt),
+  ],
+);
+export type IConversationTimeline = InferSelectModel<
+  typeof conversationTimeline
+>;
+export type INewConversationTimeline = InferInsertModel<
+  typeof conversationTimeline
+>;
+
+/**
+ * 
+
+async function getTimelinePage(
+  conversationId: string, 
+  before?: Date, 
+  limit = 50
+): Promise<TimelineItem[]> {
+  
+  const timelineRows = await db
+    .select()
+    .from(conversationTimeline)
+    .where(
+      before
+        ? and(eq(conversationTimeline.conversationId, conversationId), lt(conversationTimeline.createdAt, before))
+        : eq(conversationTimeline.conversationId, conversationId)
+    )
+    .orderBy(desc(conversationTimeline.createdAt))
+    .limit(limit);
+
+  // Filter out messageIds, strictly ignoring items marked as 'deleted_message'
+  const messageIds = timelineRows.filter(r => r.type === "message").map(r => r.refId);
+  const eventIds = timelineRows.filter(r => r.type === "system_event").map(r => r.refId);
+
+  const [msgs, events] = await Promise.all([
+    messageIds.length ? db.select().from(messages).where(inArray(messages.id, messageIds)) : [],
+    eventIds.length ? db.select().from(systemEvents).where(inArray(systemEvents.id, eventIds)) : [],
+  ]);
+
+  const msgMap = new Map(msgs.map(m => [m.id, m]));
+  const eventMap = new Map(events.map(e => [e.id, e]));
+
+  // The map step automatically fulfills our typed TimelineItem contract perfectly
+  return timelineRows.map((row): TimelineItem => {
+    if (row.type === "message") {
+      return {
+        type: "message",
+        createdAt: row.createdAt,
+        data: msgMap.get(row.refId)!,
+      };
+    }
+    
+    if (row.type === "system_event") {
+      return {
+        type: "system_event",
+        createdAt: row.createdAt,
+        data: eventMap.get(row.refId)!,
+      };
+    }
+
+    // Handles 'deleted_message' instantly without checking maps or extra tables
+    return {
+      type: "deleted_message",
+      createdAt: row.createdAt,
+      data: null,
+    };
+  });
+}
+ */

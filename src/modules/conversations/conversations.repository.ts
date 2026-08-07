@@ -1,8 +1,10 @@
 import {
   and,
+  desc,
   eq,
   isNotNull,
   isNull,
+  lt,
   lte,
   ne,
   notInArray,
@@ -19,19 +21,21 @@ import {
 import {
   groupJoinRequestsTable as groupRequest,
   INewGroupRequest,
+  conversationTimeline,
+  messagesTable as messages,
+  systemEventsTable as conversationlog,
 } from "../../db/schema";
 import {
   ConversationResponseDto,
   ICreateDirectWithParticipants,
   IcreateGroupConversation,
   IUpdatePing,
+  TimelineItem,
 } from "./conversations.types";
 import { usersTable as users } from "../../db/schema";
 import AppError from "../../shared/utils/apiError";
 import logger from "../../shared/utils/logger";
-import { IMessage } from "../../db/schema";
 import { inArray } from "drizzle-orm";
-import { from } from "node:stream/iter";
 import { count } from "drizzle-orm";
 import { IupdateConversationSchema } from "./conversations.validation";
 
@@ -56,6 +60,9 @@ class ConversationsRepository {
     private readonly conversation_participants: typeof conversationParticipants,
     private readonly groupRequestTable: typeof groupRequest,
     private readonly usersTable: typeof users,
+    private readonly conversationTimelineTable: typeof conversationTimeline,
+    private readonly messageTable: typeof messages,
+    private readonly conversationEventTable: typeof conversationlog,
   ) {}
 
   private async conversationLock<T>(
@@ -672,6 +679,7 @@ class ConversationsRepository {
       .select({
         id: this.groupRequestTable.id,
         userId: this.groupRequestTable.userId,
+        invitedBy: this.groupRequestTable.invitedBy,
       })
       .from(this.groupRequestTable)
       .where(
@@ -821,6 +829,86 @@ class ConversationsRepository {
       },
     );
   }
+
+  async getTimeline(
+    conversationId: string,
+    before?: Date,
+    limit = 50,
+  ): Promise<TimelineItem[]> {
+    try {
+      const timelineRows = await this.db
+        .select()
+        .from(this.conversationTimelineTable)
+        .where(
+          before
+            ? and(
+                eq(
+                  this.conversationTimelineTable.conversationId,
+                  conversationId,
+                ),
+                lt(this.conversationTimelineTable.createdAt, before),
+              )
+            : eq(this.conversationTimelineTable.conversationId, conversationId),
+        )
+        .orderBy(desc(this.conversationTimelineTable.createdAt))
+        .limit(limit);
+
+      const messageIds = timelineRows
+        .filter((r) => r.type === "message")
+        .map((r) => r.refId);
+      const eventIds = timelineRows
+        .filter((r) => r.type === "event")
+        .map((r) => r.refId);
+
+      const [msgs, events] = await Promise.all([
+        messageIds.length
+          ? this.db
+              .select()
+              .from(this.messageTable)
+              .where(inArray(this.messageTable.id, messageIds))
+          : [],
+
+        eventIds.length
+          ? this.db
+              .select()
+              .from(this.conversationEventTable)
+              .where(inArray(this.conversationEventTable.id, eventIds))
+          : [],
+      ]);
+
+      const msgMap = new Map(msgs.map((m) => [m.id, m]));
+      const eventMap = new Map(events.map((e) => [e.id, e]));
+
+      return timelineRows.map((row): TimelineItem => {
+        if (row.type === "message") {
+          return {
+            type: "message",
+            createdAt: row.createdAt,
+            data: msgMap.get(row.refId)!,
+          };
+        }
+
+        if (row.type === "event") {
+          return {
+            type: "system_event",
+            createdAt: row.createdAt,
+            data: eventMap.get(row.refId)!,
+          };
+        }
+
+       
+        return {
+          type: "deleted_message",
+          createdAt: row.createdAt,
+          data: null,
+        };
+      });
+    } catch (error) {
+      logger.error({ err: error }, "failed fetching conversation Timeline");
+      throw new AppError("failed fetching conversation Timeline", 500);
+    }
+  }
+
 }
 
 export default ConversationsRepository;

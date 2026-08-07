@@ -1,4 +1,5 @@
 import { IConversation, IUser } from "../../db/schema";
+import { MessageResponseDTO, systemEventDTO } from "../message/message.types";
 export interface SendMessageDto {
   roomId: string;
   content: string;
@@ -58,3 +59,8 @@ export interface IcreateGroupConversation {
   createdBy: IConversation["createdBy"];
   participantIds: string[];
 }
+
+export type TimelineItem =
+  | { type: "message"; createdAt: Date; data: MessageResponseDTO }
+  | { type: "system_event"; createdAt: Date; data: systemEventDTO }
+  | { type: "deleted_message"; createdAt: Date; data: null };

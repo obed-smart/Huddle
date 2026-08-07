@@ -50,6 +50,13 @@
       "when": 1785905306214,
       "tag": "0006_boring_goliath",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785962429820,
+      "tag": "0007_dark_thunderbolt_ross",
+      "breakpoints": true
     }
   ]
 }

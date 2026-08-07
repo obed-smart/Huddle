@@ -1,6 +1,12 @@
 import ConversationsRepository from "./conversations.repository";
 import { db } from "../../db";
-import { conversationsTable, conversationParticipants } from "../../db/schema";
+import {
+  conversationsTable,
+  conversationParticipants,
+  conversationTimeline,
+  messagesTable,
+  systemEventsTable,
+} from "../../db/schema";
 import { groupJoinRequestsTable } from "../../db/schema";
 import ConversationService from "./conversations.services";
 import ConversationController from "./conversation.controllers";
@@ -14,6 +20,9 @@ const conversationRepo = new ConversationsRepository(
   conversationParticipants,
   groupJoinRequestsTable,
   usersTable,
+  conversationTimeline,
+  messagesTable,
+  systemEventsTable,
 );
 
 const conversationService = new ConversationService(
