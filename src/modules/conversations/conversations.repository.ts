@@ -38,6 +38,7 @@ import logger from "../../shared/utils/logger";
 import { inArray } from "drizzle-orm";
 import { count } from "drizzle-orm";
 import { IupdateConversationSchema } from "./conversations.validation";
+import { alias } from "drizzle-orm/pg-core";
 
 export const conversationResponse = {
   id: conversation.id,
@@ -187,6 +188,67 @@ class ConversationsRepository {
         "PG ERROR DETECTED:",
       );
       throw new AppError(err as string, err.code);
+    }
+  }
+
+  async findConversation(userId: string) {
+    const otherParticipant = alias(
+      conversationParticipants,
+      "otherParticipant",
+    );
+    const otherUser = alias(users, "otherUser");
+
+    try {
+      const userConversations = await this.db
+        .select({
+          id: this.conversationsTable.id,
+          type: this.conversationsTable.type,
+          name: this.conversationsTable.name,
+          membersCount: sql<number>`
+      (
+        SELECT COUNT(*)
+        FROM ${this.conversation_participants}
+        WHERE ${this.conversation_participants.conversationId} = ${this.conversationsTable.id} AND ${this.conversationsTable.type} = 'group'
+      )
+    `,
+          avatar: this.conversationsTable.avatarUrl,
+          updatedAt: this.conversationsTable.updatedAt,
+          otherUserId: otherUser.id,
+          otherUserName: otherUser.displayName,
+          otherUserAvatar: otherUser.avatarUrl,
+        })
+        .from(this.conversationsTable)
+        .innerJoin(
+          conversationParticipants,
+          eq(
+            conversationParticipants.conversationId,
+            this.conversationsTable.id,
+          ),
+        )
+        .leftJoin(
+          otherParticipant,
+          and(
+            eq(otherParticipant.conversationId, this.conversationsTable.id),
+            ne(otherParticipant.userId, userId),
+            eq(this.conversationsTable.type, "direct"),
+          ),
+        )
+        .leftJoin(otherUser, eq(otherUser.id, otherParticipant.userId))
+        .where(eq(conversationParticipants.userId, userId))
+        .orderBy(desc(this.conversationsTable.updatedAt));
+      return userConversations.map((c) => ({
+        id: c.id,
+        type: c.type,
+        name: c.type === "direct" ? c.otherUserName : c.name,
+        avatar: c.type === "direct" ? c.otherUserAvatar : c.avatar,
+        otherUserId: c.type === "direct" ? c.otherUserId : null,
+        membersCount: c.type === "group" ? Number(c.membersCount) : null,
+        updatedAt: c.updatedAt,
+      }));
+      
+    } catch (error) {
+      logger.error({ err: error }, "Failed fetching conversation");
+      throw new AppError("Failed fetching conversation", 500);
     }
   }
 
@@ -896,7 +958,6 @@ class ConversationsRepository {
           };
         }
 
-       
         return {
           type: "deleted_message",
           createdAt: row.createdAt,
@@ -908,7 +969,6 @@ class ConversationsRepository {
       throw new AppError("failed fetching conversation Timeline", 500);
     }
   }
-
 }
 
 export default ConversationsRepository;

@@ -372,6 +372,18 @@ class ConversationController {
 
     res.status(200).json(ApiResponse.success(history));
   });
+
+  getConversation = catchAsync(async (req, res) => {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401);
+    }
+
+    const conversations = await this.conversationService.findConversation(
+      req.user?.id,
+    );
+
+    res.status(201).json(ApiResponse.success(conversations));
+  });
 }
 
 export default ConversationController;

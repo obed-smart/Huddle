@@ -21,6 +21,8 @@ import { requireGroupAdmin } from "./conversation.middleware";
 
 const router = Router();
 
+router.get("/", authenticate, conversationController.getConversation);
+
 router.post(
   "/ping",
   authenticate,

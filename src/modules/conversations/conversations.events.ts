@@ -14,6 +14,7 @@ export function conversationEvent(io: Server, socket: Socket) {
         conversationIdEventSchema,
         data,
       );
+      
       const userId = socket.data.user.sub;
 
       const { exists, isParticipant, type } =

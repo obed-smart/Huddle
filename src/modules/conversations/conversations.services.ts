@@ -883,6 +883,10 @@ class ConversationService {
       limit,
     );
   }
+
+  async findConversation(userId: string) {
+    return await this.conversationRepo.findConversation(userId);
+  }
 }
 
 export default ConversationService;

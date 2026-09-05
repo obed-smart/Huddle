@@ -12,8 +12,6 @@ import AppError from "./shared/utils/apiError";
 import { ApiResponse } from "./shared/utils/apiResponse";
 import GlobalErrorHandler from "./middlewares/globalErrors.middleware";
 import routes from "./routers/index";
-import path from "path";
-import testRoutes from "./test-ui/test.routers";
 
 const app = express();
 
@@ -23,9 +21,9 @@ app.set("trust proxy", true);
 app.use(httpLogger);
 
 app.use(express.json());
-app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "test-ui/views"));
-app.use(express.static(path.join(__dirname, "test-ui/public")));
+// app.set("view engine", "ejs");
+// app.set("views", path.join(__dirname, "test-ui/views"));
+// app.use(express.static(path.join(__dirname, "test-ui/public")));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
@@ -76,7 +74,7 @@ app.get("/health", async (req: Request, res: Response) => {
     return res.status(503).json(ApiResponse.success(healthStatus));
   }
 });
-app.use("/", testRoutes);
+// app.use("/", testRoutes);
 app.use("/api/v1", routes);
 
 app.use((req, res, next) => {
