@@ -27,7 +27,7 @@ router.post(
       ) => {
         if (err) return next(err);
         if (!user) {
-          throw new AppError(`${info?.message  || "Unauthorized"}`, 401);
+          throw new AppError(`${info?.message || "Unauthorized"}`, 401);
         }
         req.user = user;
         next();
@@ -36,6 +36,8 @@ router.post(
   },
   authController.login,
 );
+
+router.post("/logout", authenticate, authController.logout);
 
 router.get(
   "/google",

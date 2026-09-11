@@ -31,14 +31,14 @@ router.post(
 );
 
 router.post(
-  "/pings/:id/accept-response",
+  "/pings/:id/accept",
   authenticate,
   validate(conversationIdSchema, "params"),
   conversationController.acceptPing,
 );
 
 router.post(
-  "/pings/:id/decline-response",
+  "/pings/:id/decline",
   authenticate,
   validate(conversationIdSchema, "params"),
   conversationController.declinePing,

@@ -21,7 +21,7 @@ export const refreshTokensTable = pgTable(
       .notNull(),
   },
   (table) => [
-    index("refresh_tokens_user_id_idx").on(table.userId),
+    index("refresh_tokens_user_id_idx").on(table.userId, table.revokedAt),
     index("refresh_token_hash_idx").on(table.tokenHash),
   ],
 );

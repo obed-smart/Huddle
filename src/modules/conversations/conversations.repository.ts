@@ -245,7 +245,6 @@ class ConversationsRepository {
         membersCount: c.type === "group" ? Number(c.membersCount) : null,
         updatedAt: c.updatedAt,
       }));
-      
     } catch (error) {
       logger.error({ err: error }, "Failed fetching conversation");
       throw new AppError("Failed fetching conversation", 500);
@@ -381,12 +380,18 @@ class ConversationsRepository {
     exists: boolean;
     isParticipant: boolean;
     type: "direct" | "group" | null;
+    name: string | null;
   }> {
     try {
-      const result = await this.db.execute(
+      const result = await this.db.execute<{
+        type: "direct" | "group";
+        name: string | null;
+        exists: boolean;
+        isParticipant: boolean;
+      }>(
         sql`
       SELECT
-        c.type AS "type",
+        c.type AS "type", c.name AS "name",
         EXISTS (SELECT 1 FROM ${this.conversationsTable} WHERE id = ${conversationId}) AS "exists",
         EXISTS (
           SELECT 1 FROM ${this.conversation_participants}
@@ -399,10 +404,13 @@ class ConversationsRepository {
 
       const row = result.rows[0];
 
+      logger.debug({ row }, "Check Participant Result:");
+
       return {
         exists: !!row?.exists,
         isParticipant: !!row?.isParticipant,
         type: (row?.type as "direct" | "group" | undefined) ?? null,
+        name: row?.name ?? null,
       };
     } catch (error) {
       logger.error({ err: error }, "Failed when checking participant");

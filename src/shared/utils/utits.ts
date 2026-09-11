@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 import AppError from "./apiError";
 import { IUser } from "../../db/schema/schema.user";
 import logger from "./logger";
-import { string } from "zod";
+
 import { AuthUser } from "../types";
 import { userService } from "../../modules/user/user.modules";
 import env from "../../config/env";
@@ -89,7 +89,7 @@ export const verifySecret = (secrect: string) => {
     );
   }
 
-  return jwt.verify(secrect, process.env.JWT_ACCESS_SECRET!) as IUser;
+  return jwt.verify(secrect, process.env.JWT_ACCESS_SECRET!);
 };
 
 export const generateAccessToken = (

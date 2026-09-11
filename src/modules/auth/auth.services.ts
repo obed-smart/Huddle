@@ -76,6 +76,10 @@ class AuthService {
     };
   }
 
+  async logout(refreshToken: string) {
+    await this.authRepo.revokeRefreshToken(refreshToken);
+  }
+
   async googleCallback(user: AuthUser) {
     const { accessToken, refreshToken } = this.generateToken(user);
 

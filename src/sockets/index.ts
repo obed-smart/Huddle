@@ -20,8 +20,9 @@ export function createSocketServer(server: HttpServer) {
 
   io.on("connection", (socket) => {
     try {
-      const { sub: userId, username } = socket.data.user;
+      const { id: userId, username } = socket.data.user;
 
+      
       logger.debug(
         { user: socket.data.user },
         "socket connected with user data",

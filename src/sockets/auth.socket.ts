@@ -4,8 +4,12 @@ import * as cookie from "cookie";
 import AppError from "../shared/utils/apiError";
 import { verifySecret } from "../shared/utils/utits";
 import logger from "../shared/utils/logger";
+import { userService } from "../modules/user/user.modules";
 
-export function authMiddleware(socket: Socket, next: (err?: any) => void) {
+export async function authMiddleware(
+  socket: Socket,
+  next: (err?: any) => void,
+) {
   try {
     const headerCookie = socket.handshake.headers.cookie;
     logger.debug(`Socket handshake cookies headers: ${headerCookie}`);
@@ -29,7 +33,20 @@ export function authMiddleware(socket: Socket, next: (err?: any) => void) {
       return next(new AppError("Unauthorized: Invalid token", 401));
     }
 
-    socket.data.user = decoded;
+    const newDecoded =
+      typeof decoded === "string" ? JSON.parse(decoded) : decoded;
+
+    const user = await userService.findAuthUserById(newDecoded.sub);
+
+    logger.debug(`User fetched from database: ${JSON.stringify(user)}`);
+
+    logger.debug(`Authenticated user: ${JSON.stringify(decoded)}`);
+
+    if (!user) {
+      return next(new AppError("Unauthorized: User no longer exists", 401));
+    }
+
+    socket.data.user = user;
 
     next();
   } catch (err) {

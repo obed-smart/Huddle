@@ -23,7 +23,7 @@ export function messageEvent(io: Server, socket: Socket) {
       const { tempId, replyToMessageId, conversationId, content, mentions } =
         validateSocketData(sendMessageSchema, data);
 
-      const userId = socket.data.user.sub;
+      const userId = socket.data.user.id;
 
       const requestedMentionIds = [
         ...new Set(mentions?.map((m) => m.userId) ?? []),
@@ -48,7 +48,7 @@ export function messageEvent(io: Server, socket: Socket) {
 
       const message = await messageService.createMessage({
         conversationId,
-        senderId: socket.data.user.sub,
+        senderId: socket.data.user.id,
         body: content,
         type: "text",
         replyToMessageId: replyToMessageId ?? null,
@@ -184,7 +184,7 @@ export function messageEvent(io: Server, socket: Socket) {
   socket.on(
     "message:read",
     catchSocketAsync(async (data) => {
-      const userId = socket.data.user.sub;
+      const userId = socket.data.user.id;
       const { conversationId, lastMessageId } = validateSocketData(
         messageReadSchema,
         data,
@@ -244,7 +244,7 @@ export function messageEvent(io: Server, socket: Socket) {
   socket.on(
     "reactions:add",
     catchSocketAsync(async (data, callback) => {
-      const userId = socket.data.user.sub;
+      const userId = socket.data.user.id;
       const { conversationId, messageId, emoji } = validateSocketData(
         reactionsAddSchema,
         data,
@@ -277,7 +277,7 @@ export function messageEvent(io: Server, socket: Socket) {
   socket.on(
     "reactions:remove",
     catchSocketAsync(async (data, callback) => {
-      const userId = socket.data.user.sub;
+      const userId = socket.data.user.id;
       const { conversationId, messageId } = validateSocketData(
         reactionRemoveSchema,
         data,

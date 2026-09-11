@@ -25,17 +25,24 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  identifier: z.string({
-    error: (issue) => issue.input === undefined
-      ? "Email or username is required"
-      : "Email or username must be a string",
-  }).trim().min(1, "Email or username is required"),
+  identifier: z
+    .string({
+      error: (issue) =>
+        issue.input === undefined
+          ? "Email or username is required"
+          : "Email or username must be a string",
+    })
+    .trim()
+    .min(1, "Email or username is required"),
 
-  password: z.string({
-    error: (issue) => issue.input === undefined
-      ? "Password is required"
-      : "Password must be a string",
-  }).min(1, "Password is required"),
+  password: z
+    .string({
+      error: (issue) =>
+        issue.input === undefined
+          ? "Password is required"
+          : "Password must be a string",
+    })
+    .min(1, "Password is required"),
 });
 
 export type RegisterDto = z.infer<typeof registerSchema>;

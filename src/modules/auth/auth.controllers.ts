@@ -9,6 +9,12 @@ import AppError from "../../shared/utils/apiError";
 import { AuthUser } from "../../shared/types";
 import env from "../../config/env";
 
+const cookieOptions = {
+  httpOnly: true,
+  secure: true,
+  sameSite: "none" as const,
+  path: "/",
+};
 class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -19,9 +25,7 @@ class AuthController {
     expiresAt: Date,
   ) {
     res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      ...cookieOptions,
       maxAge:
         env.NODE_ENV === "production"
           ? 15 * 60 * 1000
@@ -29,9 +33,7 @@ class AuthController {
     });
 
     res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: env.NODE_ENV === "production",
-      sameSite: "strict",
+      ...cookieOptions,
       expires: expiresAt,
     });
   }
@@ -69,6 +71,22 @@ class AuthController {
         avataUrl: user.avatarUrl,
       }),
     );
+  });
+
+  logout = catchAsync(async (req, res) => {
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      throw new AppError("Refresh token not found", 400);
+    }
+
+    await this.authService.logout(refreshToken);
+
+    res.clearCookie("accessToken", cookieOptions);
+
+    res.clearCookie("refreshToken", cookieOptions);
+
+    res.status(204).json(ApiResponse.success(null));
   });
 
   googleCallback = catchAsync(async (req: Request, res: Response) => {

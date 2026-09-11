@@ -1,20 +1,39 @@
 import z from "zod";
 
 export const initiateCallEventSchema = z.object({
-  conversationId: z.uuid({
-    error: (issue) =>
-      issue.input === undefined
-        ? "conversationId is required"
-        : "conversationId must be a valid uuid",
-  }),
-  callMediaType: z.enum(["video", "audio"], {
-    error: (issue) => ({
-      message:
-        issue.input === undefined
-          ? "callMediaType is required"
-          : typeof issue.input !== "string"
-            ? "callMediaType must be a string"
-            : "callMediaType must be either 'video' or 'audio'",
-    }),
+  conversationId: z.uuid(),
+  callMediaType: z.enum(["video", "audio"]),
+});
+
+export const acceptCallEventSchema = z.object({
+  callId: z.string(),
+  conversationId: z.uuid(),
+  callMediaType: z.enum(["video", "audio"]),
+});
+
+export const callSdpSchema = z.object({
+  callId: z.uuid().nullable(),
+  conversationId: z.uuid(),
+  to: z.uuid(),
+
+  description: z.object({
+    type: z.enum(["offer", "answer"]),
+    sdp: z.string().min(1),
   }),
 });
+
+export const callIceSchema = z.object({
+  callId: z.uuid().nullable(),
+  conversationId: z.uuid(),
+  to: z.uuid(),
+
+  candidate: z.object({
+    candidate: z.string(),
+    sdpMid: z.string().nullable(),
+    sdpMLineIndex: z.number().int().nullable(),
+    usernameFragment: z.string().nullable().optional(),
+  }),
+});
+
+export type CallSdp = z.infer<typeof callSdpSchema>;
+export type CallIce = z.infer<typeof callIceSchema>;
