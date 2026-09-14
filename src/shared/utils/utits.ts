@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import argon2 from "argon2";
 import { customAlphabet } from "nanoid";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
@@ -16,7 +17,7 @@ const MAX_RETRIES = 5;
 
 const nanoid = customAlphabet("abcdefghijkmnopqrstuvwxyz23456789", 10);
 
-export const hashPassword = async (password: string) => {
+export const hashPassword = async (password: string): Promise<string> => {
   if (!password) {
     throw new AppError(
       "[password hash] cannot hash and undifine or empty value",
@@ -24,15 +25,23 @@ export const hashPassword = async (password: string) => {
     );
   }
 
-  const salt = await bcrypt.genSalt(12);
-  return await bcrypt.hash(password, salt);
+  return argon2.hash(password, {
+    type: argon2.argon2id,
+    memoryCost: 19456,
+  });
 };
 
 export const comparePassword = async (
-  inputPassword: string,
-  password: string,
+  Password: string,
+  passwordHash: string,
 ) => {
-  return await bcrypt.compare(inputPassword, password);
+  if (passwordHash.startsWith("$argon2")) {
+    return argon2.verify(passwordHash, Password);
+  }
+  if (passwordHash.startsWith("$2")) {
+    return bcrypt.compare(Password, passwordHash);
+  }
+  throw new AppError("Unrecognized password hash format", 401);
 };
 
 export const generateUniqueUsername = async (displayName: string) => {
@@ -99,6 +108,7 @@ export const generateAccessToken = (
     { sub: user.id, role: user.globalRole, username: user.username },
     env.JWT_ACCESS_SECRET,
     {
+      algorithm: "HS256",
       expiresIn: env.NODE_ENV === "production" ? "15m" : "7d",
     },
   );
@@ -106,6 +116,10 @@ export const generateAccessToken = (
 };
 
 export const generateRefreshToken = () => {
+  return crypto.randomBytes(32).toString("hex");
+};
+
+export const generateFamilyId = () => {
   return crypto.randomBytes(32).toString("hex");
 };
 

@@ -105,6 +105,29 @@ class AuthController {
 
     res.redirect(`${process.env.FRONTEND_URL!}/chat`);
   });
+
+  refresh = catchAsync(async (req, res) => {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) throw new AppError("Refresh token not found", 400);
+
+    try {
+      const {
+        accessToken,
+        refreshToken: newToken,
+        expiresAt,
+      } = await this.authService.refresh(refreshToken);
+
+      this.setCookies(res, accessToken, newToken, expiresAt);
+      res.status(200).json(ApiResponse.success(null));
+    } catch (error) {
+      res.clearCookie("accessToken", cookieOptions);
+      res.clearCookie("refreshToken", cookieOptions);
+
+      throw error;
+    }
+  });
+
+  
 }
 
 export default AuthController;

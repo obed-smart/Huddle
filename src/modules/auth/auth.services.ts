@@ -5,6 +5,7 @@ import AppError from "../../shared/utils/apiError";
 import authRepository from "./auth.repository";
 import {
   generateAccessToken,
+  generateFamilyId,
   generateRefreshToken,
   hashPassword,
   hashToken,
@@ -24,21 +25,28 @@ class AuthService {
   private generateToken(user: AuthUser) {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken();
+    const familyId = generateFamilyId();
 
     return {
       accessToken,
       refreshToken,
+      familyId,
     };
   }
 
-  private async storeRefreshToken(userId: string, refreshToken: string) {
+  private async storeRefreshToken(
+    userId: string,
+    refreshToken: string,
+    familyId: string,
+  ) {
     let expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_LIFESPAN_DAYS);
 
     const hashTokens = hashToken(refreshToken);
 
     await this.authRepo.create({
-      userId: userId,
+      userId,
+      familyId,
       tokenHash: hashTokens,
       expiresAt: expiresAt,
     });
@@ -52,9 +60,13 @@ class AuthService {
       provider: "local",
     });
 
-    const { accessToken, refreshToken } = this.generateToken(user);
+    const { accessToken, refreshToken, familyId } = this.generateToken(user);
 
-    const expiresAt = await this.storeRefreshToken(user.id, refreshToken);
+    const expiresAt = await this.storeRefreshToken(
+      user.id,
+      refreshToken,
+      familyId,
+    );
 
     return {
       user,
@@ -65,9 +77,13 @@ class AuthService {
   }
 
   async login(user: IUser) {
-    const { accessToken, refreshToken } = this.generateToken(user);
+    const { accessToken, refreshToken, familyId } = this.generateToken(user);
 
-    const expiresAt = await this.storeRefreshToken(user.id, refreshToken);
+    const expiresAt = await this.storeRefreshToken(
+      user.id,
+      refreshToken,
+      familyId,
+    );
 
     return {
       accessToken,
@@ -76,16 +92,59 @@ class AuthService {
     };
   }
 
-  async logout(refreshToken: string) {
-    await this.authRepo.revokeRefreshToken(refreshToken);
+  async logout(token: string) {
+    const tokenHash = hashToken(token);
+    await this.authRepo.revokeRefreshToken(tokenHash);
   }
 
   async googleCallback(user: AuthUser) {
-    const { accessToken, refreshToken } = this.generateToken(user);
+    const { accessToken, refreshToken, familyId } = this.generateToken(user);
 
     this.logger.info(`User ${user.id} logged in with Google`);
 
-    const expiresAt = await this.storeRefreshToken(user.id, refreshToken);
+    const expiresAt = await this.storeRefreshToken(
+      user.id,
+      refreshToken,
+      familyId,
+    );
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresAt,
+    };
+  }
+
+  async refresh(token: string) {
+    const tokenHash = hashToken(token);
+
+    const existing = await this.authRepo.findByTokenHash(tokenHash);
+
+    if (!existing) {
+      throw new AppError("Invalid refresh token", 401);
+    }
+
+    if (existing.revokedAt) {
+      await this.authRepo.revokeFamily(existing.familyId);
+      this.logger.warn(
+        `Refresh reuse detected, user: ${existing.userId}, familyId: ${existing.familyId} `,
+      );
+      throw new AppError("Session invalid, please login again", 401);
+    }
+
+    if (existing.expiresAt < new Date()) {
+      throw new AppError("Refresh token expired", 401);
+    }
+
+    await this.authRepo.revokeById(existing.id);
+    const user = await this.userService.findAuthUserById(existing.userId);
+    const { accessToken, refreshToken } = this.generateToken(user);
+
+    const expiresAt = await this.storeRefreshToken(
+      user.id,
+      refreshToken,
+      existing.familyId,
+    );
 
     return {
       accessToken,

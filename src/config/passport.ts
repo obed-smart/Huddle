@@ -54,7 +54,7 @@ const cookieExtractor = (req: Request): string | null => {
 
 const jwtOptions = {
   jwtFromRequest: cookieExtractor,
-  secretOrKey: process.env.JWT_ACCESS_SECRET || "access_secret_key",
+  secretOrKey: process.env.JWT_ACCESS_SECRET!,
 };
 
 passport.use(
@@ -80,24 +80,39 @@ passport.use(
     async (accessToken, refereshToken, profile, done: Function) => {
       try {
         const email = profile.emails?.[0]?.value;
-        if (!email) return done(null, false);
+        const emailVerified = profile.emails?.[0]?.verified ?? true;
+
+        if (!email)
+          return done(null, false, {
+            message: "No email returned from Google",
+          });
+        if (!emailVerified)
+          return done(null, false, { message: "Google email is not verified" });
 
         let user = await userService.findAuthUserByGoogleId(profile.id);
         let isNewUser = false;
 
         if (!user) {
-          const username = await generateUniqueUsername(profile.displayName);
+          const existingByEmail = await userService.findUserByEmail(email);
 
-          user = await userService.createUser({
-            email,
-            username,
-            displayName: profile.displayName || username,
-            googleId: profile.id,
-            provider: "google",
-            avatarUrl: profile.photos?.[0]?.value || null,
-          });
+          if (existingByEmail) {
+            await userService.linkGoogleAccount(existingByEmail.id, profile.id);
 
-          isNewUser = true;
+            user = existingByEmail;
+          } else {
+            const username = await generateUniqueUsername(profile.displayName);
+
+            user = await userService.createUser({
+              email,
+              username,
+              displayName: profile.displayName || username,
+              googleId: profile.id,
+              provider: "google",
+              avatarUrl: profile.photos?.[0]?.value || null,
+            });
+
+            isNewUser = true;
+          }
         }
 
         return done(null, { user, isNewUser });

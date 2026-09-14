@@ -135,6 +135,8 @@ class UserService {
     return updatedUser;
   }
 
-  
+  async linkGoogleAccount(userId: string, googleId: string) {
+    await this.userRepo.linkGoogleAccount(userId, googleId);
+  }
 }
 export default UserService;

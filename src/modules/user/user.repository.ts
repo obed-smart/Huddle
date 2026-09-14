@@ -52,9 +52,19 @@ class UserRepository {
     return user;
   }
 
-  async findByEmail(email: IUser["email"]): Promise<IUser | null> {
+  async findByEmail(email: IUser["email"]): Promise<AuthUser | null> {
     const user = await this.db.query.usersTable.findFirst({
       where: eq(this.usersTable.email, email),
+      columns: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        bio: true,
+        globalRole: true,
+        isEmailVerified: true,
+      },
     });
 
     return user ?? null;
@@ -148,6 +158,7 @@ class UserRepository {
    * @param email
    * @returns
    */
+
   async checkRegistrationConflict(username: string, email: string) {
     try {
       return await this.db.query.usersTable.findFirst({
@@ -218,6 +229,15 @@ class UserRepository {
       );
       throw new AppError("Failed to update user profile", 500);
     }
+  }
+
+  async linkGoogleAccount(userId: string, googleId: string) {
+    return await this.db
+      .update(this.usersTable)
+      .set({
+        googleId: googleId,
+      })
+      .where(eq(this.usersTable.id, userId));
   }
 }
 
