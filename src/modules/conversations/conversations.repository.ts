@@ -8,6 +8,7 @@ import {
   lte,
   ne,
   notInArray,
+  or,
   sql,
 } from "drizzle-orm";
 import { db as dBinstance } from "../../db";
@@ -193,7 +194,7 @@ class ConversationsRepository {
 
   async findConversation(userId: string) {
     const otherParticipant = alias(
-      conversationParticipants,
+      this.conversation_participants,
       "otherParticipant",
     );
     const otherUser = alias(users, "otherUser");
@@ -219,9 +220,9 @@ class ConversationsRepository {
         })
         .from(this.conversationsTable)
         .innerJoin(
-          conversationParticipants,
+          this.conversation_participants,
           eq(
-            conversationParticipants.conversationId,
+            this.conversation_participants.conversationId,
             this.conversationsTable.id,
           ),
         )
@@ -234,8 +235,24 @@ class ConversationsRepository {
           ),
         )
         .leftJoin(otherUser, eq(otherUser.id, otherParticipant.userId))
-        .where(eq(conversationParticipants.userId, userId))
+        .where(
+          and(
+            eq(this.conversation_participants.userId, userId),
+            or(
+              and(
+                eq(this.conversationsTable.type, "direct"),
+                eq(this.conversationsTable.pingStatus, "accepted"),
+              ),
+
+              and(
+                eq(this.conversationsTable.type, "group"),
+                eq(this.conversation_participants.status, "accepted"),
+              ),
+            ),
+          ),
+        )
         .orderBy(desc(this.conversationsTable.updatedAt));
+
       return userConversations.map((c) => ({
         id: c.id,
         type: c.type,

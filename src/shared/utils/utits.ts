@@ -119,9 +119,6 @@ export const generateRefreshToken = () => {
   return crypto.randomBytes(32).toString("hex");
 };
 
-export const generateFamilyId = () => {
-  return crypto.randomBytes(32).toString("hex");
-};
 
 export const onlineUsers = new Map<string, Set<string>>();
 

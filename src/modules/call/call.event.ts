@@ -6,6 +6,7 @@ import {
   callIceSchema,
   callSdpSchema,
   initiateCallEventSchema,
+  rejectCallEventSchema,
 } from "./call.validation";
 import AppError from "../../shared/utils/apiError";
 import logger from "../../shared/utils/logger";
@@ -29,14 +30,75 @@ async function validateCallParticipant(conversationId: string, userId: string) {
   return { type, name, participantIds };
 }
 
+function handleLeave(
+  io: Server,
+  socket: Socket,
+  callId: string,
+  conversationId: string,
+  callback: Function,
+) {
+  const userId = socket.data.user.id;
+  const call = callService.getCall(callId);
+  if (!call) return callback?.({ success: true });
+
+  if (call.conversationId !== conversationId) {
+    throw new AppError(
+      "The call does not belong to the specified conversation",
+      400,
+    );
+  }
+  if (
+    !callService.isAuthorized(callId, userId) ||
+    !callService.isParticipant(callId, userId)
+  ) {
+    throw new AppError("You are not authorized to leave this call", 403);
+  }
+
+  callService.removeParticipant(callId, userId);
+  socket.leave(`call:${callId}`);
+
+  const remaining = callService.getParticipants(callId);
+
+  if (remaining.length < 2) {
+    callService.endCall(callId);
+    io.to(`call:${callId}`).emit("call:new:ended", { callId, reason: "ended" });
+  } else {
+    io.to(`call:${callId}`).emit("call:new:participant-left", {
+      callId,
+      from: userId,
+      participants: remaining,
+    });
+  }
+}
+
 export function callEvent(io: Server, socket: Socket) {
-  let now;
+  logger.debug("New recovery");
+  logger.debug(socket.recovered);
+
+  /**
+   * this is for a disconnect and reconnect even though that the connectionStateRecovery
+   * is implemented but it can not be fully trusted
+   *
+   **/
+  for (const callId of callService.callIdsForUser(socket.data.user.id)) {
+    const call = callService.getCall(callId);
+
+    if (!call) continue;
+
+    socket.join(`call:${callId}`);
+
+    socket.to(`call:${callId}`).emit("call:new:roster", {
+      callId: call.callId,
+      conversationId: call.conversationId,
+      startedAt: call.startedAt,
+      serverTime: Date.now(),
+      participants: callService.getParticipants(callId),
+    });
+  }
 
   socket.on(
     "call:initiate",
     catchSocketAsync(async (data, callback) => {
-      now = Date.now();
-
       const { conversationId, callMediaType } = validateSocketData(
         initiateCallEventSchema,
         data,
@@ -51,12 +113,22 @@ export function callEvent(io: Server, socket: Socket) {
         userId,
       );
 
+      logger.debug({ participantIds }, "authorizedUserIds");
+
       const call = callService.createCall({
         conversationId,
         type,
         authorizedUserIds: [...participantIds],
         initiator,
       });
+
+      logger.debug(
+        {
+          authorizedUsers: [...call.authorizedUsers],
+          participants: [...call.participants.entries()],
+        },
+        "Call collections",
+      );
 
       socket.join(`call:${call.callId}`);
 
@@ -240,9 +312,9 @@ export function callEvent(io: Server, socket: Socket) {
         );
       }
 
-      if (call.initiatorId === userId) {
-        throw new AppError("You cannot answer your own call", 400);
-      }
+      // if (call.initiatorId === userId) {
+      //   throw new AppError("You cannot answer your own call", 400);
+      // }
 
       if (!callService.isParticipant(String(callId), userId)) {
         throw new AppError(
@@ -336,6 +408,88 @@ export function callEvent(io: Server, socket: Socket) {
 
       console.timeEnd(`CALL START ${callId}`);
     }),
+  );
+
+  socket.on(
+    "call:reject",
+    catchSocketAsync(async (data, callback) => {
+      const { callId, conversationId } = validateSocketData(
+        rejectCallEventSchema,
+        data,
+      );
+      const userId = socket.data.user.id;
+
+      const call = callService.getCall(String(callId));
+
+      logger.debug({ call }, "call");
+
+      if (!call) {
+        return callback?.({
+          success: true,
+        });
+      }
+
+      if (call.conversationId !== conversationId) {
+        throw new AppError(
+          "The call does not belong to the specified conversation",
+          400,
+        );
+      }
+
+      if (!callService.isAuthorized(String(callId), userId)) {
+        throw new AppError("You are not authorized to reject this call", 403);
+      }
+
+      const payload = {
+        callId,
+        from: userId,
+      };
+
+      if (call.type === "direct") {
+        callService.endCall(callId);
+
+        socket
+          .to(`user:${call.initiatorId}`)
+          .emit("call:new:rejected", payload);
+      } else {
+        io.to(`call:${callId}`).emit("call:new:rejected", payload);
+      }
+
+      callback?.({
+        success: true,
+      });
+
+      socket.leave(`call:${callId}`);
+    }),
+  );
+
+  socket.on(
+    "call:end",
+    catchSocketAsync(async (data, callback) => {
+      const { callId, conversationId } = validateSocketData(
+        rejectCallEventSchema,
+        data,
+      );
+      await handleLeave(io, socket, callId, conversationId, callback);
+      callback?.({ success: true });
+    }),
+  );
+
+  socket.on(
+    "call:leave",
+    catchSocketAsync(async (data, callback) => {
+      const { callId, conversationId } = validateSocketData(
+        rejectCallEventSchema,
+        data,
+      );
+      await handleLeave(io, socket, callId, conversationId, callback);
+      callback?.({ success: true });
+    }),
+  );
+
+  socket.on(
+    "call:send",
+    catchSocketAsync(async (data, callback) => {}),
   );
 
   socket.on(

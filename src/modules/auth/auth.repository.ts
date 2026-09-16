@@ -35,6 +35,7 @@ class AuthRepository {
       );
   }
 
+
   async revokeFamily(familyId: string) {
     return await this.db
       .update(this.refreshTokensTable)

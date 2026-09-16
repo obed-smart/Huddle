@@ -57,6 +57,13 @@
       "when": 1785962429820,
       "tag": "0007_dark_thunderbolt_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789347250696,
+      "tag": "0008_useful_captain_america",
+      "breakpoints": true
     }
   ]
 }

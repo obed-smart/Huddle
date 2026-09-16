@@ -38,6 +38,7 @@ router.post(
 );
 
 router.post("/logout", authenticate, authController.logout);
+// router.post("/logoutALl", authenticate, )
 
 router.get(
   "/google",
@@ -55,5 +56,7 @@ router.get(
   }),
   authController.googleCallback,
 );
+
+router.post("/refresh", authController.refresh);
 
 export default router;

@@ -9,6 +9,8 @@ import AppError from "../../shared/utils/apiError";
 import { AuthUser } from "../../shared/types";
 import env from "../../config/env";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 const cookieOptions = {
   httpOnly: true,
   secure: true,
@@ -126,8 +128,6 @@ class AuthController {
       throw error;
     }
   });
-
-  
 }
 
 export default AuthController;

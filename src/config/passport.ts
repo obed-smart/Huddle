@@ -26,7 +26,9 @@ passport.use(
           return done(null, false, { message: "invalid credentials" });
         }
 
+        logger.debug("passwprd reach");
         const isMatch = await comparePassword(password, user.password);
+        logger.debug("password pass");
 
         logger.debug(`Bcrypt password match result: ${isMatch}`);
 

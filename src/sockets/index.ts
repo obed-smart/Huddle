@@ -14,6 +14,11 @@ export function createSocketServer(server: HttpServer) {
       credentials: true,
     },
     transports: ["polling", "websocket"],
+    
+    connectionStateRecovery: {
+      maxDisconnectionDuration: 2 * 60 * 1000,
+      skipMiddlewares: false,
+    },
   });
 
   io.use(authMiddleware);
@@ -22,15 +27,12 @@ export function createSocketServer(server: HttpServer) {
     try {
       const { id: userId, username } = socket.data.user;
 
-      
       logger.debug(
         { user: socket.data.user },
         "socket connected with user data",
       );
 
       socket.join(`user:${userId}`);
-
-     
 
       if (!onlineUsers.has(userId)) {
         onlineUsers.set(userId, new Set());

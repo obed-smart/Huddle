@@ -11,6 +11,11 @@ export const acceptCallEventSchema = z.object({
   callMediaType: z.enum(["video", "audio"]),
 });
 
+export const rejectCallEventSchema = z.object({
+  callId: z.uuid(),
+  conversationId: z.uuid(),
+});
+
 export const callSdpSchema = z.object({
   callId: z.uuid().nullable(),
   conversationId: z.uuid(),

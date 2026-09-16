@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import Logger from "../../shared/utils/logger";
 import { INewUser, IUser } from "../../db/schema/schema.user";
 import AppError from "../../shared/utils/apiError";
@@ -5,12 +6,12 @@ import AppError from "../../shared/utils/apiError";
 import authRepository from "./auth.repository";
 import {
   generateAccessToken,
-  generateFamilyId,
   generateRefreshToken,
   hashPassword,
   hashToken,
 } from "../../shared/utils/utits";
 import UserService from "../user/user.services";
+
 import { AuthUser } from "../../shared/types";
 
 export const REFRESH_TOKEN_LIFESPAN_DAYS = 7;
@@ -25,7 +26,7 @@ class AuthService {
   private generateToken(user: AuthUser) {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken();
-    const familyId = generateFamilyId();
+    const familyId = crypto.randomUUID();
 
     return {
       accessToken,
@@ -95,6 +96,10 @@ class AuthService {
   async logout(token: string) {
     const tokenHash = hashToken(token);
     await this.authRepo.revokeRefreshToken(tokenHash);
+  }
+
+  async logOutAll(userId: string) {
+    await this.authRepo.revokeAllRefreshTokens(userId);
   }
 
   async googleCallback(user: AuthUser) {
