@@ -59,8 +59,25 @@ function handleLeave(
 
   const remaining = callService.getParticipants(callId);
 
-  if (remaining.length < 2) {
+  // this is for initial hangup when no one have accepted the call yet
+  if (remaining.length === 0) {
+    const authorizedUserIds = [...call.authorizedUsers].filter(
+      (id) => id !== userId,
+    );
+
     callService.endCall(callId);
+    for (const userId of authorizedUserIds) {
+      socket
+        .to(`user:${userId}`)
+        .emit("call:new:ended", { callId, reason: "ended" });
+    }
+
+    // this is when at least one last person is remaining so no need of keeping the call just hange up
+  } else if (remaining.length < 2) {
+    callService.endCall(callId);
+
+    logger.debug(`Remaining Participant is up to tow`);
+
     io.to(`call:${callId}`).emit("call:new:ended", { callId, reason: "ended" });
   } else {
     io.to(`call:${callId}`).emit("call:new:participant-left", {
@@ -484,6 +501,13 @@ export function callEvent(io: Server, socket: Socket) {
       );
       await handleLeave(io, socket, callId, conversationId, callback);
       callback?.({ success: true });
+    }),
+  );
+
+  socket.on(
+    "call:invite",
+    catchSocketAsync(async (data, callback) => {
+      
     }),
   );
 
