@@ -23,10 +23,9 @@ class MessageController {
     async (req: Request, res: Response) => {
       const { conversationId } = req.params;
 
-      const messages =
-        await this.messageService.getMessagesByConversation(
-          conversationId as string
-        );
+      const messages = await this.messageService.getMessagesByConversation(
+        conversationId as string,
+      );
 
       res.status(200).json(ApiResponse.success(messages));
     },
@@ -45,10 +44,12 @@ class MessageController {
   updateMessage = catchAsync(async (req: Request, res: Response) => {
     const { messageId } = req.params;
     const { content } = req.body;
+    const senderId = req.user?.id as string;
 
     const message = await this.messageService.updateMessage(
       messageId as string,
       content,
+      senderId,
     );
 
     res.status(200).json(ApiResponse.success(message));
