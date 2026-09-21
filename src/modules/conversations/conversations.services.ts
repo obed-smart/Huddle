@@ -887,6 +887,13 @@ class ConversationService {
   async findConversation(userId: string) {
     return await this.conversationRepo.findConversation(userId);
   }
+
+  async canIniviteUserOnCall(callerId: string, tergetedUserId: string) {
+    return await this.conversationRepo.canIniviteUserOnCall(
+      callerId,
+      tergetedUserId,
+    );
+  }
 }
 
 export default ConversationService;

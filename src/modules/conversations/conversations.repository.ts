@@ -994,6 +994,40 @@ class ConversationsRepository {
       throw new AppError("failed fetching conversation Timeline", 500);
     }
   }
+
+  async canIniviteUserOnCall(callerId: string, tergetedUserId: string) {
+    try {
+      const conversation = await this.db
+        .select({
+          id: this.conversationsTable.id,
+        })
+        .from(this.conversationsTable)
+        .innerJoin(
+          this.conversation_participants,
+          eq(
+            this.conversation_participants.conversationId,
+            this.conversationsTable.id,
+          ),
+        )
+        .where(
+          and(
+            eq(this.conversationsTable.type, "direct"),
+            eq(this.conversationsTable.pingStatus, "accepted"),
+            inArray(this.conversation_participants.userId, [callerId, tergetedUserId])
+          ),
+        )
+        .groupBy(this.conversationsTable.id)
+        .having(
+          sql`COUNT(DISTINCT ${this.conversation_participants.userId}) = 2`,
+        )
+        .limit(1);
+
+      return !!conversation;
+    } catch (error) {
+      logger.error({ error });
+      throw new AppError("failed verifying invite", 500);
+    }
+  }
 }
 
 export default ConversationsRepository;

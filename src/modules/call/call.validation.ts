@@ -40,5 +40,12 @@ export const callIceSchema = z.object({
   }),
 });
 
+export const inviteCallSchema = z.object({
+  callId: z.uuid().nullable(),
+  conversationId: z.uuid(),
+  callMediaType: z.enum(["video", "audio"]),
+  to: z.uuid(),
+});
+
 export type CallSdp = z.infer<typeof callSdpSchema>;
 export type CallIce = z.infer<typeof callIceSchema>;

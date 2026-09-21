@@ -11,6 +11,7 @@ const pool = new Pool({
 export const db = drizzle({
   client: pool,
   schema: { ...schema },
+  logger: true,
 });
 
 export async function testDatabaseConnection(): Promise<void> {

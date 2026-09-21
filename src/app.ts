@@ -54,6 +54,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   "http://localhost:8080",
   "https://oauth.pstmn.io",
+  "https://mainland-essentials-roles-fitting.trycloudflare.com",
 ];
 
 app.use(

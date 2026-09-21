@@ -6,6 +6,7 @@ import {
   callIceSchema,
   callSdpSchema,
   initiateCallEventSchema,
+  inviteCallSchema,
   rejectCallEventSchema,
 } from "./call.validation";
 import AppError from "../../shared/utils/apiError";
@@ -30,7 +31,7 @@ async function validateCallParticipant(conversationId: string, userId: string) {
   return { type, name, participantIds };
 }
 
-function handleLeave(
+async function handleLeave(
   io: Server,
   socket: Socket,
   callId: string,
@@ -65,6 +66,8 @@ function handleLeave(
       (id) => id !== userId,
     );
 
+    await callService.callEndedWithNOCallUser(callId, authorizedUserIds);
+
     callService.endCall(callId);
     for (const userId of authorizedUserIds) {
       socket
@@ -74,6 +77,12 @@ function handleLeave(
 
     // this is when at least one last person is remaining so no need of keeping the call just hange up
   } else if (remaining.length < 2) {
+    const newUsers = [...call.authorizedUsers].filter((userId) => {
+      return !call.participants.has(userId);
+    });
+
+    await callService.callEndedWithNOCallUser(callId, newUsers);
+
     callService.endCall(callId);
 
     logger.debug(`Remaining Participant is up to tow`);
@@ -130,11 +139,20 @@ export function callEvent(io: Server, socket: Socket) {
         userId,
       );
 
-      logger.debug({ participantIds }, "authorizedUserIds");
+      const newCall = await callService.createCall(
+        conversationId,
+        userId,
+        callMediaType,
+        participantIds,
+      );
 
-      const call = callService.createCall({
+      await callService.joinCall(newCall.id, userId);
+
+      const call = callService.createCallSession({
+        callId: newCall.id,
         conversationId,
         type,
+        name: type === "direct" ? null : name,
         authorizedUserIds: [...participantIds],
         initiator,
       });
@@ -186,12 +204,17 @@ export function callEvent(io: Server, socket: Socket) {
         data,
       );
 
-      console.time(`CALL START ${callId}`);
+      logger.debug("New Call accept");
 
       const userId = socket.data.user.id;
 
       if (callService.isParticipant(callId, userId)) {
-        throw new AppError("You have already accepted this call", 400);
+        socket.emit("call:new:handled", {
+          callId,
+          conversationId,
+          reason: "accepted",
+        });
+        return callback?.({ success: true, handled: true });
       }
 
       const call = callService.getCall(callId);
@@ -212,6 +235,10 @@ export function callEvent(io: Server, socket: Socket) {
       if (call.initiatorId === userId) {
         throw new AppError("You cannot accept your own call", 400);
       }
+
+      await callService.joinCall(callId, userId);
+
+      callService.addAuthorizedUser(callId, userId);
 
       if (!callService.isAuthorized(callId, userId)) {
         throw new AppError("You are not authorized to accept this call", 403);
@@ -422,8 +449,6 @@ export function callEvent(io: Server, socket: Socket) {
       logger.debug(
         `Received call:connected with data: ${JSON.stringify(data)}`,
       );
-
-      console.timeEnd(`CALL START ${callId}`);
     }),
   );
 
@@ -457,6 +482,8 @@ export function callEvent(io: Server, socket: Socket) {
         throw new AppError("You are not authorized to reject this call", 403);
       }
 
+      await callService.updateCallOutcome(callId, userId, "declined");
+
       const payload = {
         callId,
         from: userId,
@@ -471,6 +498,12 @@ export function callEvent(io: Server, socket: Socket) {
       } else {
         io.to(`call:${callId}`).emit("call:new:rejected", payload);
       }
+
+      socket.to(`user:${userId}`).emit("call:new:handled", {
+        callId,
+        conversationId,
+        reason: "rejected",
+      });
 
       callback?.({
         success: true,
@@ -488,7 +521,7 @@ export function callEvent(io: Server, socket: Socket) {
         data,
       );
       await handleLeave(io, socket, callId, conversationId, callback);
-      callback?.({ success: true });
+      // callback?.({ success: true });
     }),
   );
 
@@ -500,14 +533,80 @@ export function callEvent(io: Server, socket: Socket) {
         data,
       );
       await handleLeave(io, socket, callId, conversationId, callback);
-      callback?.({ success: true });
+      // callback?.({ success: true });
     }),
   );
 
   socket.on(
     "call:invite",
     catchSocketAsync(async (data, callback) => {
-      
+      const { callId, conversationId, to, callMediaType } = validateSocketData(
+        inviteCallSchema,
+        data,
+      );
+      const userId = socket.data.user.id;
+
+      const call = callService.getCall(String(callId));
+
+      if (!call) {
+        throw new AppError("Call not found", 404);
+      }
+
+      if (call.conversationId !== conversationId) {
+        throw new AppError(
+          "The call does not belong to the specified conversation",
+          400,
+        );
+      }
+
+      if (
+        !callService.isAuthorized(String(callId), userId) ||
+        !callService.isParticipant(String(callId), userId)
+      ) {
+        throw new AppError("You are not authorized to invite a new user", 403);
+      }
+
+      if (
+        call.type === "group" &&
+        !callService.isAuthorized(String(callId), to)
+      ) {
+        throw new AppError(
+          "This user is not authorized to be in this call",
+          403,
+        );
+      }
+
+      if (call.type === "direct") {
+        if (!(await conversationService.canIniviteUserOnCall(userId, to))) {
+          throw new AppError("You can not invite this user to this call", 403);
+        }
+
+        callService.addInvitedUser(String(callId), to);
+      }
+
+      const fromName =
+        call.type === "group" ? call.name : socket.data.user.displayName;
+
+      const payload = {
+        callId: call.callId,
+        conversationId,
+        callMediaType,
+        fromName,
+        avatarUrl: socket.data.user.avatarUrl,
+        fromId: userId,
+      };
+
+      socket.to(`user:${to}`).emit("call:incoming", payload);
+      logger.debug(
+        `Emitted call:incoming to user:${to} for conversation ${conversationId}`,
+      );
+
+      callback?.({
+        success: true,
+        callId: call.callId,
+        startedAt: call.startedAt,
+        serverTime: Date.now(),
+      });
     }),
   );
 

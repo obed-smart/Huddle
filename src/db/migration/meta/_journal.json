@@ -64,6 +64,13 @@
       "when": 1789347250696,
       "tag": "0008_useful_captain_america",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789947323976,
+      "tag": "0009_crazy_revanche",
+      "breakpoints": true
     }
   ]
 }

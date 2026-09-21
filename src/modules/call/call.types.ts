@@ -11,8 +11,10 @@ export type Call = {
   callId: string;
   initiatorId: string;
   type: "direct" | "group";
+  name: string | null;
   conversationId: string;
   authorizedUsers: Set<string>;
+  invitedUsers: Set<string>;
   participants: Map<
     string,
     {
@@ -26,8 +28,10 @@ export type Call = {
 };
 
 export type CreateCallInput = {
+  callId: string;
   conversationId: string;
   type: "direct" | "group";
+  name: string | null;
   authorizedUserIds: string[];
   initiator: {
     id: string;
