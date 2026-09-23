@@ -45,7 +45,7 @@ app.set("trust proxy", true);
 app.use(httpLogger);
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "../../test-ui")));
+app.use(express.static(path.join(__dirname, "../../../test-ui")));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

@@ -47,5 +47,8 @@ export const inviteCallSchema = z.object({
   to: z.uuid(),
 });
 
+export const connectCallSchema = rejectCallEventSchema;
+
 export type CallSdp = z.infer<typeof callSdpSchema>;
 export type CallIce = z.infer<typeof callIceSchema>;
+export type IacceptCallEventSchema = z.infer<typeof acceptCallEventSchema>;

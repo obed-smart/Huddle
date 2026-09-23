@@ -1,3 +1,6 @@
+import { IConversation } from "../../db/schema";
+import { callOutCome, calltype } from "../../db/schema/type";
+
 export type ParticipantState =
   | "initiating"
   | "ringing"
@@ -24,7 +27,7 @@ export type Call = {
       joinedAt: number;
     }
   >;
-  startedAt: number;
+  startedAt: Date;
 };
 
 export type CreateCallInput = {
@@ -38,4 +41,52 @@ export type CreateCallInput = {
     displayName: string;
     avatarUrl: string;
   };
+  startedAt: Date;
+};
+export type callCursor = { startedAt: Date; callId: string };
+
+export type RawCallEntries = {
+  callId: string;
+  conversationId: string;
+  conversationType: IConversation["type"];
+  startedAt: Date;
+  type: calltype;
+  label: string;
+  avatarUrl: string | null;
+  direction: "incoming" | "outgoing";
+  duration: number | null;
+  callOutCome: callOutCome;
+  otherParticipantIds: string[];
+  otherParticipants: {
+    userId: string;
+    username: string;
+    avatarUrl: string | null;
+  }[];
+};
+
+export type otherUser = {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  callOutCome: callOutCome;
+};
+
+export type CallLogEntry = {
+  id: string;
+  conversationId: string;
+  conversationType: IConversation["type"];
+  label: string;
+  avatarUrl: string | null;
+  direction: "outgoing" | "incoming";
+  outcome: callOutCome;
+  type: calltype;
+  callStartedAt: Date;
+  durationSeconds: number | null;
+  count: number;
+  callIds: string[];
+  otherParticipants: {
+    userId: string;
+    username: string;
+    avatarUrl: string | null;
+  }[];
 };

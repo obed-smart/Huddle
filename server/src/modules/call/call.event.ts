@@ -5,6 +5,8 @@ import {
   acceptCallEventSchema,
   callIceSchema,
   callSdpSchema,
+  connectCallSchema,
+  IacceptCallEventSchema,
   initiateCallEventSchema,
   inviteCallSchema,
   rejectCallEventSchema,
@@ -155,6 +157,7 @@ export function callEvent(io: Server, socket: Socket) {
         name: type === "direct" ? null : name,
         authorizedUserIds: [...participantIds],
         initiator,
+        startedAt: newCall.startedAt,
       });
 
       logger.debug(
@@ -198,7 +201,7 @@ export function callEvent(io: Server, socket: Socket) {
 
   socket.on(
     "call:accept",
-    catchSocketAsync(async (data, callback) => {
+    catchSocketAsync(async (data: IacceptCallEventSchema, callback) => {
       const { callId, conversationId, callMediaType } = validateSocketData(
         acceptCallEventSchema,
         data,
@@ -236,15 +239,16 @@ export function callEvent(io: Server, socket: Socket) {
         throw new AppError("You cannot accept your own call", 400);
       }
 
-      await callService.joinCall(callId, userId);
-
       callService.addAuthorizedUser(callId, userId);
 
       if (!callService.isAuthorized(callId, userId)) {
         throw new AppError("You are not authorized to accept this call", 403);
       }
 
+      await callService.joinCall(callId, userId);
+
       callService.addParticipant(callId, socket.data.user);
+      logger.debug("New User added");
 
       socket.join(`call:${callId}`);
 
@@ -445,7 +449,15 @@ export function callEvent(io: Server, socket: Socket) {
   socket.on(
     "call:connected",
     catchSocketAsync(async (data, callback) => {
-      const { callId, conversationId } = data;
+      const { callId, conversationId } = validateSocketData(
+        connectCallSchema,
+        data,
+      );
+
+      const userId = socket.data.user.id;
+
+      await callService.markCallAsConnected(callId, userId);
+
       logger.debug(
         `Received call:connected with data: ${JSON.stringify(data)}`,
       );
@@ -581,6 +593,7 @@ export function callEvent(io: Server, socket: Socket) {
           throw new AppError("You can not invite this user to this call", 403);
         }
 
+        callService.addInvitedParticipant(call.callId, to, call.startedAt);
         callService.addInvitedUser(String(callId), to);
       }
 

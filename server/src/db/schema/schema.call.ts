@@ -62,7 +62,6 @@ export const callParticipant = pgTable(
     callStartedAt: timestamp("call_started_at", { withTimezone: true }),
   },
   (t) => [
-  
     primaryKey({ columns: [t.callId, t.userId] }),
 
     // "My call log, newest first."
@@ -81,9 +80,9 @@ export const callParticipant = pgTable(
   ],
 );
 
-export type Call = typeof callTable.$inferSelect;
-export type NewCall = typeof callTable.$inferInsert;
+export type ICall = typeof callTable.$inferSelect;
+export type INewCall = typeof callTable.$inferInsert;
 
-export type CallParticipant = typeof callParticipant.$inferSelect;
+export type ICallParticipant = typeof callParticipant.$inferSelect;
 
-export type NewCallParticipant = typeof callParticipant.$inferInsert;
+export type INewCallParticipant = typeof callParticipant.$inferInsert;

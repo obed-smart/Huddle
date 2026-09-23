@@ -1,9 +1,21 @@
 import { randomUUID } from "crypto";
 import logger from "../../shared/utils/logger";
-import { Call, CreateCallInput, ParticipantState } from "./call.types";
+import {
+  Call,
+  CreateCallInput,
+  callCursor,
+  otherUser,
+  ParticipantState,
+  RawCallEntries,
+  CallLogEntry,
+} from "./call.types";
 import AppError from "../../shared/utils/apiError";
 import { callOutCome, calltype } from "../../db/schema/type";
 import CallRepository from "./call.repository";
+import ca from "zod/v4/locales/ca.js";
+import { decodeCursor, encodeCursor } from "./call.utils";
+
+const CALL_DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 class CallService {
   private calls: Map<string, Call>;
@@ -32,12 +44,24 @@ class CallService {
     await this.callRepo.joinCall(callId, userId);
   }
 
+  async addInvitedParticipant(
+    callId: string,
+    userId: string,
+    callStartedAt: Date,
+  ) {
+    await this.callRepo.addInvitedParticipant(callId, userId, callStartedAt);
+  }
+
   async updateCallOutcome(
     callId: string,
     userId: string,
     outcome: callOutCome,
   ) {
     await this.callRepo.updateCallOutcome(callId, userId, outcome);
+  }
+
+  async markCallAsConnected(callId: string, userId: string) {
+    await this.callRepo.markCallAsConnected(callId, userId);
   }
 
   async callEnded(callId: string) {
@@ -49,6 +73,178 @@ class CallService {
     await this.callRepo.callEndedWithNOCallUser(callId, participantIds);
   }
 
+  private async buildCallEntries(
+    userId: string,
+    limit: number,
+    cursor?: callCursor,
+  ): Promise<RawCallEntries[]> {
+    const myCalls = await this.callRepo.getCalls(userId, limit, cursor);
+    if (myCalls.length === 0) return [];
+
+    const directCallId = myCalls
+      .filter((call) => call.conversationType !== "group")
+      .map((c) => c.callId);
+
+    const otherParticipant = await this.callRepo.getOtherCallParticipant(
+      directCallId,
+      userId,
+    );
+
+    logger.debug(otherParticipant, "Other call participants");
+
+    const peopleByCall = new Map<string, otherUser[]>();
+
+    for (const user of otherParticipant) {
+      const list = peopleByCall.get(user.callId) ?? [];
+
+      list.push(user);
+      peopleByCall.set(user.callId, list);
+    }
+
+    return myCalls.map((call) => {
+      const people = peopleByCall.get(call.callId) ?? [];
+
+      const direction = call.initiator === userId ? "outgoing" : "incoming";
+
+      const callOutCome: RawCallEntries["callOutCome"] =
+        direction === "outgoing"
+          ? "joined"
+          : call.callOutCome === "joined"
+            ? "joined"
+            : call.callOutCome === "declined"
+              ? "declined"
+              : "missed";
+
+      const callDuration =
+        call.connectedAt && call.endedAt
+          ? Math.round(
+              (call.endedAt.getTime() - call.connectedAt.getTime()) / 1000,
+            )
+          : null;
+
+      const featuredUser =
+        people.find((user) => user.callOutCome === "joined") ??
+        people[0] ??
+        null;
+
+      const displayLabel =
+        call.conversationType === "group"
+          ? (call.conversationName ?? "Unknown group")
+          : people.length <= 1
+            ? (featuredUser?.username ?? "Unknown")
+            : `${featuredUser?.username ?? "Unknown"} & ${people.length - 1} others`;
+
+      const avatarUrl =
+        call.conversationType === "group"
+          ? (call.conversationAvatarUrl ?? null)
+          : (featuredUser?.avatarUrl ?? null);
+
+      return {
+        callId: call.callId,
+        conversationId: call.conversationId,
+        conversationType: call.conversationType,
+        startedAt: call.startedAt,
+        type: call.type,
+        label: displayLabel,
+        avatarUrl,
+        direction,
+        duration: callDuration,
+        callOutCome,
+        otherParticipantIds: people.map((p) => p.userId),
+        otherParticipants: people.map((p) => ({
+          userId: p.userId,
+          username: p.username,
+          avatarUrl: p.avatarUrl,
+        })),
+      };
+    });
+  }
+
+  /** this function helpsme to create a unique key for each call so that i can         * know when to shrink or flat a call based on time and call
+   *  Example like ekene(2) or obi(5) just grouping related call
+   *  see {@link groupOrMergeConsecutiveCalls} for more
+   */
+  private getIdentityGruopingKey(entry: RawCallEntries) {
+    const baseKey =
+      entry.conversationType === "group"
+        ? `group:${entry.conversationId}`
+        : `direct:${entry.otherParticipantIds.slice().sort().join(",")}`;
+
+    return `${baseKey}:${entry.direction}`;
+  }
+
+  /**
+   * Collapses repeated calls within the time window defined by {@link CALL_DEDUP_WINDOW_MS}
+   * to a single call row in the ui
+   *
+   * @param entries List of raw call entries produced by {@link buildCallEntries}.
+   */
+
+  groupOrMergeConsecutiveCalls(entries: RawCallEntries[]): CallLogEntry[] {
+    const grouped: (CallLogEntry & { key: string })[] = [];
+
+    for (const entry of entries) {
+      const key = this.getIdentityGruopingKey(entry);
+      const last = grouped[grouped.length - 1];
+      const closeIntime =
+        last &&
+        last.callStartedAt.getTime() - entry.startedAt.getTime() <=
+          CALL_DEDUP_WINDOW_MS;
+
+      if (last && last.key === key && closeIntime) {
+        last.count += 1;
+      } else {
+        grouped.push({
+          key,
+          id: entry.callId,
+          conversationId: entry.conversationId,
+          conversationType: entry.conversationType,
+          otherParticipants: entry.otherParticipants,
+          label: entry.label,
+          avatarUrl: entry.avatarUrl,
+          direction: entry.direction,
+          outcome: entry.callOutCome,
+          type: entry.type,
+          callStartedAt: entry.startedAt,
+          durationSeconds: entry.duration,
+          count: 1,
+          callIds: [entry.callId],
+        });
+      }
+    }
+
+    return grouped.map(({ key, ...rest }) => rest);
+  }
+
+  /**
+   *
+   * combining all the function to build a call log for the user
+   * {@link buildCallEntries} for a raw db call data and {@link groupOrMergeConsecutiveCalls} for grouping repeated calls within given time {@link CALL_DEDUP_WINDOW_MS}
+   *
+   * @param userId user id
+   * @param cursorString  the cursor string if any
+   * @param limit  query limit
+   * @returns  calllog and nextCursor if any
+   *
+   */
+  async getCallLog(userId: string, cursorString?: string, limit = 50) {
+    const cursor = cursorString ? decodeCursor(cursorString) : undefined;
+
+    const rawCallEntries = await this.buildCallEntries(userId, limit, cursor);
+    const callLOg = this.groupOrMergeConsecutiveCalls(rawCallEntries);
+
+    const lastCallEntry = rawCallEntries[rawCallEntries.length - 1];
+    const nextCursor =
+      rawCallEntries.length === limit && lastCallEntry
+        ? encodeCursor({
+            startedAt: lastCallEntry.startedAt,
+            callId: lastCallEntry.callId,
+          })
+        : null;
+
+    return { callLOg, nextCursor };
+  }
+
   // THIS IS FOR AN IN-MEMORY CALL STATES
 
   createCallSession({
@@ -58,9 +254,8 @@ class CallService {
     name,
     authorizedUserIds,
     initiator,
+    startedAt
   }: CreateCallInput): Call {
-    const startedAt = Date.now();
-
     const call: Call = {
       callId,
       conversationId,

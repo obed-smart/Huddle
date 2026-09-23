@@ -1,15 +1,23 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { db as dBinstance } from "../../db";
-import { callParticipant, callTable } from "../../db/schema";
+import {
+  callParticipant,
+  callTable,
+  conversationsTable,
+  usersTable,
+} from "../../db/schema";
 import { callOutCome, calltype } from "../../db/schema/type";
 import AppError from "../../shared/utils/apiError";
 import logger from "../../shared/utils/logger";
+import { callCursor } from "./call.types";
 
 class CallRepository {
   constructor(
     private readonly db: typeof dBinstance,
     private readonly calls: typeof callTable,
     private readonly call_participants: typeof callParticipant,
+    private readonly user: typeof usersTable,
+    private readonly conversation: typeof conversationsTable,
   ) {}
 
   async createCall(
@@ -84,6 +92,25 @@ class CallRepository {
     }
   }
 
+  async addInvitedParticipant(
+    callId: string,
+    userId: string,
+    callStartedAt: Date,
+  ) {
+    try {
+      await this.db
+        .insert(this.call_participants)
+        .values({
+          callId,
+          userId,
+          callStartedAt,
+        })
+        .onConflictDoNothing();
+    } catch (error) {
+      throw new AppError("Failed adding new participant", 500);
+    }
+  }
+
   async updateCallOutcome(
     callId: string,
     userId: string,
@@ -104,6 +131,26 @@ class CallRepository {
     } catch (error) {
       logger.error(error, "Failed updating call outcome");
       throw new AppError("Failed updating call outcome", 500);
+    }
+  }
+
+  async markCallAsConnected(callId: string, userId: string) {
+    try {
+      await this.db
+        .update(this.calls)
+        .set({
+          connectedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(this.calls.id, callId),
+            isNull(this.calls.connectedAt),
+            ne(this.calls.initiatorId, userId),
+          ),
+        );
+    } catch (error) {
+      logger.error(error, "Failed updating call connectAt");
+      throw new AppError("Failed updating call connectAt", 500);
     }
   }
 
@@ -158,7 +205,76 @@ class CallRepository {
     }
   }
 
-  async getCallLog() {}
+  async getCalls(userId: string, limit: number, cursor?: callCursor) {
+    try {
+      const log = await this.db
+        .select({
+          callId: this.calls.id,
+          initiator: this.calls.initiatorId,
+          conversationId: this.conversation.id,
+          type: this.calls.type,
+          startedAt: this.calls.startedAt,
+          connectedAt: this.calls.connectedAt,
+          endedAt: this.calls.endedAt,
+          callOutCome: this.call_participants.outcome,
+          conversationType: this.conversation.type,
+          conversationName: this.conversation.name,
+          conversationAvatarUrl: this.conversation.avatarUrl,
+        })
+        .from(this.call_participants)
+        .innerJoin(this.calls, eq(this.calls.id, this.call_participants.callId))
+        .innerJoin(
+          this.conversation,
+          eq(this.conversation.id, this.calls.conversationId),
+        )
+        .where(
+          and(
+            eq(this.call_participants.userId, userId),
+            cursor
+              ? or(
+                  lt(this.call_participants.callStartedAt, cursor.startedAt),
+                  and(
+                    eq(this.call_participants.callStartedAt, cursor.startedAt),
+                    lt(this.call_participants.callId, cursor.callId),
+                  ),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(
+          desc(this.call_participants.callStartedAt),
+          desc(this.call_participants.callId),
+        )
+        .limit(limit);
+
+      logger.debug(log, "New callLog");
+      return log;
+    } catch (error) {
+      logger.error(error, "Failed fetching call log");
+      throw new AppError("Failed fetching call log", 500);
+    }
+  }
+
+  async getOtherCallParticipant(callIds: string[], userId: string) {
+    if (callIds.length === 0) return [];
+
+    return this.db
+      .select({
+        callId: this.call_participants.callId,
+        userId: this.user.id,
+        username: this.user.username,
+        avatarUrl: this.user.avatarUrl,
+        callOutCome: this.call_participants.outcome,
+      })
+      .from(this.call_participants)
+      .innerJoin(this.user, eq(this.user.id, this.call_participants.userId))
+      .where(
+        and(
+          inArray(this.call_participants.callId, callIds),
+          ne(this.call_participants.userId, userId),
+        ),
+      );
+  }
 }
 
 export default CallRepository;
