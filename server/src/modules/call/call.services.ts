@@ -14,6 +14,7 @@ import { callOutCome, calltype } from "../../db/schema/type";
 import CallRepository from "./call.repository";
 import ca from "zod/v4/locales/ca.js";
 import { decodeCursor, encodeCursor } from "./call.utils";
+import { ActiveCallSummary } from "./call.validation";
 
 const CALL_DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -250,17 +251,19 @@ class CallService {
   createCallSession({
     callId,
     conversationId,
+    conversationType,
     type,
     name,
     authorizedUserIds,
     initiator,
-    startedAt
+    startedAt,
   }: CreateCallInput): Call {
     const call: Call = {
       callId,
       conversationId,
+      conversationType,
       type,
-      name: name ?? null,
+      name,
       startedAt,
       initiatorId: initiator.id,
       authorizedUsers: new Set(authorizedUserIds),
@@ -435,6 +438,25 @@ class CallService {
 
   callIdsForUser(userId: string): string[] {
     return [...(this.callsByUser.get(userId) ?? [])];
+  }
+
+  private isActiveUser(call: Call, userId: string): boolean {
+    return call.authorizedUsers.has(userId) || call.invitedUsers.has(userId);
+  }
+
+  getActiveCallsForUsers(userId: string): ActiveCallSummary[] {
+    const calls =
+      [...this.calls.values()]
+        .filter((call) => this.isActiveUser(call, userId))
+        .map((call) => ({
+          callId: call.callId,
+          conversationId: call.conversationId,
+          callMediaType: call.type,
+        })) ?? [];
+
+    logger.debug(calls, "the active call summary");
+
+    return calls;
   }
 }
 

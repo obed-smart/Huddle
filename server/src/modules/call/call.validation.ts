@@ -8,7 +8,7 @@ export const initiateCallEventSchema = z.object({
 export const acceptCallEventSchema = z.object({
   callId: z.string(),
   conversationId: z.uuid(),
-  callMediaType: z.enum(["video", "audio"]),
+  callMediaType: z.enum(["video", "audio", "meet"]),
 });
 
 export const rejectCallEventSchema = z.object({
@@ -48,7 +48,9 @@ export const inviteCallSchema = z.object({
 });
 
 export const connectCallSchema = rejectCallEventSchema;
+export const rejoinSchema = rejectCallEventSchema;
 
 export type CallSdp = z.infer<typeof callSdpSchema>;
 export type CallIce = z.infer<typeof callIceSchema>;
 export type IacceptCallEventSchema = z.infer<typeof acceptCallEventSchema>;
+export type ActiveCallSummary = z.infer<typeof acceptCallEventSchema>;

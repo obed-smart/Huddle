@@ -16,6 +16,14 @@ class CallControllers {
 
     res.status(200).json(ApiResponse.success({ callLOg, nextCursor }));
   });
+
+  getActiveCallsForUsers = catchAsync(async (req, res) => {
+    const userId = req.user?.id as string;
+
+    const calls = this.callService.getActiveCallsForUsers(userId);
+
+    res.status(200).json(ApiResponse.success(calls));
+  });
 }
 
 export default CallControllers;

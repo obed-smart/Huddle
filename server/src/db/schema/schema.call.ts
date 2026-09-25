@@ -33,6 +33,12 @@ export const callTable = pgTable(
       .on(t.conversationId)
       .where(sql`${t.endedAt} IS NULL`),
 
+    // this is a later implementation to solve one of the biggest multi device issue for a direct conversation
+
+    // uniqueIndex("calls_one_active_group_call")
+    // .on(t.conversationId)
+    // .where(sql`${t.conversationType} = 'group' AND ${t.endedAt} IS NULL`),
+
     // Call history for one conversation, newest first.
     index("calls_conversation_started_idx").on(
       t.conversationId,

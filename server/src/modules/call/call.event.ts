@@ -10,6 +10,7 @@ import {
   initiateCallEventSchema,
   inviteCallSchema,
   rejectCallEventSchema,
+  rejoinSchema,
 } from "./call.validation";
 import AppError from "../../shared/utils/apiError";
 import logger from "../../shared/utils/logger";
@@ -77,6 +78,7 @@ async function handleLeave(
         .emit("call:new:ended", { callId, reason: "ended" });
     }
 
+    return;
     // this is when at least one last person is remaining so no need of keeping the call just hange up
   } else if (remaining.length < 2) {
     const newUsers = [...call.authorizedUsers].filter((userId) => {
@@ -90,12 +92,15 @@ async function handleLeave(
     logger.debug(`Remaining Participant is up to tow`);
 
     io.to(`call:${callId}`).emit("call:new:ended", { callId, reason: "ended" });
+    return;
   } else {
     io.to(`call:${callId}`).emit("call:new:participant-left", {
       callId,
       from: userId,
       participants: remaining,
     });
+
+    return;
   }
 }
 
@@ -136,10 +141,11 @@ export function callEvent(io: Server, socket: Socket) {
       const userId = socket.data.user.id;
       const initiator = socket.data.user;
 
-      const { type, name, participantIds } = await validateCallParticipant(
-        conversationId,
-        userId,
-      );
+      const {
+        type: conversationType,
+        name,
+        participantIds,
+      } = await validateCallParticipant(conversationId, userId);
 
       const newCall = await callService.createCall(
         conversationId,
@@ -148,13 +154,12 @@ export function callEvent(io: Server, socket: Socket) {
         participantIds,
       );
 
-      await callService.joinCall(newCall.id, userId);
-
       const call = callService.createCallSession({
         callId: newCall.id,
         conversationId,
-        type,
-        name: type === "direct" ? null : name,
+        conversationType,
+        type: callMediaType,
+        name: conversationType === "direct" ? null : name,
         authorizedUserIds: [...participantIds],
         initiator,
         startedAt: newCall.startedAt,
@@ -178,7 +183,8 @@ export function callEvent(io: Server, socket: Socket) {
         callId: call.callId,
         conversationId,
         callMediaType,
-        fromName: type === "direct" ? socket.data.user.displayName : name,
+        fromName:
+          conversationType === "direct" ? socket.data.user.displayName : name,
         avatarUrl: socket.data.user.avatarUrl,
         fromId: userId,
       };
@@ -211,6 +217,14 @@ export function callEvent(io: Server, socket: Socket) {
 
       const userId = socket.data.user.id;
 
+      const call = callService.getCall(callId);
+
+      logger.debug(`Call retrieved: ${JSON.stringify(call)}`);
+
+      if (!call) {
+        return callback?.({ success: false, reason: "call_ended" });
+      }
+
       if (callService.isParticipant(callId, userId)) {
         socket.emit("call:new:handled", {
           callId,
@@ -218,14 +232,6 @@ export function callEvent(io: Server, socket: Socket) {
           reason: "accepted",
         });
         return callback?.({ success: true, handled: true });
-      }
-
-      const call = callService.getCall(callId);
-
-      logger.debug(`Call retrieved: ${JSON.stringify(call)}`);
-
-      if (!call) {
-        throw new AppError("Call not found", 404);
       }
 
       if (call.conversationId !== conversationId) {
@@ -261,14 +267,14 @@ export function callEvent(io: Server, socket: Socket) {
       };
 
       /// this is now legacy now, the rosteris sent to both the initiator and the participant but i want to leave i for now.
-      const payload = {
-        callId,
-        conversationId,
-        fromName: socket.data.user.displayName,
-        from: socket.data.user.id,
-        startedAt: call.startedAt,
-        serverTime: Date.now(),
-      };
+      // const payload = {
+      //   callId,
+      //   conversationId,
+      //   fromName: socket.data.user.displayName,
+      //   from: socket.data.user.id,
+      //   startedAt: call.startedAt,
+      //   serverTime: Date.now(),
+      // };
 
       // socket.to(`user:${call.initiatorId}`).emit("call:new:accepted", payload);
       // logger.debug(
@@ -457,6 +463,7 @@ export function callEvent(io: Server, socket: Socket) {
       const userId = socket.data.user.id;
 
       await callService.markCallAsConnected(callId, userId);
+      callService.getActiveCallsForUsers(userId);
 
       logger.debug(
         `Received call:connected with data: ${JSON.stringify(data)}`,
@@ -501,7 +508,7 @@ export function callEvent(io: Server, socket: Socket) {
         from: userId,
       };
 
-      if (call.type === "direct") {
+      if (call.conversationType === "direct") {
         callService.endCall(callId);
 
         socket
@@ -579,7 +586,7 @@ export function callEvent(io: Server, socket: Socket) {
       }
 
       if (
-        call.type === "group" &&
+        call.conversationType === "group" &&
         !callService.isAuthorized(String(callId), to)
       ) {
         throw new AppError(
@@ -588,7 +595,7 @@ export function callEvent(io: Server, socket: Socket) {
         );
       }
 
-      if (call.type === "direct") {
+      if (call.conversationType === "direct") {
         if (!(await conversationService.canIniviteUserOnCall(userId, to))) {
           throw new AppError("You can not invite this user to this call", 403);
         }
@@ -598,7 +605,9 @@ export function callEvent(io: Server, socket: Socket) {
       }
 
       const fromName =
-        call.type === "group" ? call.name : socket.data.user.displayName;
+        call.conversationType === "group"
+          ? call.name
+          : socket.data.user.displayName;
 
       const payload = {
         callId: call.callId,
@@ -624,8 +633,41 @@ export function callEvent(io: Server, socket: Socket) {
   );
 
   socket.on(
-    "call:send",
-    catchSocketAsync(async (data, callback) => {}),
+    "call:rejoin",
+    catchSocketAsync(async (data, callback) => {
+      const { callId, conversationId } = validateSocketData(rejoinSchema, data);
+      const userId = socket.data.user.id;
+
+      const call = callService.getCall(callId);
+      if (!call) {
+        return callback?.({ success: false, reason: "call_ended" });
+      }
+
+      if (call.conversationId !== conversationId) {
+        throw new AppError(
+          "The call does not belong to the specified conversation",
+          400,
+        );
+      }
+
+      if (!callService.isParticipant(callId, userId)) {
+        return callback?.({ success: false, reason: "not_a_participant" });
+      }
+
+      socket.join(`call:${callId}`);
+
+      const rosterPayload = {
+        callId: call.callId,
+        conversationId: call.conversationId,
+        startedAt: call.startedAt,
+        serverTime: Date.now(),
+        participants: callService.getParticipants(callId),
+      };
+
+      socket.to(`call:${callId}`).emit("call:new:roaster", rosterPayload);
+
+      callback?.({ success: true, data: rosterPayload });
+    }),
   );
 
   socket.on(

@@ -49,7 +49,10 @@ class CallRepository {
             return {
               callId: call.id,
               userId: userId,
-              outcome: "pending" as callOutCome,
+              outcome:
+                userId === initiatorId
+                  ? ("joined" as callOutCome)
+                  : ("pending" as callOutCome),
               callStartedAt: call.startedAt,
             };
           });

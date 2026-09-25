@@ -13,9 +13,10 @@ export type ParticipantState =
 export type Call = {
   callId: string;
   initiatorId: string;
-  type: "direct" | "group";
+  type: calltype;
   name: string | null;
   conversationId: string;
+  conversationType: IConversation["type"];
   authorizedUsers: Set<string>;
   invitedUsers: Set<string>;
   participants: Map<
@@ -28,13 +29,20 @@ export type Call = {
     }
   >;
   startedAt: Date;
+
+  /**
+   * this will be pending for now but its the real deal for calculating duration because it the actual time the call start like when a second perticipant connected but it working will for the call history but not for the in-memory call start.
+   *  see {@link callRepository.markCallAsConnected} to understand it more
+   */
+  connectedAt?: Date;
 };
 
 export type CreateCallInput = {
   callId: string;
   conversationId: string;
-  type: "direct" | "group";
-  name: string | null;
+  conversationType: IConversation["type"];
+  type: calltype;
+  name: string;
   authorizedUserIds: string[];
   initiator: {
     id: string;
