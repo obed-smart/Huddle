@@ -39,15 +39,14 @@ class UserRepository {
     private readonly usersTable: typeof user,
   ) {}
 
-  async create(userData: INewUser): Promise<AuthUser> {
+  async create(userData: INewUser): Promise<AuthUser | undefined> {
     const [user] = await this.db
       .insert(this.usersTable)
       .values(userData)
+      .onConflictDoNothing({
+        target: [this.usersTable.username, this.usersTable.email],
+      })
       .returning(authUserSelection);
-
-    if (!user) {
-      throw new Error("Failed to create user");
-    }
 
     return user;
   }

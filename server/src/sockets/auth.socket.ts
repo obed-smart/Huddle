@@ -5,6 +5,7 @@ import AppError from "../shared/utils/apiError";
 import { verifySecret } from "../shared/utils/utits";
 import logger from "../shared/utils/logger";
 import { userService } from "../modules/user/user.modules";
+import { authService } from "../modules/auth/auth.modules";
 
 export async function authMiddleware(
   socket: Socket,
@@ -46,7 +47,13 @@ export async function authMiddleware(
       return next(new AppError("Unauthorized: User no longer exists", 401));
     }
 
-    socket.data.user = user;
+    const activeSession = await authService.isActive(newDecoded.sid);
+
+    if (!activeSession) {
+      return next(new AppError("Unauthorized: invalid session", 401));
+    }
+
+    socket.data.user = { ...user, sid: newDecoded.sid };
 
     next();
   } catch (err) {

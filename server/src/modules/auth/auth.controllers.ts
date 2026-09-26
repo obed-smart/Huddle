@@ -58,7 +58,11 @@ class AuthController {
   });
 
   login = catchAsync(async (req, res) => {
-    const user = req.user as IUser;
+    const user = req.user;
+
+    if (!user) {
+      throw new AppError("Unauthorized: Invalid session", 401);
+    }
 
     const { accessToken, refreshToken, expiresAt } =
       await this.authService.login(user);
@@ -76,13 +80,29 @@ class AuthController {
   });
 
   logout = catchAsync(async (req, res) => {
-    const refreshToken = req.cookies.refreshToken;
+    const user = req.user;
 
-    if (!refreshToken) {
-      throw new AppError("Refresh token not found", 400);
+    if (!user) {
+      throw new AppError("Unauthorized: Invalid session", 401);
     }
 
-    await this.authService.logout(refreshToken);
+    await this.authService.logout(user.sid);
+
+    res.clearCookie("accessToken", cookieOptions);
+
+    res.clearCookie("refreshToken", cookieOptions);
+
+    res.status(204).json(ApiResponse.success(null));
+  });
+
+  logOutAll = catchAsync(async (req, res) => {
+    const user = req.user;
+
+    if (!user) {
+      throw new AppError("Unauthorized", 401);
+    }
+
+    await this.authService.logOutAll(user.id);
 
     res.clearCookie("accessToken", cookieOptions);
 
@@ -110,6 +130,7 @@ class AuthController {
 
   refresh = catchAsync(async (req, res) => {
     const refreshToken = req.cookies.refreshToken;
+
     if (!refreshToken) throw new AppError("Refresh token not found", 400);
 
     try {

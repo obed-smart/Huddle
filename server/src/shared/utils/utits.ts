@@ -101,11 +101,19 @@ export const verifySecret = (secrect: string) => {
   return jwt.verify(secrect, process.env.JWT_ACCESS_SECRET!);
 };
 
-export const generateAccessToken = (
-  user: Pick<AuthUser, "id" | "globalRole" | "username">,
-) => {
+export const generateAccessToken = (user: {
+  id: string;
+  username: string;
+  globalRole: string;
+  sessionId: string;
+}) => {
   const accessToken = jwt.sign(
-    { sub: user.id, role: user.globalRole, username: user.username },
+    {
+      sub: user.id,
+      sid: user.sessionId,
+      role: user.globalRole,
+      username: user.username,
+    },
     env.JWT_ACCESS_SECRET,
     {
       algorithm: "HS256",
@@ -119,8 +127,8 @@ export const generateRefreshToken = () => {
   return crypto.randomBytes(32).toString("hex");
 };
 
-
 export const onlineUsers = new Map<string, Set<string>>();
+
 
 export const generateCode = async () => {
   let retries = 0;

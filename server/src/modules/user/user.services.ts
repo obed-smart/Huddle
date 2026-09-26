@@ -12,18 +12,6 @@ class UserService {
   ) {}
 
   async createUser(userData: INewUser) {
-    const exists = await this.userRepo.checkRegistrationConflict(
-      userData.username,
-      userData.email,
-    );
-
-    if (exists) {
-      throw new AppError(
-        "Registration failed. Please try a different email or username.",
-        409,
-      );
-    }
-
     const { password, googleId, provider, ...rest } = userData;
 
     if (provider === "local" && !password) {
@@ -39,8 +27,14 @@ class UserService {
       googleId,
     });
 
-    this.logger.info("New user created");
+    if (!user) {
+      throw new AppError(
+        "Registration failed. Please try a different email or username.",
+        409,
+      );
+    }
 
+    this.logger.info("New user created");
     return user;
   }
 

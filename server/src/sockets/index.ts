@@ -13,8 +13,8 @@ export function createSocketServer(server: HttpServer) {
       origin: [process.env.FRONTEND_URL!, "https://oauth.pstmn.io"],
       credentials: true,
     },
-    transports: ["polling", "websocket"],
-    
+    // transports: ["polling", "websocket"],
+
     connectionStateRecovery: {
       maxDisconnectionDuration: 2 * 60 * 1000,
       skipMiddlewares: false,
@@ -25,14 +25,16 @@ export function createSocketServer(server: HttpServer) {
 
   io.on("connection", (socket) => {
     try {
-      const { id: userId, username } = socket.data.user;
+      const { id: userId, username, sid: sessionId } = socket.data.user;
 
       logger.debug(
         { user: socket.data.user },
         "socket connected with user data",
       );
 
+
       socket.join(`user:${userId}`);
+      socket.join(`session:${sessionId}`);
 
       if (!onlineUsers.has(userId)) {
         onlineUsers.set(userId, new Set());
@@ -41,8 +43,14 @@ export function createSocketServer(server: HttpServer) {
       onlineUsers.get(userId)!.add(socket.id);
 
       logger.debug(`user id: ${userId}`);
+      logger.debug(sessionId, "sessionId");
+
 
       logger.info(`🔌 @${username} connected (socket ${socket.id})`);
+
+      const isOnine = onlineUsers.has(userId);
+
+      logger.debug(`${username} is online: ${isOnine}`);
 
       registerEvents(io, socket);
 

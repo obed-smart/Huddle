@@ -20,6 +20,10 @@ const envSchema = z.object({
     emptyToUndefined,
     z.string("FRONTEND_URL is required"),
   ),
+  REFRESH_TOKEN_LIFESPAN_DAYS: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().default(7),
+  ),
 });
 
 const parsed = envSchema.safeParse(process.env);

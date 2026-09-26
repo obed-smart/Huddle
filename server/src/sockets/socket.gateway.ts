@@ -33,12 +33,19 @@ export const socketGateway: RealtimeGateway = {
   },
 
   async evacuateRoom(roomId: string) {
-  const room = `conversation:${roomId}`;
-  const sockets = await ioInstance.in(room).fetchSockets();
-  for (const socket of sockets) {
-    socket.leave(room);
-  }
-}
+    const room = `conversation:${roomId}`;
+    const sockets = await ioInstance.in(room).fetchSockets();
+    for (const socket of sockets) {
+      socket.leave(room);
+    }
+  },
 };
+
+export function disConnectSession(sessionId: string) {
+  ioInstance.in(`session:${sessionId}`).disconnectSockets(true);
+}
+export function disConnectUser(userId: string) {
+  ioInstance.in(`user:${userId}`).disconnectSockets(true);
+}
 
 // Return the connect user socket Ids using to exclude senders on Io emit

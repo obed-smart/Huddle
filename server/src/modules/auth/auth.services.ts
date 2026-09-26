@@ -13,8 +13,11 @@ import {
 import UserService from "../user/user.services";
 
 import { AuthUser } from "../../shared/types";
-
-export const REFRESH_TOKEN_LIFESPAN_DAYS = 7;
+import env from "../../config/env";
+import {
+  disConnectSession,
+  disConnectUser,
+} from "../../sockets/socket.gateway";
 
 class AuthService {
   constructor(
@@ -23,36 +26,40 @@ class AuthService {
     private readonly authRepo: authRepository,
   ) {}
 
-  private generateToken(user: AuthUser) {
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken();
-    const familyId = crypto.randomUUID();
+  // private generateToken(user: AuthUser & { sessionId: string }) {
 
-    return {
-      accessToken,
-      refreshToken,
-      familyId,
-    };
+  //   return {
+  //     accessToken,
+  //     refreshToken,
+  //   };
+  // }
+
+  private addDays() {
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + env.REFRESH_TOKEN_LIFESPAN_DAYS);
+
+    return expiresAt;
   }
 
-  private async storeRefreshToken(
-    userId: string,
-    refreshToken: string,
-    familyId: string,
-  ) {
-    let expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_LIFESPAN_DAYS);
+  private async storeSessionToken(user: AuthUser) {
+    let expiresAt = this.addDays();
+    const refreshToken = generateRefreshToken();
 
     const hashTokens = hashToken(refreshToken);
 
-    await this.authRepo.create({
-      userId,
-      familyId,
+    const session = await this.authRepo.createSession({
+      userId: user.id,
       tokenHash: hashTokens,
       expiresAt: expiresAt,
     });
 
-    return expiresAt;
+    if (!session) {
+      throw new AppError("Failed loging in", 500);
+    }
+
+    const accessToken = generateAccessToken({ ...user, sessionId: session.id });
+
+    return { refreshToken, accessToken, expiresAt };
   }
 
   async register(userData: INewUser) {
@@ -61,13 +68,8 @@ class AuthService {
       provider: "local",
     });
 
-    const { accessToken, refreshToken, familyId } = this.generateToken(user);
-
-    const expiresAt = await this.storeRefreshToken(
-      user.id,
-      refreshToken,
-      familyId,
-    );
+    const { refreshToken, accessToken, expiresAt } =
+      await this.storeSessionToken(user);
 
     return {
       user,
@@ -77,14 +79,9 @@ class AuthService {
     };
   }
 
-  async login(user: IUser) {
-    const { accessToken, refreshToken, familyId } = this.generateToken(user);
-
-    const expiresAt = await this.storeRefreshToken(
-      user.id,
-      refreshToken,
-      familyId,
-    );
+  async login(user: AuthUser) {
+    const { refreshToken, accessToken, expiresAt } =
+      await this.storeSessionToken(user);
 
     return {
       accessToken,
@@ -93,25 +90,28 @@ class AuthService {
     };
   }
 
-  async logout(token: string) {
-    const tokenHash = hashToken(token);
-    await this.authRepo.revokeRefreshToken(tokenHash);
+  async isActive(sessionId: string): Promise<boolean> {
+    return await this.authRepo.isActive(sessionId);
+  }
+  async logout(sessionId: string) {
+    await this.authRepo.revokeSession(sessionId);
+    // end call if one exist here
+    disConnectSession(sessionId);
+
+    this.logger.debug("logout successfully");
   }
 
   async logOutAll(userId: string) {
-    await this.authRepo.revokeAllRefreshTokens(userId);
+    await this.authRepo.revokeAllSession(userId);
+
+    disConnectUser(userId);
   }
 
   async googleCallback(user: AuthUser) {
-    const { accessToken, refreshToken, familyId } = this.generateToken(user);
+    const { refreshToken, accessToken, expiresAt } =
+      await this.storeSessionToken(user);
 
     this.logger.info(`User ${user.id} logged in with Google`);
-
-    const expiresAt = await this.storeRefreshToken(
-      user.id,
-      refreshToken,
-      familyId,
-    );
 
     return {
       accessToken,
@@ -121,35 +121,32 @@ class AuthService {
   }
 
   async refresh(token: string) {
-    const tokenHash = hashToken(token);
+    const oldTokenHash = hashToken(token);
+    let expiresAt = this.addDays();
 
-    const existing = await this.authRepo.findByTokenHash(tokenHash);
+    const refreshToken = generateRefreshToken();
 
-    if (!existing) {
-      throw new AppError("Invalid refresh token", 401);
+    const newTokenHash = hashToken(refreshToken);
+
+    const refresh = await this.authRepo.refresh({
+      newTokenHash,
+      oldTokenHash,
+      expiresAt,
+    });
+
+    const accessToken = generateAccessToken({
+      id: refresh.userId,
+      username: refresh.username,
+      globalRole: refresh.role,
+      sessionId: refresh.sessionId,
+    });
+
+    if (refresh.kind === "reused") {
+      await this.logout(refresh.sessionId);
+      this.logger.warn("Token reuse detected")
+      throw new AppError("Token reuse detected", 401);
     }
 
-    if (existing.revokedAt) {
-      await this.authRepo.revokeFamily(existing.familyId);
-      this.logger.warn(
-        `Refresh reuse detected, user: ${existing.userId}, familyId: ${existing.familyId} `,
-      );
-      throw new AppError("Session invalid, please login again", 401);
-    }
-
-    if (existing.expiresAt < new Date()) {
-      throw new AppError("Refresh token expired", 401);
-    }
-
-    await this.authRepo.revokeById(existing.id);
-    const user = await this.userService.findAuthUserById(existing.userId);
-    const { accessToken, refreshToken } = this.generateToken(user);
-
-    const expiresAt = await this.storeRefreshToken(
-      user.id,
-      refreshToken,
-      existing.familyId,
-    );
 
     return {
       accessToken,

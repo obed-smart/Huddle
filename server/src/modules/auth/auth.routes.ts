@@ -38,7 +38,7 @@ router.post(
 );
 
 router.post("/logout", authenticate, authController.logout);
-// router.post("/logoutALl", authenticate, )
+router.post("/logoutAll", authenticate, authController.logOutAll);
 
 router.get(
   "/google",

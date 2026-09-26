@@ -6,6 +6,7 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { comparePassword, generateUniqueUsername } from "../shared/utils/utits";
 import { userService } from "../modules/user/user.modules";
 import logger from "../shared/utils/logger";
+import { authService } from "../modules/auth/auth.modules";
 
 passport.use(
   new LocalStrategy(
@@ -64,7 +65,12 @@ passport.use(
     try {
       const user = await userService.findAuthUserById(jwtPayload.sub);
       if (!user) return done(null, false);
-      return done(null, user);
+
+      const active = authService.isActive(jwtPayload.sid);
+
+      if (!active) return done(null, false);
+
+      return done(null, { ...user, sid: jwtPayload.sid });
     } catch (error) {
       return done(error);
     }
