@@ -13,8 +13,6 @@ export function createSocketServer(server: HttpServer) {
       origin: [process.env.FRONTEND_URL!, "https://oauth.pstmn.io"],
       credentials: true,
     },
-    // transports: ["polling", "websocket"],
-
     connectionStateRecovery: {
       maxDisconnectionDuration: 2 * 60 * 1000,
       skipMiddlewares: false,
@@ -32,7 +30,6 @@ export function createSocketServer(server: HttpServer) {
         "socket connected with user data",
       );
 
-
       socket.join(`user:${userId}`);
       socket.join(`session:${sessionId}`);
 
@@ -44,7 +41,6 @@ export function createSocketServer(server: HttpServer) {
 
       logger.debug(`user id: ${userId}`);
       logger.debug(sessionId, "sessionId");
-
 
       logger.info(`🔌 @${username} connected (socket ${socket.id})`);
 

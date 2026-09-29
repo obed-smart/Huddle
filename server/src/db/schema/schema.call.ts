@@ -10,6 +10,7 @@ import { sql } from "drizzle-orm";
 import { index } from "drizzle-orm/pg-core";
 import { check } from "drizzle-orm/pg-core";
 import { primaryKey } from "drizzle-orm/pg-core";
+import { sessionsTable } from "./schema.session";
 
 export const callTable = pgTable(
   "calls",
@@ -21,6 +22,9 @@ export const callTable = pgTable(
     initiatorId: uuid("initiator_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "restrict" }),
+    initiatorSessionId: uuid("initiator_session_id")
+      .notNull()
+      .references(() => sessionsTable.id, { onDelete: "restrict" }),
     type: text("type").$type<calltype>().notNull(),
     startedAt: timestamp("started_at", { withTimezone: true })
       .notNull()
@@ -33,11 +37,9 @@ export const callTable = pgTable(
       .on(t.conversationId)
       .where(sql`${t.endedAt} IS NULL`),
 
-    // this is a later implementation to solve one of the biggest multi device issue for a direct conversation
-
-    // uniqueIndex("calls_one_active_group_call")
-    // .on(t.conversationId)
-    // .where(sql`${t.conversationType} = 'group' AND ${t.endedAt} IS NULL`),
+    uniqueIndex("calls_one_active_per_owner_session")
+      .on(t.initiatorSessionId)
+      .where(sql`${t.endedAt} IS NULL`),
 
     // Call history for one conversation, newest first.
     index("calls_conversation_started_idx").on(
@@ -60,15 +62,27 @@ export const callParticipant = pgTable(
     callId: uuid("call_id")
       .notNull()
       .references(() => callTable.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id").references(() => sessionsTable.id, {
+      onDelete: "restrict",
+    }),
     userId: uuid("user_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
     outcome: text("outcome").$type<callOutCome>().notNull().default("pending"),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     callStartedAt: timestamp("call_started_at", { withTimezone: true }),
+    leftAt: timestamp("left_at", { withTimezone: true }),
   },
   (t) => [
     primaryKey({ columns: [t.callId, t.userId] }),
+    // leg is like a call room or presence
+    uniqueIndex("one_active_leg_per_session")
+      .on(t.sessionId)
+      .where(
+        sql`${t.sessionId} IS NOT NULL
+      AND ${t.leftAt} IS NULL
+      AND ${t.outcome} = 'joined'`,
+      ),
 
     // "My call log, newest first."
     // The primary key can't serve this: user_id is its second column,

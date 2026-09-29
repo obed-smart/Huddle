@@ -9,6 +9,7 @@ export const acceptCallEventSchema = z.object({
   callId: z.string(),
   conversationId: z.uuid(),
   callMediaType: z.enum(["video", "audio", "meet"]),
+  rejoin: z.boolean().optional().default(false),
 });
 
 export const rejectCallEventSchema = z.object({
@@ -47,10 +48,19 @@ export const inviteCallSchema = z.object({
   to: z.uuid(),
 });
 
+export const activeCallSummarySchema = z.object({
+  callId: z.string(),
+  conversationId: z.uuid(),
+  callMediaType: z.enum(["video", "audio", "meet"]),
+  conversationType: z.enum(["direct", "group"]),
+  directTypeLenght: z.union([z.string(), z.number()]),
+  name: z.string().nullable(),
+});
+
 export const connectCallSchema = rejectCallEventSchema;
 export const rejoinSchema = rejectCallEventSchema;
 
 export type CallSdp = z.infer<typeof callSdpSchema>;
 export type CallIce = z.infer<typeof callIceSchema>;
 export type IacceptCallEventSchema = z.infer<typeof acceptCallEventSchema>;
-export type ActiveCallSummary = z.infer<typeof acceptCallEventSchema>;
+export type ActiveCallSummary = z.infer<typeof activeCallSummarySchema>;

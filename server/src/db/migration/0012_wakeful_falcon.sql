@@ -1,0 +1,1 @@
+ALTER TABLE "call_participants" ALTER COLUMN "session_id" DROP NOT NULL;

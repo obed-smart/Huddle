@@ -24,6 +24,7 @@ export type Call = {
     {
       state: ParticipantState;
       name: string;
+      sessionId: string;
       avatarUrl: string;
       joinedAt: number;
     }
@@ -44,9 +45,10 @@ export type CreateCallInput = {
   type: calltype;
   name: string;
   authorizedUserIds: string[];
-  initiator: {
+  participant: {
     id: string;
     displayName: string;
+    sid: string;
     avatarUrl: string;
   };
   startedAt: Date;

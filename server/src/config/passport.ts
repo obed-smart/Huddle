@@ -63,12 +63,12 @@ const jwtOptions = {
 passport.use(
   new JwtStrategy(jwtOptions, async (jwtPayload, done) => {
     try {
-      const user = await userService.findAuthUserById(jwtPayload.sub);
-      if (!user) return done(null, false);
-
       const active = authService.isActive(jwtPayload.sid);
 
       if (!active) return done(null, false);
+
+      const user = await userService.findAuthUserById(jwtPayload.sub);
+      if (!user) return done(null, false);
 
       return done(null, { ...user, sid: jwtPayload.sid });
     } catch (error) {

@@ -37,21 +37,21 @@ export async function authMiddleware(
     const newDecoded =
       typeof decoded === "string" ? JSON.parse(decoded) : decoded;
 
-    const user = await userService.findAuthUserById(newDecoded.sub);
-
-    logger.debug(`User fetched from database: ${JSON.stringify(user)}`);
-
-    logger.debug(`Authenticated user: ${JSON.stringify(decoded)}`);
-
-    if (!user) {
-      return next(new AppError("Unauthorized: User no longer exists", 401));
-    }
-
     const activeSession = await authService.isActive(newDecoded.sid);
 
     if (!activeSession) {
       return next(new AppError("Unauthorized: invalid session", 401));
     }
+
+    const user = await userService.findAuthUserById(newDecoded.sub);
+
+    if (!user) {
+      return next(new AppError("Unauthorized", 401));
+    }
+
+    logger.debug(`User fetched from database: ${JSON.stringify(user)}`);
+
+    logger.debug(`Authenticated user: ${JSON.stringify(decoded)}`);
 
     socket.data.user = { ...user, sid: newDecoded.sid };
 

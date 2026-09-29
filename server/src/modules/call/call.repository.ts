@@ -23,6 +23,7 @@ class CallRepository {
   async createCall(
     conversationId: string,
     initiatorId: string,
+    initiatorSessionId: string,
     callType: calltype,
     participantIds: string[],
   ) {
@@ -33,8 +34,10 @@ class CallRepository {
           .values({
             conversationId,
             initiatorId,
+            initiatorSessionId,
             type: callType,
           })
+          .onConflictDoNothing()
           .returning({
             id: this.calls.id,
             startedAt: this.calls.startedAt,
@@ -48,6 +51,7 @@ class CallRepository {
           const participantLists = participantIds.map((userId) => {
             return {
               callId: call.id,
+              sessionId: userId === initiatorId ? initiatorSessionId : null,
               userId: userId,
               outcome:
                 userId === initiatorId
@@ -75,12 +79,13 @@ class CallRepository {
     }
   }
 
-  async joinCall(callId: string, userId: string) {
+  async joinCall(callId: string, userId: string, sessionId: string) {
     try {
       await this.db
         .update(this.call_participants)
         .set({
           outcome: "joined",
+          sessionId: sessionId,
           joinedAt: new Date(),
         })
         .where(
@@ -97,6 +102,7 @@ class CallRepository {
 
   async addInvitedParticipant(
     callId: string,
+    sessionId: string,
     userId: string,
     callStartedAt: Date,
   ) {
@@ -105,6 +111,7 @@ class CallRepository {
         .insert(this.call_participants)
         .values({
           callId,
+          sessionId,
           userId,
           callStartedAt,
         })
@@ -166,45 +173,57 @@ class CallRepository {
         })
         .where(eq(this.calls.id, callId));
     } catch (error) {
-      await this.db
-        .update(this.calls)
-        .set({
-          endedAt: new Date(),
-        })
-        .where(eq(this.calls.id, callId));
-
       logger.error(error, "Failed on call end");
       throw new AppError("Failed on call end", 500);
     }
   }
 
   // The end function when the initiator end the call before any participant joined
-  async callEndedWithNOCallUser(callId: string, participantIds: string[]) {
+  async callEndedWithCallUser(callId: string, participantIds: string[]) {
     try {
       return await this.db.transaction(async (tx) => {
+        const endedAt = new Date();
+
         await tx
           .update(this.calls)
           .set({
-            endedAt: new Date(),
+            endedAt,
           })
-          .where(eq(this.calls.id, callId));
+          .where(and(eq(this.calls.id, callId), isNull(this.calls.endedAt)));
 
+        // People who never joined → missed
         await tx
           .update(this.call_participants)
           .set({
-            outcome: "missed" as callOutCome,
+            outcome: "missed",
+            leftAt: endedAt,
           })
           .where(
             and(
               eq(this.call_participants.callId, callId),
               eq(this.call_participants.outcome, "pending"),
               inArray(this.call_participants.userId, participantIds),
+              isNull(this.call_participants.leftAt),
+            ),
+          );
+
+        // People who joined → leave the call
+        await tx
+          .update(this.call_participants)
+          .set({
+            leftAt: endedAt,
+          })
+          .where(
+            and(
+              eq(this.call_participants.callId, callId),
+              eq(this.call_participants.outcome, "joined"),
+              isNull(this.call_participants.leftAt),
             ),
           );
       });
     } catch (error) {
-      logger.error(error, "Failed why on call end");
-      throw new AppError("Failed why on call end", 500);
+      logger.error(error, "Failed to end call");
+      throw new AppError("Failed to end call", 500);
     }
   }
 

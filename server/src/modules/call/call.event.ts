@@ -15,6 +15,7 @@ import {
 import AppError from "../../shared/utils/apiError";
 import logger from "../../shared/utils/logger";
 import { callService } from "./call.modules";
+import { authService } from "../auth/auth.modules";
 
 async function validateCallParticipant(conversationId: string, userId: string) {
   const { exists, isParticipant, type, name } =
@@ -69,14 +70,15 @@ async function handleLeave(
       (id) => id !== userId,
     );
 
-    await callService.callEndedWithNOCallUser(callId, authorizedUserIds);
+    await callService.callEndedWithCallUser(callId, authorizedUserIds);
 
-    callService.endCall(callId);
+    callService.endCallSession(callId);
     for (const userId of authorizedUserIds) {
       socket
         .to(`user:${userId}`)
         .emit("call:new:ended", { callId, reason: "ended" });
     }
+    socket.leave(`call:${callId}`);
 
     return;
     // this is when at least one last person is remaining so no need of keeping the call just hange up
@@ -85,13 +87,14 @@ async function handleLeave(
       return !call.participants.has(userId);
     });
 
-    await callService.callEndedWithNOCallUser(callId, newUsers);
+    await callService.callEndedWithCallUser(callId, newUsers);
 
-    callService.endCall(callId);
+    callService.endCallSession(callId);
 
     logger.debug(`Remaining Participant is up to tow`);
 
     io.to(`call:${callId}`).emit("call:new:ended", { callId, reason: "ended" });
+    socket.leave(`call:${callId}`);
     return;
   } else {
     io.to(`call:${callId}`).emit("call:new:participant-left", {
@@ -99,6 +102,8 @@ async function handleLeave(
       from: userId,
       participants: remaining,
     });
+
+    socket.leave(`call:${callId}`);
 
     return;
   }
@@ -113,20 +118,30 @@ export function callEvent(io: Server, socket: Socket) {
    * is implemented but it can not be fully trusted
    *
    **/
-  for (const callId of callService.callIdsForUser(socket.data.user.id)) {
+
+  logger.debug(
+    { sessionIdForCall: socket.data.user.sid },
+    "sesssionId for call recovery",
+  );
+
+  const callId = callService.callIdForUser(socket.data.user.sid);
+
+  logger.debug({ callId: callId }, "New Recovery call ");
+
+  if (callId) {
     const call = callService.getCall(callId);
 
-    if (!call) continue;
+    if (call) {
+      socket.join(`call:${callId}`);
 
-    socket.join(`call:${callId}`);
-
-    socket.to(`call:${callId}`).emit("call:new:roster", {
-      callId: call.callId,
-      conversationId: call.conversationId,
-      startedAt: call.startedAt,
-      serverTime: Date.now(),
-      participants: callService.getParticipants(callId),
-    });
+      io.to(`call:${callId}`).emit("call:new:roster", {
+        callId: call.callId,
+        conversationId: call.conversationId,
+        startedAt: call.startedAt,
+        serverTime: Date.now(),
+        participants: callService.getParticipants(callId),
+      });
+    }
   }
 
   socket.on(
@@ -136,10 +151,18 @@ export function callEvent(io: Server, socket: Socket) {
         initiateCallEventSchema,
         data,
       );
-      console.log("initiate call ", data);
 
-      const userId = socket.data.user.id;
+      const { id: userId, sid } = socket.data.user;
       const initiator = socket.data.user;
+
+      logger.debug({ initiator: initiator }, "this is the initiator data");
+      logger.debug({ initiatorSid: sid }, "this is the initiator data");
+
+      const userSession = authService.isActive(sid);
+
+      if (!userSession) {
+        throw new AppError("Unauthorized", 401);
+      }
 
       const {
         type: conversationType,
@@ -150,6 +173,7 @@ export function callEvent(io: Server, socket: Socket) {
       const newCall = await callService.createCall(
         conversationId,
         userId,
+        sid,
         callMediaType,
         participantIds,
       );
@@ -159,9 +183,9 @@ export function callEvent(io: Server, socket: Socket) {
         conversationId,
         conversationType,
         type: callMediaType,
-        name: conversationType === "direct" ? null : name,
+        name: conversationType === "direct" ? initiator.displayName : name,
         authorizedUserIds: [...participantIds],
-        initiator,
+        participant: initiator,
         startedAt: newCall.startedAt,
       });
 
@@ -208,14 +232,32 @@ export function callEvent(io: Server, socket: Socket) {
   socket.on(
     "call:accept",
     catchSocketAsync(async (data: IacceptCallEventSchema, callback) => {
-      const { callId, conversationId, callMediaType } = validateSocketData(
+      const { callId, conversationId, rejoin } = validateSocketData(
         acceptCallEventSchema,
         data,
       );
 
       logger.debug("New Call accept");
 
-      const userId = socket.data.user.id;
+      const { id: userId, sid } = socket.data.user;
+
+      const userSession = authService.isActive(sid);
+
+      if (!userSession) {
+        throw new AppError("Unauthorized", 401);
+      }
+
+      if (callService.isParticipant(callId, userId) && !rejoin) {
+        return callback?.({
+          success: false,
+          message: "You have already accepted this call",
+        });
+      } else {
+        socket
+          .to(`call:${callId}`)
+          .emit("call:new:participant-joined", { callId, from: userId });
+        logger.debug("New rejion event recieved");
+      }
 
       const call = callService.getCall(callId);
 
@@ -225,14 +267,7 @@ export function callEvent(io: Server, socket: Socket) {
         return callback?.({ success: false, reason: "call_ended" });
       }
 
-      if (callService.isParticipant(callId, userId)) {
-        socket.emit("call:new:handled", {
-          callId,
-          conversationId,
-          reason: "accepted",
-        });
-        return callback?.({ success: true, handled: true });
-      }
+   
 
       if (call.conversationId !== conversationId) {
         throw new AppError(
@@ -245,16 +280,29 @@ export function callEvent(io: Server, socket: Socket) {
         throw new AppError("You cannot accept your own call", 400);
       }
 
-      callService.addAuthorizedUser(callId, userId);
+      if (!rejoin) callService.addAuthorizedUser(callId, userId);
 
       if (!callService.isAuthorized(callId, userId)) {
         throw new AppError("You are not authorized to accept this call", 403);
       }
 
-      await callService.joinCall(callId, userId);
+      socket.to(`user:${userId}`).emit("call:new:handled", {
+        callId,
+        conversationId,
+        reason: "accepted",
+      });
 
-      callService.addParticipant(callId, socket.data.user);
-      logger.debug("New User added");
+      if (!rejoin) {
+        await callService.joinCall(callId, userId, sid);
+
+        callService.addParticipant(callId, socket.data.user);
+        logger.debug("New User added");
+      } else {
+        logger.debug(
+          { Name: socket.data.user.displayName },
+          "New rejoined User",
+        );
+      }
 
       socket.join(`call:${callId}`);
 
@@ -265,21 +313,6 @@ export function callEvent(io: Server, socket: Socket) {
         serverTime: Date.now(),
         participants: callService.getParticipants(callId),
       };
-
-      /// this is now legacy now, the rosteris sent to both the initiator and the participant but i want to leave i for now.
-      // const payload = {
-      //   callId,
-      //   conversationId,
-      //   fromName: socket.data.user.displayName,
-      //   from: socket.data.user.id,
-      //   startedAt: call.startedAt,
-      //   serverTime: Date.now(),
-      // };
-
-      // socket.to(`user:${call.initiatorId}`).emit("call:new:accepted", payload);
-      // logger.debug(
-      //   `Emitted call:accepted to user:${call.initiatorId} for conversation ${conversationId}`,
-      // );
 
       callback?.({
         success: true,
@@ -293,13 +326,18 @@ export function callEvent(io: Server, socket: Socket) {
   socket.on(
     "call:offer",
     catchSocketAsync(async (data, callback) => {
-      logger.debug(`Received call:offer with data: ${JSON.stringify(data)}`);
+      logger.debug(
+        `Received call:offer with data: ${JSON.stringify(data.callId)}`,
+      );
 
       const { callId, conversationId, to, description } = validateSocketData(
         callSdpSchema,
         data,
       );
-      const userId = socket.data.user.id;
+
+      const { id: userId, sid } = socket.data.user;
+
+      logger.debug({ sessionId: sid }, "socket User");
 
       const call = callService.getCall(String(callId));
 
@@ -327,13 +365,24 @@ export function callEvent(io: Server, socket: Socket) {
         );
       }
 
+      const participant = call.participants.get(to);
+
+      if (!participant) {
+        throw new AppError(
+          "The recipient is not a participant in this call",
+          403,
+        );
+      }
+
       const payload = {
         conversationId,
         from: userId,
         description,
       };
 
-      socket.to(`user:${to}`).emit("call:new:offer", payload);
+      socket
+        .to(`session:${participant.sessionId}`)
+        .emit("call:new:offer", payload);
       logger.debug(
         `Emitted call:new:offer to user:${to} for conversation ${conversationId}`,
       );
@@ -347,11 +396,15 @@ export function callEvent(io: Server, socket: Socket) {
   socket.on(
     "call:answer",
     catchSocketAsync(async (data, callback) => {
+      logger.debug(
+        `Received call:anwser with data: ${JSON.stringify(data.callId)}`,
+      );
+
       const { callId, conversationId, to, description } = validateSocketData(
         callSdpSchema,
         data,
       );
-      const userId = socket.data.user.id;
+      const { id: userId, sid } = socket.data.user;
 
       const call = callService.getCall(String(callId));
 
@@ -384,13 +437,24 @@ export function callEvent(io: Server, socket: Socket) {
         );
       }
 
+      const participant = call.participants.get(to);
+
+      if (!participant) {
+        throw new AppError(
+          "The recipient is not a participant in this call",
+          403,
+        );
+      }
+
       const payload = {
         conversationId,
         from: userId,
         description,
       };
 
-      socket.to(`user:${to}`).emit("call:new:answer", payload);
+      socket
+        .to(`session:${participant.sessionId}`)
+        .emit("call:new:answer", payload);
 
       callback?.({
         success: true,
@@ -406,7 +470,7 @@ export function callEvent(io: Server, socket: Socket) {
         data,
       );
 
-      const userId = socket.data.user.id;
+      const { id: userId, sid } = socket.data.user;
 
       const call = callService.getCall(String(callId));
 
@@ -438,13 +502,24 @@ export function callEvent(io: Server, socket: Socket) {
         );
       }
 
+      const participant = call.participants.get(to);
+
+      if (!participant) {
+        throw new AppError(
+          "The recipient is not a participant in this call",
+          403,
+        );
+      }
+
       const payload = {
         conversationId,
         from: userId,
         candidate,
       };
 
-      socket.to(`user:${to}`).emit("call:new:ice-candidate", payload);
+      socket
+        .to(`session:${participant.sessionId}`)
+        .emit("call:new:ice-candidate", payload);
 
       callback?.({
         success: true,
@@ -462,12 +537,36 @@ export function callEvent(io: Server, socket: Socket) {
 
       const userId = socket.data.user.id;
 
+      const call = callService.getCall(String(callId));
+
+      if (!call) {
+        throw new AppError("Call not found", 404);
+      }
+
+      if (call.conversationId !== conversationId) {
+        throw new AppError(
+          "The call does not belong to the specified conversation",
+          400,
+        );
+      }
+
+      if (
+        !callService.isAuthorized(String(callId), userId) ||
+        !callService.isParticipant(String(callId), userId)
+      ) {
+        throw new AppError("You are not authorized to to be in this call", 403);
+      }
+
       await callService.markCallAsConnected(callId, userId);
       callService.getActiveCallsForUsers(userId);
 
       logger.debug(
         `Received call:connected with data: ${JSON.stringify(data)}`,
       );
+
+      for (const id of call.authorizedUsers) {
+        logger.debug({ Id: id }, "call users on connected");
+      }
     }),
   );
 
@@ -509,10 +608,20 @@ export function callEvent(io: Server, socket: Socket) {
       };
 
       if (call.conversationType === "direct") {
-        callService.endCall(callId);
+        const participant = call.participants.get(call.initiatorId);
+
+        if (!participant) {
+          throw new AppError(
+            "The recipient is not a participant in this call",
+            403,
+          );
+        }
+
+        await callService.callEnd(callId);
+        callService.endCallSession(callId);
 
         socket
-          .to(`user:${call.initiatorId}`)
+          .to(`user:${participant.sessionId}`)
           .emit("call:new:rejected", payload);
       } else {
         io.to(`call:${callId}`).emit("call:new:rejected", payload);
@@ -527,8 +636,6 @@ export function callEvent(io: Server, socket: Socket) {
       callback?.({
         success: true,
       });
-
-      socket.leave(`call:${callId}`);
     }),
   );
 
@@ -540,7 +647,6 @@ export function callEvent(io: Server, socket: Socket) {
         data,
       );
       await handleLeave(io, socket, callId, conversationId, callback);
-      // callback?.({ success: true });
     }),
   );
 
@@ -552,7 +658,6 @@ export function callEvent(io: Server, socket: Socket) {
         data,
       );
       await handleLeave(io, socket, callId, conversationId, callback);
-      // callback?.({ success: true });
     }),
   );
 
@@ -563,7 +668,7 @@ export function callEvent(io: Server, socket: Socket) {
         inviteCallSchema,
         data,
       );
-      const userId = socket.data.user.id;
+      const { id: userId, sid } = socket.data.user;
 
       const call = callService.getCall(String(callId));
 
@@ -600,7 +705,7 @@ export function callEvent(io: Server, socket: Socket) {
           throw new AppError("You can not invite this user to this call", 403);
         }
 
-        callService.addInvitedParticipant(call.callId, to, call.startedAt);
+        callService.addInvitedParticipant(call.callId, sid, to, call.startedAt);
         callService.addInvitedUser(String(callId), to);
       }
 
@@ -625,9 +730,6 @@ export function callEvent(io: Server, socket: Socket) {
 
       callback?.({
         success: true,
-        callId: call.callId,
-        startedAt: call.startedAt,
-        serverTime: Date.now(),
       });
     }),
   );

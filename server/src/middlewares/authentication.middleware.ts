@@ -7,7 +7,7 @@ const authenticate = (req: Request, res: Response, next: NextFunction) => {
   passport.authenticate(
     "jwt",
     { session: false },
-    (err: Error | null, user: AuthUser | false) => {
+    (err: Error | null, user: (AuthUser & { sid: string }) | false) => {
       if (err) return next(err);
 
       if (!user) {

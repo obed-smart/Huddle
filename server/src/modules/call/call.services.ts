@@ -20,37 +20,45 @@ const CALL_DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 class CallService {
   private calls: Map<string, Call>;
-  private callsByUser: Map<string, Set<string>>;
+  private callsByUserSession: Map<string, string>;
 
   constructor(private readonly callRepo: CallRepository) {
     this.calls = new Map();
-    this.callsByUser = new Map();
+    this.callsByUserSession = new Map();
   }
 
   async createCall(
     conversationId: string,
     initiatorId: string,
+    initiatorSessionId: string,
     callType: calltype,
     participantIds: string[],
   ) {
     return await this.callRepo.createCall(
       conversationId,
       initiatorId,
+      initiatorSessionId,
       callType,
       participantIds,
     );
   }
 
-  async joinCall(callId: string, userId: string) {
-    await this.callRepo.joinCall(callId, userId);
+  async joinCall(callId: string, userId: string, sessionId: string) {
+    await this.callRepo.joinCall(callId, userId, sessionId);
   }
 
   async addInvitedParticipant(
     callId: string,
+    sessionId: string,
     userId: string,
     callStartedAt: Date,
   ) {
-    await this.callRepo.addInvitedParticipant(callId, userId, callStartedAt);
+    await this.callRepo.addInvitedParticipant(
+      callId,
+      sessionId,
+      userId,
+      callStartedAt,
+    );
   }
 
   async updateCallOutcome(
@@ -65,13 +73,13 @@ class CallService {
     await this.callRepo.markCallAsConnected(callId, userId);
   }
 
-  async callEnded(callId: string) {
+  async callEnd(callId: string) {
     await this.callRepo.callEnded(callId);
   }
 
   // The end function when the initiator end the call before any participant joined
-  async callEndedWithNOCallUser(callId: string, participantIds: string[]) {
-    await this.callRepo.callEndedWithNOCallUser(callId, participantIds);
+  async callEndedWithCallUser(callId: string, participantIds: string[]) {
+    await this.callRepo.callEndedWithCallUser(callId, participantIds);
   }
 
   private async buildCallEntries(
@@ -255,7 +263,7 @@ class CallService {
     type,
     name,
     authorizedUserIds,
-    initiator,
+    participant,
     startedAt,
   }: CreateCallInput): Call {
     const call: Call = {
@@ -265,16 +273,17 @@ class CallService {
       type,
       name,
       startedAt,
-      initiatorId: initiator.id,
+      initiatorId: participant.id,
       authorizedUsers: new Set(authorizedUserIds),
       invitedUsers: new Set(),
       participants: new Map(),
     };
 
-    call.participants.set(initiator.id, {
+    call.participants.set(participant.id, {
       state: "initiating",
-      name: initiator.displayName,
-      avatarUrl: initiator.avatarUrl,
+      name: participant.displayName,
+      sessionId: participant.sid,
+      avatarUrl: participant.avatarUrl,
       joinedAt: Date.now(),
     });
 
@@ -282,7 +291,8 @@ class CallService {
     logger.debug("new call created from service");
     logger.debug(`Call: ${JSON.stringify(call)}`);
 
-    this.link(initiator.id, callId);
+    logger.debug({ sessionId: participant.sid }, "sessionId at creation");
+    this.link(participant.sid, callId);
 
     return call;
   }
@@ -303,7 +313,7 @@ class CallService {
 
   addParticipant(
     callId: string,
-    participant: CreateCallInput["initiator"],
+    participant: CreateCallInput["participant"],
   ): boolean {
     const call = this.calls.get(callId);
 
@@ -318,11 +328,12 @@ class CallService {
     call.participants.set(participant.id, {
       state: "accepted",
       name: participant.displayName,
+      sessionId: participant.sid,
       avatarUrl: participant.avatarUrl,
       joinedAt: Date.now(),
     });
 
-    this.link(participant.id, callId);
+    this.link(participant.sid, callId);
 
     return true;
   }
@@ -368,9 +379,13 @@ class CallService {
       throw new AppError("Call not found", 404);
     }
 
-    call.participants.delete(userId);
+    const participant = call.participants.get(userId);
 
-    this.unlink(userId, callId);
+    if (!participant) return null;
+
+    this.unlink(participant.sessionId, callId);
+
+    call.participants.delete(userId);
   }
 
   setParticipantState(
@@ -405,53 +420,82 @@ class CallService {
     return [...call.participants.entries()].map(([id, participant]) => ({
       id,
       name: participant.name,
+      sessionId: participant.sessionId,
       avatar: participant.avatarUrl,
       state: participant.state,
       joinedAt: participant.joinedAt,
     }));
   }
 
-  endCall(callId: string) {
+  endCallSession(callId: string) {
     const call = this.calls.get(callId);
 
     if (!call) {
       throw new AppError("Call not found", 404);
     }
-    for (const userId of call.participants.keys()) this.unlink(userId, callId);
+    for (const participant of call.participants.values())
+      this.unlink(participant.sessionId, callId);
+
     this.calls.delete(callId);
   }
 
-  private link(userId: string, callId: string) {
-    let callIds = this.callsByUser.get(userId);
+  private link(sessionId: string, callId: string) {
+    const existingCallId = this.callsByUserSession.get(sessionId);
 
-    if (!callIds) this.callsByUser.set(userId, (callIds = new Set()));
+    if (existingCallId) {
+      throw new AppError("This session is already in an active call", 400);
+    }
 
-    callIds.add(callId);
+    this.callsByUserSession.set(sessionId, callId);
+
+    logger.debug({ sessionId, callId }, "Linked session to call");
+
+    logger.debug(
+      {
+        sessionId,
+        callId: this.callsByUserSession.get(sessionId),
+      },
+      "Session call index",
+    );
+  }
+  private unlink(sessionId: string, callId: string) {
+    const activeCallId = this.callsByUserSession.get(sessionId);
+
+    if (activeCallId !== callId) return;
+
+    this.callsByUserSession.delete(sessionId);
   }
 
-  private unlink(userId: string, callId: string) {
-    const callIds = this.callsByUser.get(userId);
-    if (!callIds) return;
-    callIds.delete(callId);
-    if (callIds.size === 0) this.callsByUser.delete(userId);
+  callIdForUser(sessionId: string): string | undefined {
+    const callId = this.callsByUserSession.get(sessionId);
+
+    logger.debug({ callId: callId }, "call Id from the callforUser");
+
+    return callId;
   }
 
-  callIdsForUser(userId: string): string[] {
-    return [...(this.callsByUser.get(userId) ?? [])];
-  }
-
-  private isActiveUser(call: Call, userId: string): boolean {
+  private isUserEligibleForCall(call: Call, userId: string): boolean {
     return call.authorizedUsers.has(userId) || call.invitedUsers.has(userId);
   }
 
   getActiveCallsForUsers(userId: string): ActiveCallSummary[] {
     const calls =
       [...this.calls.values()]
-        .filter((call) => this.isActiveUser(call, userId))
+        .filter(
+          (call) =>
+            this.isUserEligibleForCall(call, userId) &&
+            !call.participants.has(userId),
+        )
         .map((call) => ({
           callId: call.callId,
           conversationId: call.conversationId,
           callMediaType: call.type,
+          conversationType: call.conversationType,
+          directTypeLenght:
+            call.conversationType === "direct"
+              ? [...call.participants].length
+              : "group",
+          name: call.name,
         })) ?? [];
 
     logger.debug(calls, "the active call summary");
