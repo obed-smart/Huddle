@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import logger from "../../shared/utils/logger";
 import {
   Call,
@@ -12,9 +11,9 @@ import {
 import AppError from "../../shared/utils/apiError";
 import { callOutCome, calltype } from "../../db/schema/type";
 import CallRepository from "./call.repository";
-import ca from "zod/v4/locales/ca.js";
 import { decodeCursor, encodeCursor } from "./call.utils";
 import { ActiveCallSummary } from "./call.validation";
+import { conversationService } from "../conversations/conversations.modules";
 
 const CALL_DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -25,6 +24,24 @@ class CallService {
   constructor(private readonly callRepo: CallRepository) {
     this.calls = new Map();
     this.callsByUserSession = new Map();
+  }
+
+  async validateCallParticipant(conversationId: string, userId: string) {
+    const { exists, isParticipant, type, name } =
+      await conversationService.checkParticipant(conversationId, userId);
+
+    if (!exists || !type) throw new AppError("Conversation not found", 404);
+
+    if (!isParticipant) {
+      throw new AppError("You are not a participant in this conversation", 403);
+    }
+
+    const participantIds = await conversationService.findAcceptedParticipantIds(
+      conversationId,
+      type,
+    );
+
+    return { type, name, participantIds };
   }
 
   async createCall(

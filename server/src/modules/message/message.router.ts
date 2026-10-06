@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { messageController } from "./message.modules";
+import authenticate from "../../middlewares/authentication.middleware";
 
 const router = Router();
+
+router.use(authenticate);
 
 router.post("/", messageController.createMessage);
 router.get(

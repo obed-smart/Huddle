@@ -17,8 +17,7 @@ export const rejectCallEventSchema = z.object({
   conversationId: z.uuid(),
 });
 
-export const callSdpSchema = z.object({
-  callId: z.uuid().nullable(),
+export const sdpPayloadSchema = z.object({
   conversationId: z.uuid(),
   to: z.uuid(),
 
@@ -28,8 +27,7 @@ export const callSdpSchema = z.object({
   }),
 });
 
-export const callIceSchema = z.object({
-  callId: z.uuid().nullable(),
+export const icePayloadSchema = z.object({
   conversationId: z.uuid(),
   to: z.uuid(),
 
@@ -39,6 +37,14 @@ export const callIceSchema = z.object({
     sdpMLineIndex: z.number().int().nullable(),
     usernameFragment: z.string().nullable().optional(),
   }),
+});
+
+export const callSdpSchema = sdpPayloadSchema.extend({
+  callId: z.uuid().nullable(),
+});
+
+export const callIceSchema = icePayloadSchema.extend({
+  callId: z.uuid().nullable(),
 });
 
 export const inviteCallSchema = z.object({

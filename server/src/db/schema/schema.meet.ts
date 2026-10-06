@@ -23,14 +23,14 @@ export const meetTable = pgTable(
     title: text("title"),
     scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
     notifiedAt: timestamp("notified_at", { withTimezone: true }),
-    createdAt: timestamp("create_at", { withTimezone: true }),
+    createdAt: timestamp("create_at", { withTimezone: true }).defaultNow(),
     startedAt: timestamp("started_at", { withTimezone: true }),
     endedAt: timestamp("ended_at", { withTimezone: true }),
   },
   (t) => [
-    uniqueIndex("meets_one_active_per_conversation")
+    uniqueIndex("meets_one_active_instant_per_conversation")
       .on(t.conversationId)
-      .where(sql`${t.endedAt} IS NULL`),
+      .where(sql`${t.scheduledFor} IS NULL AND ${t.endedAt} IS NULL`),
 
     index("meets_schedule_idx")
       .on(t.scheduledFor)
@@ -61,7 +61,7 @@ export const meetParticipantTable = pgTable(
     uniqueIndex("meet_one_active_leg_per_session")
       .on(t.sessionId)
       .where(sql`${t.leftAt} IS NULL`),
-      
+
     // attendance/duration query: all of a user's visits to a meet
     index("meet_participants_meet_user_idx").on(t.meetId, t.userId),
     // "who's live in this meet right now"
@@ -84,6 +84,10 @@ export const meetInviteeTable = pgTable(
     invitedAt: timestamp("invited_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   },
-  (t) => [primaryKey({ columns: [t.meetId, t.userId] })],
+  (t) => [primaryKey({ columns: [t.meetId, t.userId, t.acceptedAt] })],
 );
+
+export type IMeet = typeof meetTable.$inferSelect;
+export type INewMeet = typeof meetTable.$inferInsert;

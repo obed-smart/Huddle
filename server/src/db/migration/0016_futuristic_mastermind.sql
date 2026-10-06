@@ -1,0 +1,2 @@
+DROP INDEX "meets_one_active_per_conversation";--> statement-breakpoint
+CREATE UNIQUE INDEX "meets_one_active_instant_per_conversation" ON "meets" USING btree ("conversation_id") WHERE "meets"."scheduled_for" IS NULL AND "meets"."ended_at" IS NULL;

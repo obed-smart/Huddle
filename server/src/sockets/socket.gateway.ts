@@ -23,8 +23,12 @@ export const socketGateway: RealtimeGateway = {
     emitter.emit(event, payload);
   },
 
-  emitToUser(userId, event, payload) {
-    socketGateway.emitToRoom(`user:${userId}`, event, payload);
+  emitToUser(userIds, event, payload) {
+    const targetRooms = Array.isArray(userIds)
+      ? userIds.map((id) => `user:${id}`)
+      : [`user:${userIds}`];
+
+    ioInstance.to(targetRooms).emit(event, payload);
   },
 
   async getSocketIdsForUser(userId: string): Promise<string[]> {

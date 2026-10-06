@@ -19,6 +19,7 @@ class ConversationService {
     private readonly Logger: typeof logger,
     private readonly realtime: RealtimeGateway,
   ) {}
+  
   private async roomEvent(
     eventName: string,
     conversationId: string,
@@ -119,6 +120,8 @@ class ConversationService {
         conversationId: conversation.id,
         requester: requesterPayload,
       });
+
+
       logger.debug("conversation cretae");
       return conversation;
     } catch (err: any) {
@@ -188,16 +191,23 @@ class ConversationService {
         participantIds: uniqueValidUser.map((user) => user.userId),
       });
 
-    for (const targetId of data.participantIds) {
-      try {
-        this.realtime.emitToUser(targetId, "invite:new", {
-          conversationId: conversation.id,
-          requester: requesterPayload,
-        });
-      } catch (error) {
-        this.Logger.warn({ error }, `Failed to notify participant ${targetId}`);
-      }
-    }
+    const participantIds = uniqueValidUser.map((user) => user.userId);
+
+    this.realtime.emitToUser(participantIds, "invite:new", {
+      conversationId: conversation.id,
+      requester: requesterPayload,
+    });
+
+    // for (const targetId of data.participantIds) {
+    //   try {
+    //     this.realtime.emitToUser(targetId, "invite:new", {
+    //       conversationId: conversation.id,
+    //       requester: requesterPayload,
+    //     });
+    //   } catch (error) {
+    //     this.Logger.warn({ error }, `Failed to notify participant ${targetId}`);
+    //   }
+    // }
 
     logger.info("[Groud Event] Group creation successfull");
 

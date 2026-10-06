@@ -95,20 +95,31 @@ export function messageEvent(io: Server, socket: Socket) {
           : null,
       };
 
-      logger.debug(repliedTo && "this is a reply message");
-      for (const participantId of participantIds) {
-        // io.to(`user:${participantId}`).emit("message:new", payload); // to be use in frontend
-        socket.to(`user:${participantId}`).emit("message:new", payload);
-      }
+      socket
+        .to(participantIds.map((id) => `user:${id}`))
+        .emit("message:new", payload);
 
-      for (const mentionedUserId of validMentionIds) {
-        if (mentionedUserId === userId) continue;
-        io.to(`user:${mentionedUserId}`).emit("mention:notify", {
-          conversationId: message.conversationId,
-          content: message.body,
-          senderUsername: socket.data.user.username,
-        });
-      }
+      // logger.debug(repliedTo && "this is a reply message");
+      // for (const participantId of participantIds) {
+      //   // io.to(`user:${participantId}`).emit("message:new", payload); // to be use in frontend
+      //   socket.to(`user:${participantId}`).emit("message:new", payload);
+      // }
+
+      io.to(validMentionIds.map((id) => `user:${id}`)).emit("mention:notify", {
+        conversationId: message.conversationId,
+        content: message.body,
+        senderUsername: socket.data.user.username,
+      });
+
+      // for (const mentionedUserId of validMentionIds) {
+      //   if (mentionedUserId === userId) continue;
+      //   io.to(`user:${mentionedUserId}`).emit("mention:notify", {
+      //     conversationId: message.conversationId,
+      //     content: message.body,
+      //     senderUsername: socket.data.user.username,
+      //   });
+      // }
+
       callback?.({
         success: true,
         message: message.id,

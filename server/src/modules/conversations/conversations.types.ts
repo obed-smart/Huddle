@@ -47,7 +47,7 @@ export interface RealtimeGateway {
     payload: unknown,
     excludeIds?: string | string[],
   ): void;
-  emitToUser(userId: string, event: string, payload: unknown): void;
+  emitToUser(userId: string | string[], event: string, payload: unknown): void;
   getSocketIdsForUser(userId: string): Promise<string[]>;
   evacuateRoom(roomId: string): Promise<void>;
 }

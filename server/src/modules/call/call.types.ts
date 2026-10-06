@@ -8,7 +8,8 @@ export type ParticipantState =
   | "connecting"
   | "connected"
   | "rejected"
-  | "left";
+  | "left"
+  | "joined";
 
 export type Call = {
   callId: string;

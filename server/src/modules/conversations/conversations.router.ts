@@ -21,39 +21,36 @@ import { requireGroupAdmin } from "./conversation.middleware";
 
 const router = Router();
 
-router.get("/", authenticate, conversationController.getConversation);
+router.use(authenticate);
+
+router.get("/", conversationController.getConversation);
 
 router.post(
   "/ping",
-  authenticate,
   validate(conversationIdSchema),
   conversationController.pingUser,
 );
 
 router.post(
   "/pings/:id/accept",
-  authenticate,
   validate(conversationIdSchema, "params"),
   conversationController.acceptPing,
 );
 
 router.post(
   "/pings/:id/decline",
-  authenticate,
   validate(conversationIdSchema, "params"),
   conversationController.declinePing,
 );
 
 router.post(
   "/groups",
-  authenticate,
   validate(createGroupConversationSchema),
   conversationController.createGroup,
 );
 
 router.patch(
   "/invites/:requestId",
-  authenticate,
   validate(groupRequestIdSchema, "params"),
   validate(joinRequestRespondSchema),
   conversationController.groupRequestRespond,
@@ -61,7 +58,6 @@ router.patch(
 
 router.patch(
   "/:conversationId",
-  authenticate,
   validate(conversationParamsSchema, "params"),
   validate(updateConversationSchema),
   requireGroupAdmin,
@@ -70,7 +66,6 @@ router.patch(
 
 router.patch(
   "/join-requests/:requestId",
-  authenticate,
   validate(groupRequestIdSchema, "params"),
   validate(joinRequestResolveSchema),
   conversationController.groupRequestResolve,
@@ -78,7 +73,6 @@ router.patch(
 
 router.patch(
   "/:conversationId/invite-code",
-  authenticate,
   validate(conversationParamsSchema, "params"),
   requireGroupAdmin,
   conversationController.addInviteCode,
@@ -86,34 +80,29 @@ router.patch(
 
 router.get(
   "/invites/:inviteCode",
-  authenticate,
   validate(inviteCodeSchema, "params"),
   conversationController.getConversationByInviteCode,
 );
 router.post(
   "/invites/:inviteCode",
-  authenticate,
   validate(inviteCodeSchema, "params"),
   conversationController.joinGroup,
 );
 
 router.post(
   "/invites",
-  authenticate,
   validate(inviteUserSchema),
   conversationController.inviteUserToGroup,
 );
 
 router.get(
   "/:conversationId/requests",
-  authenticate,
   requireGroupAdmin,
   conversationController.pendingJoinRequests,
 );
 
 router.get(
   "/:conversationId/messages",
-  authenticate,
   validate(conversationParamsSchema, "params"),
   validate(timelineQuerySchema, "query"),
   conversationController.getMessages,
@@ -121,7 +110,6 @@ router.get(
 
 router.patch(
   "/:conversationId/participants/:userId/role",
-  authenticate,
   validate(conversationUserSchemaParams, "params"),
   requireGroupAdmin,
   validate(updateAdminRoleSchema),
@@ -130,14 +118,13 @@ router.patch(
 
 router.delete(
   "/:conversationId/participants/me",
-  authenticate,
+
   validate(leaveConversationSchema, "params"),
   conversationController.leaveConversation,
 );
 
 router.delete(
   "/:conversationId/participants/:userId",
-  authenticate,
   requireGroupAdmin,
   validate(conversationUserSchemaParams, "params"),
   conversationController.removeMember,
@@ -145,7 +132,6 @@ router.delete(
 
 router.delete(
   "/:conversationId",
-  authenticate,
   requireGroupAdmin,
   validate(conversationParamsSchema, "params"),
   conversationController.deteleConversation,

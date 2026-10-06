@@ -129,7 +129,6 @@ export const generateRefreshToken = () => {
 
 export const onlineUsers = new Map<string, Set<string>>();
 
-
 export const generateCode = async () => {
   let retries = 0;
 
@@ -151,3 +150,16 @@ export const generateCode = async () => {
     throw new AppError("Failed to generate unique ID", 500);
   }
 };
+
+export function dbErrorConstraint(error: unknown) {
+  return error instanceof Error && "cause" in error
+    ? (
+        error as Error & {
+          cause?: {
+            code?: string;
+            constraint?: string;
+          };
+        }
+      ).cause
+    : undefined;
+}

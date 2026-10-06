@@ -17,24 +17,6 @@ import logger from "../../shared/utils/logger";
 import { callService } from "./call.modules";
 import { authService } from "../auth/auth.modules";
 
-async function validateCallParticipant(conversationId: string, userId: string) {
-  const { exists, isParticipant, type, name } =
-    await conversationService.checkParticipant(conversationId, userId);
-
-  if (!exists || !type) throw new AppError("Conversation not found", 404);
-
-  if (!isParticipant) {
-    throw new AppError("You are not a participant in this conversation", 403);
-  }
-
-  const participantIds = await conversationService.findAcceptedParticipantIds(
-    conversationId,
-    type,
-  );
-
-  return { type, name, participantIds };
-}
-
 async function handleLeave(
   io: Server,
   socket: Socket,
@@ -73,11 +55,17 @@ async function handleLeave(
     await callService.callEndedWithCallUser(callId, authorizedUserIds);
 
     callService.endCallSession(callId);
-    for (const userId of authorizedUserIds) {
-      socket
-        .to(`user:${userId}`)
-        .emit("call:new:ended", { callId, reason: "ended" });
-    }
+
+    socket
+      .to(authorizedUserIds.map((id) => `user:${id}`))
+      .emit("call:new:ended", { callId, reason: "ended" });
+
+    // for (const userId of authorizedUserIds) {
+    //   socket
+    //     .to(`user:${userId}`)
+    //     .emit("call:new:ended", { callId, reason: "ended" });
+    // }
+
     socket.leave(`call:${callId}`);
 
     return;
@@ -168,7 +156,7 @@ export function callEvent(io: Server, socket: Socket) {
         type: conversationType,
         name,
         participantIds,
-      } = await validateCallParticipant(conversationId, userId);
+      } = await callService.validateCallParticipant(conversationId, userId);
 
       const newCall = await callService.createCall(
         conversationId,
@@ -213,12 +201,20 @@ export function callEvent(io: Server, socket: Socket) {
         fromId: userId,
       };
 
-      for (const recipientId of recipientIds) {
-        socket.to(`user:${recipientId}`).emit("call:incoming", payload);
-        logger.debug(
-          `Emitted call:incoming to user:${recipientId} for conversation ${conversationId}`,
-        );
-      }
+      // a clean way to emit the incoming call my simulation a sockect pipe method to the recipient users without using a loop
+
+      socket
+        .to(recipientIds.map((id) => `user:${id}`))
+        .emit("call:incoming", payload);
+
+      // this is an alternative way of emitting the call:incoming event to multiple users without using a loop
+
+      // for (const recipientId of recipientIds) {
+      //   socket.to(`user:${recipientId}`).emit("call:incoming", payload);
+      //   logger.debug(
+      //     `Emitted call:incoming to user:${recipientId} for conversation ${conversationId}`,
+      //   );
+      // }
 
       callback?.({
         success: true,
@@ -266,8 +262,6 @@ export function callEvent(io: Server, socket: Socket) {
       if (!call) {
         return callback?.({ success: false, reason: "call_ended" });
       }
-
-   
 
       if (call.conversationId !== conversationId) {
         throw new AppError(
@@ -705,7 +699,13 @@ export function callEvent(io: Server, socket: Socket) {
           throw new AppError("You can not invite this user to this call", 403);
         }
 
-        callService.addInvitedParticipant(call.callId, sid, to, call.startedAt);
+        await callService.addInvitedParticipant(
+          call.callId,
+          sid,
+          to,
+          call.startedAt,
+        );
+        
         callService.addInvitedUser(String(callId), to);
       }
 

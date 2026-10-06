@@ -1,0 +1,1 @@
+ALTER TABLE "meets" ALTER COLUMN "create_at" SET DEFAULT now();
