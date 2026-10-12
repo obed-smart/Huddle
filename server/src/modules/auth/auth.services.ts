@@ -71,6 +71,8 @@ class AuthService {
     const { refreshToken, accessToken, expiresAt } =
       await this.storeSessionToken(user);
 
+    this.logger.debug("Email sent");
+
     return {
       user,
       accessToken,
@@ -97,7 +99,6 @@ class AuthService {
     await this.authRepo.revokeSession(sessionId);
     // end call if one exist here
     disConnectSession(sessionId);
-
     this.logger.debug("logout successfully");
   }
 
@@ -107,11 +108,15 @@ class AuthService {
     disConnectUser(userId);
   }
 
-  async googleCallback(user: AuthUser) {
+  async googleCallback(user: AuthUser, isNewUser: boolean) {
     const { refreshToken, accessToken, expiresAt } =
       await this.storeSessionToken(user);
 
     this.logger.info(`User ${user.id} logged in with Google`);
+
+    if (isNewUser) {
+      this.logger.debug("Email sent");
+    }
 
     return {
       accessToken,
@@ -143,10 +148,9 @@ class AuthService {
 
     if (refresh.kind === "reused") {
       await this.logout(refresh.sessionId);
-      this.logger.warn("Token reuse detected")
+      this.logger.warn("Token reuse detected");
       throw new AppError("Token reuse detected", 401);
     }
-
 
     return {
       accessToken,

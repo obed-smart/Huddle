@@ -112,16 +112,14 @@ class AuthController {
   });
 
   googleCallback = catchAsync(async (req: Request, res: Response) => {
-    const authResult = req.user as
-      | { user: AuthUser; isNewUser: boolean }
-      | undefined;
+    const { user, isNewUser } = req.user as Express.PassportNewCustomUser;
 
-    if (!authResult?.user) {
+    if (user) {
       throw new AppError("Unauthorized", 401);
     }
 
     const { accessToken, refreshToken, expiresAt } =
-      await this.authService.googleCallback(authResult.user);
+      await this.authService.googleCallback(user, isNewUser);
 
     this.setCookies(res, accessToken, refreshToken, expiresAt);
 

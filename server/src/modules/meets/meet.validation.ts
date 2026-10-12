@@ -14,6 +14,8 @@ export const joinMeetSchema = z.object({
   meetId: z.uuid(),
 });
 
+export const leaveMeetSchema = joinMeetSchema;
+
 export const meetSdpSchema = sdpPayloadSchema.extend({
   meetId: z.uuid(),
 });

@@ -36,6 +36,7 @@ class MeetRepository {
         .returning({
           id: this.meets.id,
           title: this.meets.title,
+          scheduledFor: this.meets.scheduledFor,
         });
 
       return meet;

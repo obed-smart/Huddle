@@ -3,12 +3,14 @@ import { catchSocketAsync, validateSocketData } from "../../sockets/utils";
 import {
   inviteMeetSchema,
   joinMeetSchema,
+  leaveMeetSchema,
   meetIceSchema,
   meetSdpSchema,
 } from "./meet.validation";
 import { authService } from "../auth/auth.modules";
 import AppError from "../../shared/utils/apiError";
 import { meetService } from "./meet.modules";
+import logger from "../../shared/utils/logger";
 
 export function meetEvent(io: Server, socket: Socket) {
   socket.on(
@@ -18,6 +20,8 @@ export function meetEvent(io: Server, socket: Socket) {
         joinMeetSchema,
         data,
       );
+
+      logger.debug({ conversationId, meetId }, "New meet join payload");
 
       const {
         id: userId,
@@ -68,7 +72,7 @@ export function meetEvent(io: Server, socket: Socket) {
       const payload = {
         meetId,
         conversationId,
-        sessionId,
+        from: sessionId,
         participant: meet.participants.get(sessionId),
       };
 
@@ -78,6 +82,7 @@ export function meetEvent(io: Server, socket: Socket) {
         success: true,
         data: {
           sessionId,
+          participants: [...meet.participants.values()],
         },
       });
     }),
@@ -89,6 +94,10 @@ export function meetEvent(io: Server, socket: Socket) {
       const { meetId, conversationId, to, description } = validateSocketData(
         meetSdpSchema,
         data,
+      );
+      logger.debug(
+        { meetId, conversationId, to, description },
+        "New meet offer payload",
       );
 
       const { sid: sessionId } = socket.data.user;
@@ -141,6 +150,11 @@ export function meetEvent(io: Server, socket: Socket) {
 
       const { sid: sessionId } = socket.data.user;
 
+      logger.debug(
+        { meetId, conversationId, to, description },
+        "New meet answer payload",
+      );
+
       const meet = meetService.getMeet(meetId);
 
       if (meet.conversationId !== conversationId) {
@@ -188,6 +202,10 @@ export function meetEvent(io: Server, socket: Socket) {
       );
 
       const { sid: sessionId } = socket.data.user;
+      logger.debug(
+        { meetId, conversationId, to, candidate },
+        "New meet ice-candidate payload",
+      );
 
       const meet = meetService.getMeet(meetId);
 
@@ -267,6 +285,59 @@ export function meetEvent(io: Server, socket: Socket) {
       }
 
       await meetService.inviteNewUser(meetId, targetUserId);
+    }),
+  );
+
+  socket.on(
+    "meet:leave",
+    catchSocketAsync(async (data, callback) => {
+      const { meetId, conversationId } = validateSocketData(
+        leaveMeetSchema,
+        data,
+      );
+
+      const { id: userId, sid: sessionId } = socket.data.user;
+
+      const meet = meetService.getMeet(meetId);
+
+      if (meet.conversationId !== conversationId) {
+        throw new AppError(
+          "This conference room does not belong to the specified conversation",
+          400,
+        );
+      }
+
+      if (
+        !meetService.isParticipant(meetId, sessionId) ||
+        !meetService.isAuthorized(meetId, userId)
+      ) {
+        throw new AppError(
+          "You are not permitted to leave this conference room",
+          403,
+        );
+      }
+
+      await meetService.leaveMeet({
+        meetId,
+        userId: userId,
+        sessionId,
+      });
+
+      socket.leave(`meet:${meetId}`);
+
+      const payload = {
+        meetId,
+        conversationId,
+        from: sessionId,
+      };
+
+      socket.to(`meet:${meetId}`).emit("meet:new:leave", payload);
+
+      socket.leave(`meet:${meetId}`);
+
+      callback?.({
+        success: true,
+      });
     }),
   );
 

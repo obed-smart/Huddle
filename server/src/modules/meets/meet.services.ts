@@ -53,6 +53,7 @@ class MeetService {
       meetId: meet.id,
       conversationId,
       title: meet.title,
+      scheduledFor: meet.scheduledFor,
     });
 
     logger.debug("New meet created successfully");
@@ -61,6 +62,7 @@ class MeetService {
       meetId: meet.id,
       conversationId,
       title: meet.title,
+      scheduledFor: meet.scheduledFor,
     };
   }
 
@@ -70,6 +72,7 @@ class MeetService {
 
   async leaveMeet({ meetId, userId, sessionId }: IjoinMeet) {
     await this.meetRepo.leaveMeet({ meetId, userId, sessionId });
+    this.leaveMeetSession(meetId, sessionId);
   }
 
   async endMeet(meetId: string) {
@@ -182,30 +185,30 @@ class MeetService {
     meet.invitedUsers.add(userId);
   }
 
-    addAuthorizedUser(callId: string, userId: string) {
-      const call = this.calls.get(callId);
-  
-      if (!call) {
-        throw new AppError("Call not found", 404);
-      }
-  
-      if (!call.invitedUsers.has(userId) || call.authorizedUsers.has(userId))
-        return null;
-  
-      call.authorizedUsers.add(userId);
-      call.invitedUsers.delete(userId);
+  addAuthorizedUser(meetId: string, userId: string) {
+    const meet = this.meets.get(meetId);
+
+    if (!meet) {
+      throw new AppError("Call not found", 404);
     }
+
+    if (!meet.invitedUsers.has(userId) || meet.authorizedUsers.has(userId))
+      return null;
+
+    meet.authorizedUsers.add(userId);
+    meet.invitedUsers.delete(userId);
+  }
 
   private link(sessionId: string, meetId: string) {
     const existingMeetId = this.meetBySession.get(sessionId);
 
     if (existingMeetId) {
-      throw new AppError("This session is already in an active call", 400);
+      throw new AppError("This session is already in an active meet", 400);
     }
 
     this.meetBySession.set(sessionId, meetId);
 
-    logger.debug({ sessionId, meetId }, "Linked session to call");
+    logger.debug({ sessionId, meetId }, "Linked session to meet");
 
     logger.debug(
       {
