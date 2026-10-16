@@ -24,6 +24,27 @@ const envSchema = z.object({
     emptyToUndefined,
     z.coerce.number().default(7),
   ),
+
+  // --- Cloudflare R2 ---
+  R2_ACCOUNT_ID: z.preprocess(
+    emptyToUndefined,
+    z.string("R2_ACCOUNT_ID is required"),
+  ),
+
+  R2_ACCESS_KEY_ID: z.preprocess(
+    emptyToUndefined,
+    z.string("R2_ACCESS_KEY_ID is required"),
+  ),
+
+  R2_SECRET_ACCESS_KEY: z.preprocess(
+    emptyToUndefined,
+    z.string("R2_SECRET_ACCESS_KEY is required"),
+  ),
+
+  R2_BUCKET_NAME: z.preprocess(
+    emptyToUndefined,
+    z.string("R2_BUCKET_NAME is required"),
+  ),
 });
 
 const parsed = envSchema.safeParse(process.env);

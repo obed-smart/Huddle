@@ -86,7 +86,7 @@ export const meetInviteeTable = pgTable(
       .defaultNow(),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   },
-  (t) => [primaryKey({ columns: [t.meetId, t.userId, t.acceptedAt] })],
+  (t) => [primaryKey({ columns: [t.meetId, t.userId]})],
 );
 
 export type IMeet = typeof meetTable.$inferSelect;

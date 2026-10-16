@@ -9,7 +9,7 @@ import {
   primaryKey,
 } from "drizzle-orm/pg-core";
 
-import { messageTypeEnum } from "./enums";
+import { attachmentStatusEnum, messageTypeEnum } from "./enums";
 import { usersTable } from "./schema.user";
 import { conversationsTable } from "./schema.conversations";
 import { InferInsertModel, InferSelectModel } from "drizzle-orm";
@@ -55,19 +55,23 @@ export const attachmentsTable = pgTable(
     messageId: uuid("message_id")
       .notNull()
       .references(() => messagesTable.id, { onDelete: "cascade" }),
-    url: text("url").notNull(),
+    objectKey: text("object_key").notNull(),
+    status: attachmentStatusEnum("status").notNull().default("pending"),
     fileName: text("file_name").notNull(),
     mimeType: text("mime_type").notNull(),
-    size: integer("size").notNull(), // bytes
-    width: integer("width"), // images/video
-    height: integer("height"), // images/video
-    duration: integer("duration"), // audio/video, seconds
+    size: integer("size").notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    duration: integer("duration"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [index("attachments_message_idx").on(t.messageId)],
 );
+
+export type IAttachment = InferSelectModel<typeof attachmentsTable>;
+export type INewAttachment = InferInsertModel<typeof attachmentsTable>;
 
 // ---- message_reactions ---------------------------------------------------
 // Composite PK is the uniqueness constraint — a separate id column would add

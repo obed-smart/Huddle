@@ -6,6 +6,7 @@ import {
   conversationTimeline,
   messagesTable,
   systemEventsTable,
+  attachmentsTable,
 } from "../../db/schema";
 import { groupJoinRequestsTable } from "../../db/schema";
 import ConversationService from "./conversations.services";
@@ -23,6 +24,7 @@ const conversationRepo = new ConversationsRepository(
   conversationTimeline,
   messagesTable,
   systemEventsTable,
+  attachmentsTable
 );
 
 const conversationService = new ConversationService(

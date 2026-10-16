@@ -1,6 +1,12 @@
 import { and, desc, eq, inArray, isNull, lte } from "drizzle-orm";
 import { db as DbiInstance } from "../../db";
-import { IMessage, INewMessage } from "../../db/schema";
+import {
+  attachmentsTable,
+  IAttachment,
+  IMessage,
+  INewAttachment,
+  INewMessage,
+} from "../../db/schema";
 import {
   messagesTable as messages,
   messageReactionsTable as messageReaction,
@@ -9,7 +15,11 @@ import {
   conversationTimeline,
 } from "../../db/schema";
 import AppError from "../../shared/utils/apiError";
-import { MessageResponseDTO, systemEventDTO } from "./message.types";
+import {
+  MessageResponseDTO,
+  MessageWithAttachmentDTO,
+  systemEventDTO,
+} from "./message.types";
 import logger from "../../shared/utils/logger";
 
 export const messageResponds = {
@@ -28,13 +38,12 @@ class MessageRepository {
     private readonly messageMentionsTable: typeof messageMenstion,
     private readonly conversationlogTable: typeof conversationlog,
     private readonly conversationTimelineTable: typeof conversationTimeline,
+    private readonly attachmentTable: typeof attachmentsTable,
   ) {}
 
   async createMessage(data: INewMessage): Promise<MessageResponseDTO> {
     try {
       return await this.db.transaction(async (tx) => {
-        const timestamp = new Date();
-
         const [message] = await tx
           .insert(this.messageTable)
           .values(data)
@@ -58,6 +67,55 @@ class MessageRepository {
     }
   }
 
+ async createMessageWithAttachment(
+  data: INewMessage,
+  attachments: Omit<INewAttachment, "id" | "messageId" | "createdAt">[],
+): Promise<MessageWithAttachmentDTO> {
+  try {
+    if (attachments.length === 0) {
+      throw new AppError("At least one attachment is required", 400);
+    }
+
+    return await this.db.transaction(async (tx) => {
+      const [message] = await tx
+        .insert(this.messageTable)
+        .values(data)
+        .returning(messageResponds);
+
+      if (!message) {
+        throw new AppError("Failed to create message records", 500);
+      }
+
+     
+      const savedAttachments = await tx
+        .insert(this.attachmentTable)
+        .values(attachments.map((a) => ({ ...a, messageId: message.id })))
+        .returning();
+
+      if (savedAttachments.length !== attachments.length) {
+        throw new AppError("Failed to create attachment records", 500);
+      }
+
+      await tx.insert(this.conversationTimelineTable).values({
+        conversationId: message.conversationId,
+        createdAt: message.createdAt,
+        type: "message",
+        refId: message.id,
+      });
+
+      return {
+        ...message,
+        attachments: savedAttachments, 
+      };
+    });
+  } catch (error) {
+    logger.error({ err: error }, "Failed creating message with attachment");
+    throw error;
+  }
+}
+
+  // : Promise<MessageResponseDTO>
+
   async createSystemEvent(input: systemEventDTO) {
     try {
       return await this.db.transaction(async (tx) => {
@@ -70,7 +128,6 @@ class MessageRepository {
           throw new AppError("Failed to record system event logs", 500);
         }
 
-        
         await tx.insert(this.conversationTimelineTable).values({
           conversationId: event.conversationId,
           createdAt: event.createdAt,
@@ -95,7 +152,6 @@ class MessageRepository {
     conversationId: string,
     limit: number = 50,
   ): Promise<MessageResponseDTO[]> {
-    // Use .select(messageResponds) instead of .query
     const messages = await this.db
       .select(messageResponds)
       .from(this.messageTable)

@@ -25,6 +25,7 @@ import {
   conversationTimeline,
   messagesTable as messages,
   systemEventsTable as conversationlog,
+  attachmentsTable,
 } from "../../db/schema";
 import {
   ConversationResponseDto,
@@ -40,6 +41,7 @@ import { inArray } from "drizzle-orm";
 import { count } from "drizzle-orm";
 import { IupdateConversationSchema } from "./conversations.validation";
 import { alias } from "drizzle-orm/pg-core";
+import { MessageTimelineWithAttachmentDTO, MessageWithAttachmentDTO } from "../message/message.types";
 
 export const conversationResponse = {
   id: conversation.id,
@@ -65,6 +67,7 @@ class ConversationsRepository {
     private readonly conversationTimelineTable: typeof conversationTimeline,
     private readonly messageTable: typeof messages,
     private readonly conversationEventTable: typeof conversationlog,
+    private readonly attachmentTable: typeof attachmentsTable,
   ) {}
 
   private async conversationLock<T>(
@@ -947,11 +950,29 @@ class ConversationsRepository {
         .filter((r) => r.type === "event")
         .map((r) => r.refId);
 
-      const [msgs, events] = await Promise.all([
+      const [msgRows, events] = await Promise.all([
         messageIds.length
           ? this.db
-              .select()
+              .select({
+                message: this.messageTable,
+                attachment: {
+                  id: this.attachmentTable.id,
+                  fileName: this.attachmentTable.fileName,
+                  mimeType: this.attachmentTable.mimeType,
+                  size: this.attachmentTable.size,
+                  width: this.attachmentTable.width,
+                  height: this.attachmentTable.height,
+                  duration: this.attachmentTable.duration,
+                },
+              })
               .from(this.messageTable)
+              .leftJoin(
+                this.attachmentTable,
+                and(
+                  eq(this.attachmentTable.messageId, this.messageTable.id),
+                  eq(this.attachmentTable.status, "ready"),
+                ),
+              )
               .where(inArray(this.messageTable.id, messageIds))
           : [],
 
@@ -963,26 +984,37 @@ class ConversationsRepository {
           : [],
       ]);
 
-      const msgMap = new Map(msgs.map((m) => [m.id, m]));
+      const msgMap = new Map<string, MessageTimelineWithAttachmentDTO>();
+      for (const { message, attachment } of msgRows) {
+        const existing = msgMap.get(message.id);
+        if (existing) {
+          if (attachment) existing.attachments.push(attachment);
+        } else {
+          msgMap.set(message.id, {
+            ...message,
+            attachments: attachment ? [attachment] : [],
+          });
+        }
+      }
+
       const eventMap = new Map(events.map((e) => [e.id, e]));
 
       return timelineRows.map((row): TimelineItem => {
         if (row.type === "message") {
-          return {
-            type: "message",
-            createdAt: row.createdAt,
-            data: msgMap.get(row.refId)!,
-          };
+          const data = msgMap.get(row.refId);
+          if (data) {
+            return { type: "message", createdAt: row.createdAt, data };
+          }
         }
 
         if (row.type === "event") {
-          return {
-            type: "system_event",
-            createdAt: row.createdAt,
-            data: eventMap.get(row.refId)!,
-          };
+          const data = eventMap.get(row.refId);
+          if (data) {
+            return { type: "system_event", createdAt: row.createdAt, data };
+          }
         }
 
+        // deleted, or the referenced row no longer exists
         return {
           type: "deleted_message",
           createdAt: row.createdAt,
@@ -1013,7 +1045,10 @@ class ConversationsRepository {
           and(
             eq(this.conversationsTable.type, "direct"),
             eq(this.conversationsTable.pingStatus, "accepted"),
-            inArray(this.conversation_participants.userId, [callerId, tergetedUserId])
+            inArray(this.conversation_participants.userId, [
+              callerId,
+              tergetedUserId,
+            ]),
           ),
         )
         .groupBy(this.conversationsTable.id)

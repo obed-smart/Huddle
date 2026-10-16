@@ -1,0 +1,2 @@
+ALTER TABLE "meet_invitees" DROP CONSTRAINT IF EXISTS "meet_invitees_meet_id_user_id_accepted_at_pk";--> statement-breakpoint
+ALTER TABLE "meet_invitees" ADD CONSTRAINT "meet_invitees_meet_id_user_id_pk" PRIMARY KEY("meet_id","user_id");

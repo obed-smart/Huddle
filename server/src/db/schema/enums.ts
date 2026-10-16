@@ -54,5 +54,8 @@ export const participantStatusEnum = pgEnum("participant_status", [
 
 export const callStatusEnum = pgEnum("call_status", ["active", "ended"]);
 
-
-
+export const attachmentStatusEnum = pgEnum("attachment_status", [
+  "pending",
+  "ready",
+  "failed",
+]);

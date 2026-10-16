@@ -120,6 +120,27 @@
       "when": 1791077119579,
       "tag": "0016_futuristic_mastermind",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791841782966,
+      "tag": "0017_hot_skaar",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792024100175,
+      "tag": "0018_overjoyed_sunspot",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792026011464,
+      "tag": "0019_repair_attachment_schema",
+      "breakpoints": true
     }
   ]
 }

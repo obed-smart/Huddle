@@ -34,8 +34,15 @@ app.use(
         styleSrc: isDev
           ? ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"]
           : ["'self'"],
-        imgSrc: ["'self'", "data:", "https://res.cloudinary.com"],
-        connectSrc: ["'self'"],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "blob:",
+          "https://res.cloudinary.com",
+          "https://*.r2.cloudflarestorage.com",
+        ],
+        connectSrc: ["'self'", "https://*.r2.cloudflarestorage.com"],
+        mediaSrc: ["'self'", "blob:", "https://*.r2.cloudflarestorage.com"],
       },
     },
   }),

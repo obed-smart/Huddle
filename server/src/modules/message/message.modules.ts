@@ -5,6 +5,7 @@ import {
   messageMentionsTable,
   systemEventsTable,
   conversationTimeline,
+  attachmentsTable,
 } from "../../db/schema";
 import logger from "../../shared/utils/logger";
 import MessageController from "./message.controllers";
@@ -18,6 +19,7 @@ const messageRepository = new MessageRepository(
   messageMentionsTable,
   systemEventsTable,
   conversationTimeline,
+  attachmentsTable
 );
 
 const messageService = new MessageService(messageRepository, logger);

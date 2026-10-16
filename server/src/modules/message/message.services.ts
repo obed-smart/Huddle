@@ -1,8 +1,17 @@
 import Logger from "../../shared/utils/logger";
 import AppError from "../../shared/utils/apiError";
 import MessageRepository from "./message.repository";
-import { IMessage, INewMessage } from "../../db/schema";
-import { MessageResponseDTO, systemEventDTO } from "./message.types";
+import {
+  IAttachment,
+  IMessage,
+  INewAttachment,
+  INewMessage,
+} from "../../db/schema";
+import {
+  MessageResponseDTO,
+  MessageWithAttachmentDTO,
+  systemEventDTO,
+} from "./message.types";
 import logger from "../../shared/utils/logger";
 
 class MessageService {
@@ -14,6 +23,13 @@ class MessageService {
   async createMessage(data: INewMessage): Promise<MessageResponseDTO> {
     const message = await this.messageRepo.createMessage(data);
     return message;
+  }
+
+  async createMessageWithAttachment(
+    data: INewMessage,
+    attachment: Omit<INewAttachment, "id" | "messageId" | "createdAt">[],
+  ): Promise<MessageWithAttachmentDTO> {
+    return await this.messageRepo.createMessageWithAttachment(data, attachment);
   }
 
   async createSystemEvent(input: systemEventDTO) {

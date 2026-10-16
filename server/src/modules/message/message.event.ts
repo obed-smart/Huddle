@@ -1,4 +1,6 @@
 import { Server, Socket } from "socket.io";
+import pLimit from "p-limit";
+
 import logger from "../../shared/utils/logger";
 import { onlineUsers } from "../../shared/utils/utits";
 import { conversationService } from "../conversations/conversations.modules";
@@ -11,7 +13,15 @@ import {
   messageReadSchema,
   reactionsAddSchema,
   reactionRemoveSchema,
+  typeSchema,
 } from "./message.validation";
+import { mediaService } from "../media/media.modules";
+import { MEDIA_POLICY } from "../media/media.policy";
+import {
+  AttachmentDTO,
+  MessageResponseDTO,
+  MessageWithAttachmentDTO,
+} from "./message.types";
 
 const TYPING_TIMEOUT_MS = 4000;
 const typingTimers = new Map<string, NodeJS.Timeout>();
@@ -20,10 +30,18 @@ export function messageEvent(io: Server, socket: Socket) {
   socket.on(
     "message:send",
     catchSocketAsync(async (data, callback) => {
-      const { tempId, replyToMessageId, conversationId, content, mentions } =
-        validateSocketData(sendMessageSchema, data);
+      const {
+        tempId,
+        replyToMessageId,
+        conversationId,
+        content,
+        mentions,
+        attachments,
+      } = validateSocketData(sendMessageSchema, data);
 
       const userId = socket.data.user.id;
+
+      const headLimit = pLimit(5);
 
       const requestedMentionIds = [
         ...new Set(mentions?.map((m) => m.userId) ?? []),
@@ -46,13 +64,60 @@ export function messageEvent(io: Server, socket: Socket) {
         requestedMentionIds,
       );
 
-      const message = await messageService.createMessage({
-        conversationId,
-        senderId: socket.data.user.id,
-        body: content,
-        type: "text",
-        replyToMessageId: replyToMessageId ?? null,
-      });
+      let message: MessageResponseDTO | MessageWithAttachmentDTO;
+
+      if (attachments?.length) {
+        const verified = await Promise.all(
+          attachments.map((att) =>
+            headLimit(async () => {
+              if (!att.objectKey.startsWith(`huddle/${att.kind}/${userId}/`)) {
+                throw new AppError("This object key is not yours", 403);
+              }
+
+              const head = await mediaService.verifyR2Upload(att.objectKey);
+              if (!head)
+                throw new AppError(`Upload not found: ${att.fileName}`, 409);
+              if (head.size === 0)
+                throw new AppError(`Empty upload: ${att.fileName}`, 400);
+
+              const policy = MEDIA_POLICY[att.kind];
+              if (head.size > policy.maxBytes) {
+                throw new AppError(`File too large: ${att.fileName}`, 403);
+              }
+
+              return {
+                objectKey: att.objectKey,
+                status: "ready" as const,
+                fileName: att.fileName,
+                mimeType: head.contentType ?? att.mime,
+                size: head.size,
+                duration: att.duration ?? null,
+                height: att.height ?? null,
+                width: att.width ?? null,
+              };
+            }),
+          ),
+        );
+
+        message = await messageService.createMessageWithAttachment(
+          {
+            conversationId,
+            senderId: userId,
+            body: content ?? null,
+            type: attachments[0]!.kind,
+            replyToMessageId: replyToMessageId ?? null,
+          },
+          verified,
+        );
+      } else {
+        message = await messageService.createMessage({
+          conversationId,
+          senderId: socket.data.user.id,
+          body: content ?? null,
+          type: "text",
+          replyToMessageId: replyToMessageId ?? null,
+        });
+      }
 
       const repliedTo = replyToMessageId
         ? await messageService.getMessageById(replyToMessageId)
@@ -78,8 +143,27 @@ export function messageEvent(io: Server, socket: Socket) {
           type,
         );
 
+      let attachmentsPayload: AttachmentDTO[] | undefined;
+      let messageFields: MessageResponseDTO;
+
+      if ("attachments" in message) {
+        const { attachments: rawAttachments, ...rest } = message;
+        messageFields = rest;
+
+        attachmentsPayload = await Promise.all(
+          rawAttachments.map(
+            async ({ objectKey, status, messageId, createdAt, ...meta }) => {
+              const signed = await mediaService.signAttachmenturl(objectKey);
+              return { ...meta, ...signed };
+            },
+          ),
+        );
+      } else {
+        messageFields = message;
+      }
+
       const payload = {
-        ...message,
+        ...messageFields,
         senderUsername: socket.data.user.username,
         tempId,
         mentions:
@@ -93,6 +177,8 @@ export function messageEvent(io: Server, socket: Socket) {
               content: repliedTo.body?.slice(0, 50),
             }
           : null,
+
+        attachments: attachmentsPayload,
       };
 
       socket
@@ -139,7 +225,7 @@ export function messageEvent(io: Server, socket: Socket) {
     "typing:start",
     catchSocketAsync(async (data) => {
       const { username, sub: userId } = socket.data.user;
-      const { conversationId } = validateSocketData(conversationIdSchema, data);
+      const { conversationId, action } = validateSocketData(typeSchema, data);
 
       const roomId = `conversation:${conversationId}`;
       const timerKey = `${conversationId}:${userId}`;
@@ -151,6 +237,7 @@ export function messageEvent(io: Server, socket: Socket) {
         socket.to(roomId).emit("typing:update", {
           conversationId,
           isTyping: true,
+          action,
           userId,
           username,
         });
@@ -165,6 +252,7 @@ export function messageEvent(io: Server, socket: Socket) {
           socket.to(roomId).emit("typing:update", {
             conversationId,
             isTyping: false,
+            action,
             userId,
             username,
           });
@@ -325,4 +413,6 @@ export function messageEvent(io: Server, socket: Socket) {
       });
     }),
   );
+
+  
 }

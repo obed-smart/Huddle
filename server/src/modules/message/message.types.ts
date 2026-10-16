@@ -1,4 +1,4 @@
-import type { IMessage, IsystemEvent } from "../../db/schema";
+import type { IAttachment, IMessage, IsystemEvent } from "../../db/schema";
 
 export type MessageResponseDTO = {
   id: IMessage["id"];
@@ -7,6 +7,19 @@ export type MessageResponseDTO = {
   body: IMessage["body"];
   createdAt: IMessage["createdAt"];
   editedAt?: IMessage["editedAt"];
+};
+
+export type MessageWithAttachmentDTO = MessageResponseDTO & {
+  attachments: IAttachment[];
+};
+
+export type AttachmentDTO = Omit<
+  IAttachment,
+  "createdAt" | "status" | "messageId" | "objectKey"
+>;
+
+export type MessageTimelineWithAttachmentDTO = MessageResponseDTO & {
+  attachments: AttachmentDTO[];
 };
 
 export type systemEventDTO = {
