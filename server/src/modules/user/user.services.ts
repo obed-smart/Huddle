@@ -132,5 +132,21 @@ class UserService {
   async linkGoogleAccount(userId: string, googleId: string) {
     await this.userRepo.linkGoogleAccount(userId, googleId);
   }
+
+  async startPasswordReset(userId: string, otpHash: string, expiresAt: Date) {
+    await this.userRepo.startPasswordReset(userId, otpHash, expiresAt);
+  }
+
+  async incrementResetAttempts(userId: string) {
+    await this.userRepo.incrementResetAttempts(userId);
+  }
+
+  async completePasswordReset(userId: string, passwordHash: string) {
+    await this.userRepo.completePasswordReset(userId, passwordHash);
+  }
+
+  async clearPasswordReset(userId: string) {
+    await this.userRepo.clearPasswordReset(userId);
+  }
 }
 export default UserService;

@@ -45,6 +45,24 @@ const envSchema = z.object({
     emptyToUndefined,
     z.string("R2_BUCKET_NAME is required"),
   ),
+  REDIS_LOCAL: z.preprocess(
+    emptyToUndefined,
+    z.string("REDIS_LOCAL is required"),
+  ),
+
+  REDIS_PROD: z.preprocess(
+    emptyToUndefined,
+    z.string("REDIS_PROD is required"),
+  ),
+
+  SEND_LIB_KEY: z.preprocess(
+    emptyToUndefined,
+    z.string("SEND_LIB_KEY is required"),
+  ),
+  OTP_SECRET: z.preprocess(
+    emptyToUndefined,
+    z.string("OTP_SECRET is required"),
+  ),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import { randomInt } from "node:crypto";
 import Logger from "../../shared/utils/logger";
 import { INewUser, IUser } from "../../db/schema/schema.user";
 import AppError from "../../shared/utils/apiError";
@@ -7,8 +7,10 @@ import authRepository from "./auth.repository";
 import {
   generateAccessToken,
   generateRefreshToken,
+  hashOtp,
   hashPassword,
   hashToken,
+  verifyOtp,
 } from "../../shared/utils/utits";
 import UserService from "../user/user.services";
 
@@ -18,6 +20,11 @@ import {
   disConnectSession,
   disConnectUser,
 } from "../../sockets/socket.gateway";
+import {
+  addPasswordChangedEmail,
+  addPasswordResetEmail,
+  addWellcomeEmail,
+} from "../notification/email.queue";
 
 class AuthService {
   constructor(
@@ -71,6 +78,7 @@ class AuthService {
     const { refreshToken, accessToken, expiresAt } =
       await this.storeSessionToken(user);
 
+    await addWellcomeEmail(user);
     this.logger.debug("Email sent");
 
     return {
@@ -106,6 +114,8 @@ class AuthService {
     await this.authRepo.revokeAllSession(userId);
 
     disConnectUser(userId);
+
+    this.logger.info("logout successfully");
   }
 
   async googleCallback(user: AuthUser, isNewUser: boolean) {
@@ -115,6 +125,7 @@ class AuthService {
     this.logger.info(`User ${user.id} logged in with Google`);
 
     if (isNewUser) {
+      await addWellcomeEmail(user);
       this.logger.debug("Email sent");
     }
 
@@ -157,6 +168,56 @@ class AuthService {
       refreshToken,
       expiresAt,
     };
+  }
+
+  async forgetPassword(email: string) {
+    const user = await this.userService.findUserByEmail(email);
+    if (!user) return null;
+
+    const otp = randomInt(0, 1_000_000).toString().padStart(6, "0");
+
+    this.logger.debug({ otp }, "sent otp");
+
+    const hashed = hashOtp(otp);
+
+    const expiredAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await this.userService.startPasswordReset(user.id, hashed, expiredAt);
+
+    await addPasswordResetEmail(email, otp);
+  }
+
+  async resetPassword(email: string, otp: string, password: string) {
+    const MAX_ATTEMPTS = 5;
+    const invalid = () => new AppError("Invalid or expired code", 400);
+
+    const user = await this.userService.findUserByEmail(email);
+
+    if (!user || !user.passwordResetOtp || !user.passwordResetOtpExpiry) {
+      throw invalid();
+    }
+
+    const expired = user.passwordResetOtpExpiry < new Date();
+    const locked = user.passwordResetAttempts ?? 0 >= MAX_ATTEMPTS;
+
+    if (expired || locked) {
+      await this.userService.clearPasswordReset(user.id);
+      throw invalid();
+    }
+
+    const validOtp = verifyOtp(otp, user.passwordResetOtp);
+
+    if (!validOtp) {
+      await this.userService.incrementResetAttempts(user.id);
+      throw invalid();
+    }
+
+    const hashed = await hashPassword(password);
+    await this.userService.completePasswordReset(user.id, hashed);
+    await this.logOutAll(user.id);
+
+    await addPasswordChangedEmail(email, new Date());
+    this.logger.info({ userId: user.id }, "Password reset completed");
   }
 }
 

@@ -90,6 +90,21 @@ export const hashToken = (token: string) => {
   return crypto.createHash("sha256").update(token).digest("hex");
 };
 
+export const hashOtp = (otp: string) =>
+  crypto.createHmac("sha256", env.OTP_SECRET).update(otp).digest("hex");
+
+
+export const verifyOtp = (otp: string, storedHash: string): boolean => {
+  if (!otp || !storedHash) return false;
+
+  const incoming = Buffer.from(hashOtp(otp), "hex");
+  const stored = Buffer.from(storedHash, "hex");
+
+  if (incoming.length !== stored.length) return false;
+
+  return crypto.timingSafeEqual(incoming, stored);
+};
+
 export const verifySecret = (secrect: string) => {
   if (!secrect) {
     throw new AppError(
@@ -163,3 +178,17 @@ export function dbErrorConstraint(error: unknown) {
       ).cause
     : undefined;
 }
+
+
+  export function fail(
+    error: unknown,
+    message: string,
+    context: Record<string, unknown> = {},
+  ): never {
+    if (error instanceof AppError) throw error;
+
+    logger.error({ err: error, ...context }, message);
+
+    throw new AppError(message, 500);
+  }
+

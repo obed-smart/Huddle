@@ -3,7 +3,12 @@ import { authController } from "./auth.modules";
 import passport from "passport";
 import authenticate from "../../middlewares/authentication.middleware";
 import validate from "../../middlewares/validation.middleware";
-import { loginSchema, registerSchema } from "./auth.validation";
+import {
+  forgetPasswordSchema,
+  loginSchema,
+  registerSchema,
+  resetPasswordSchema,
+} from "./auth.validation";
 import AppError from "../../shared/utils/apiError";
 
 const router = Router();
@@ -58,5 +63,19 @@ router.get(
 );
 
 router.post("/refresh", authController.refresh);
+
+router.post(
+  "/forgot-password",
+  validate(forgetPasswordSchema),
+  authController.forgetPassword,
+);
+
+router.post(
+  "/reset-password",
+  validate(resetPasswordSchema),
+  authController.resetPassword,
+);
+
+// 824668
 
 export default router;

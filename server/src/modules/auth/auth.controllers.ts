@@ -147,6 +147,28 @@ class AuthController {
       throw error;
     }
   });
+
+  forgetPassword = catchAsync(async (req, res) => {
+    const { email } = req.body;
+
+    await this.authService.forgetPassword(email);
+
+    res
+      .status(200)
+      .json(
+        ApiResponse.success(
+          "If an account exists, we've sent a code to that email.",
+        ),
+      );
+  });
+
+  resetPassword = catchAsync(async (req, res) => {
+    const { otp, email, password } = req.body;
+
+    await this.authService.resetPassword(email, otp, password);
+
+    res.status(200).json(ApiResponse.success("password Reset successfully"));
+  });
 }
 
 export default AuthController;

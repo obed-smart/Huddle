@@ -45,6 +45,23 @@ export const loginSchema = z.object({
     .min(1, "Password is required"),
 });
 
+export const forgetPasswordSchema = z.object({
+  email: z.email("Please enter a valid email address"),
+});
+
+export const resetPasswordSchema = forgetPasswordSchema
+  .extend({
+    otp: z.string().regex(/^\d{6}$/, "Code must be 6 digits"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(72, "Password is too long"),
+    passwordCompare: z.string(),
+  })
+  .refine((data) => data.password === data.passwordCompare, {
+    message: "Passwords do not match",
+    path: ["passwordCompare"],
+  });
 
 export type RegisterDto = z.infer<typeof registerSchema>;
 export type LoginDto = z.infer<typeof loginSchema>;

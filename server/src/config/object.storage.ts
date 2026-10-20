@@ -3,7 +3,6 @@ import env from "./env";
 import logger from "../shared/utils/logger";
 
 logger.debug("Initializing Cloudflare R2 client...");
-logger.debug(`R2_ACCOUNT_ID: ${env.R2_ACCOUNT_ID}`);
 
 export const R2 = new S3Client({
   region: "auto",
@@ -13,4 +12,3 @@ export const R2 = new S3Client({
     secretAccessKey: env.R2_SECRET_ACCESS_KEY,
   },
 });
-

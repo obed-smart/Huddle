@@ -9,6 +9,7 @@ import AppError from "../../shared/utils/apiError";
 import ro from "zod/v4/locales/ro.js";
 import logger from "../../shared/utils/logger";
 import { usersTable } from "../../db/schema";
+import { fail } from "../../shared/utils/utits";
 
 class AuthRepository {
   constructor(
@@ -149,8 +150,7 @@ class AuthRepository {
         };
       });
     } catch (error) {
-      logger.error(error, "Failed on access refresh");
-      throw new AppError("Failed on refresh", 500);
+      fail(error, "Failed to find user by email", {});
     }
   }
 }
