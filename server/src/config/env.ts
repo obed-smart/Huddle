@@ -63,6 +63,11 @@ const envSchema = z.object({
     emptyToUndefined,
     z.string("OTP_SECRET is required"),
   ),
+
+  EMAIL_VERIFICATION_LIFESPAN: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().positive().default(24),
+  ),
 });
 
 const parsed = envSchema.safeParse(process.env);

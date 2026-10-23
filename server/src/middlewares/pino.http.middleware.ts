@@ -21,6 +21,7 @@ const httpLogger = pinoHttp({
       return url.startsWith("/health") || url.startsWith("/metrics");
     },
   },
+
   customSuccessMessage(req, res) {
     return `${req.method} ${req.url} completed`;
   },
@@ -33,14 +34,13 @@ const httpLogger = pinoHttp({
     return (req.headers["x-request-id"] as string) || nanoid(12);
   },
 
-  customProps(req) {
-    const request = req as Request;
+  // customProps(req) {
+  //   const request = req as Request;
 
-    return {
-      requestId: request.id,
-      // userId: request.user?.id,
-    };
-  },
+  //   return {
+  //     requestId: request.id,
+  //   };
+  // },
 
   serializers: {
     req(req: Request) {
@@ -50,7 +50,6 @@ const httpLogger = pinoHttp({
         url: req.url,
         ip: req.ip,
         userAgent: req.headers["user-agent"],
-        // userId: req.user?._id ?? null,
       };
     },
 

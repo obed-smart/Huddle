@@ -37,6 +37,10 @@ passport.use(
           return done(null, false, { message: "invalid credentials" });
         }
 
+        if (!user.isEmailVerified) {
+          return done(null, false, { message: "EMAIL_UNVERIFIED_CODE" });
+        }
+
         return done(null, user);
       } catch (error) {
         logger.error(`Passport strategy error: ${error}`);
@@ -83,51 +87,13 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      callbackURL: "http://localhost:8080/api/v1/auth/google/callback",
+      callbackURL: process.env.GOOGLE_CALLBACK_URL!,
     },
-    async (accessToken, refereshToken, profile, done: Function) => {
+    async (_accessToken, _refreshToken, profile, done: Function) => {
       try {
-        const email = profile.emails?.[0]?.value;
-        const emailVerified = profile.emails?.[0]?.verified ?? true;
-
-        if (!email)
-          return done(null, false, {
-            message: "No email returned from Google",
-          });
-        if (!emailVerified)
-          return done(null, false, { message: "Google email is not verified" });
-
-        let user = await userService.findAuthUserByGoogleId(profile.id);
-        let isNewUser = false;
-
-        if (!user) {
-          const existingByEmail = await userService.findUserByEmail(email);
-
-          if (existingByEmail) {
-            await userService.linkGoogleAccount(existingByEmail.id, profile.id);
-
-            user = existingByEmail;
-          } else {
-            const username = await generateUniqueUsername(profile.displayName);
-
-            user = await userService.createUser({
-              email,
-              username,
-              displayName: profile.displayName || username,
-              googleId: profile.id,
-              provider: "google",
-              avatarUrl: profile.photos?.[0]?.value || null,
-            });
-
-            isNewUser = true;
-          }
-        }
-
-        return done(null, { user, isNewUser });
-      } catch (error) {
-        console.error("REAL ERROR:", error);
-        // console.error("CAUSE:", error.cause);
-        return done(error);
+        done(null, await authService.googleLogin(profile));
+      } catch (err) {
+        done(err as Error);
       }
     },
   ),

@@ -42,17 +42,12 @@ class AuthController {
 
   register = catchAsync(async (req, res) => {
     const displayName = `${req.body.firstName} ${req.body.lastName}`.trim();
-    const { user, refreshToken, accessToken, expiresAt } =
-      await this.authService.register({ ...req.body, displayName });
 
-    this.setCookies(res, accessToken, refreshToken, expiresAt);
+    await this.authService.register({ ...req.body, displayName });
 
     res.status(201).json(
       ApiResponse.success({
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        avataUrl: user.avatarUrl,
+        message: "If this email can be used, we've sent you a message.",
       }),
     );
   });
@@ -114,7 +109,7 @@ class AuthController {
   googleCallback = catchAsync(async (req: Request, res: Response) => {
     const { user, isNewUser } = req.user as Express.PassportNewCustomUser;
 
-    if (user) {
+    if (!user) {
       throw new AppError("Unauthorized", 401);
     }
 
@@ -123,7 +118,7 @@ class AuthController {
 
     this.setCookies(res, accessToken, refreshToken, expiresAt);
 
-    res.redirect(`${process.env.FRONTEND_URL!}/chat`);
+    res.redirect(`${env.FRONTEND_URL}/#/dashboard`);
   });
 
   refresh = catchAsync(async (req, res) => {
@@ -168,6 +163,28 @@ class AuthController {
     await this.authService.resetPassword(email, otp, password);
 
     res.status(200).json(ApiResponse.success("password Reset successfully"));
+  });
+
+  verifyEmail = catchAsync(async (req, res) => {
+    const { token } = req.body;
+
+    await this.authService.verifyEmail(token);
+
+    res
+      .status(202)
+      .json(ApiResponse.success({ message: "email verification successfull" }));
+  });
+
+  resendVerificationEmail = catchAsync(async (req, res) => {
+    const { emai } = req.body;
+
+    await this.authService.resendVerificationEmail(emai);
+
+    res.status(202).json(
+      ApiResponse.success({
+        message: "If this email can be used, we've sent you a message.",
+      }),
+    );
   });
 }
 

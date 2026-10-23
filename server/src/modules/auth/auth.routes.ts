@@ -8,6 +8,7 @@ import {
   loginSchema,
   registerSchema,
   resetPasswordSchema,
+  verifyEmailSchema,
 } from "./auth.validation";
 import AppError from "../../shared/utils/apiError";
 
@@ -76,6 +77,16 @@ router.post(
   authController.resetPassword,
 );
 
-// 824668
+router.post(
+  "/verify-email",
+  validate(verifyEmailSchema),
+  authController.verifyEmail,
+);
+
+router.post(
+  "/resend-verification",
+  validate(forgetPasswordSchema),
+  authController.resendVerificationEmail,
+);
 
 export default router;

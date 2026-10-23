@@ -1,0 +1,2 @@
+ALTER TABLE "users" ADD COLUMN "email_verification_expires_at" timestamp with time zone;--> statement-breakpoint
+CREATE UNIQUE INDEX "email_token_hash_idx" ON "users" USING btree ("email_verification_token");

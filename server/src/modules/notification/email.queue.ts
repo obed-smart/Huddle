@@ -2,11 +2,15 @@ import { Queue } from "bullmq";
 import bullmqConnection from "../../config/bullmq.connection";
 import { ISendEmailPayload } from "../../config/email";
 import { AuthUser } from "../../shared/types";
+import { buildWelcomeEmail } from "./templates/wellcome-email";
 import {
   buildPasswordChangedEmail,
   buildPasswordResetEmail,
-  buildWelcomeEmail,
-} from "./email.template";
+} from "./templates/password.reset.email";
+import { string } from "zod";
+import { buildVerifyEmail } from "./templates/verify.email";
+import { buildAccountExistsEmail } from "./templates/account.exist.email";
+import env from "../../config/env";
 
 const emailQueue = new Queue<ISendEmailPayload>("email", {
   connection: bullmqConnection,
@@ -16,8 +20,8 @@ const emailQueue = new Queue<ISendEmailPayload>("email", {
       type: "exponential",
       delay: 2000,
     },
-    removeOnComplete: true,
-    removeOnFail: false,
+    removeOnComplete: { count: 100, age: 900 },
+    removeOnFail: { count: 7 * 24 * 3600 },
   },
 });
 
@@ -56,5 +60,42 @@ export async function addPasswordChangedEmail(email: string, changedAt: Date) {
       html: buildPasswordChangedEmail(email, changedAt),
     },
     { jobId: `passwword-chnaged/${email}` },
+  );
+}
+
+export async function addVerifyEmailJob(
+  email: string,
+  displayName: string,
+  verifyUrl: string,
+  token: string,
+) {
+  const ttlHours = new Date(
+    Date.now() + env.EMAIL_VERIFICATION_LIFESPAN * 60 * 60 * 1000,
+  ).getHours();
+
+  emailQueue.add(
+    "verify-email",
+    {
+      to: email,
+      subject: "Confirm your email for Huddle",
+      html: buildVerifyEmail(verifyUrl, ttlHours, displayName),
+    },
+    { jobId: `verify/${email}/${token}` },
+  );
+}
+
+export async function addAccountExistsJob(
+  email: string,
+  displayName: string,
+  loginUrl: string,
+) {
+  return emailQueue.add(
+    "account-exists",
+    {
+      to: email,
+      subject: "You already have a Huddle account",
+      html: buildAccountExistsEmail(loginUrl, displayName),
+    },
+    { jobId: `account-exists/${email}` },
   );
 }

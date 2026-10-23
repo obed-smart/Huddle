@@ -4,6 +4,7 @@ import { INewUser } from "../../db/schema/schema.user";
 import AppError from "../../shared/utils/apiError";
 import { hashPassword } from "../../shared/utils/utits";
 import { UpdateUserDto } from "./user.validation";
+import { AuthUser } from "../../shared/types";
 
 class UserService {
   constructor(
@@ -33,6 +34,28 @@ class UserService {
         409,
       );
     }
+
+    this.logger.info("New user created");
+    return user;
+  }
+
+  async replaceUnverifiedUser(userData: INewUser): Promise<AuthUser> {
+    const { password, googleId, provider, ...rest } = userData;
+
+    if (provider === "local" && !password) {
+      throw new AppError("Password is required", 400);
+    }
+
+    const hashedPassword = password ? await hashPassword(password) : null;
+
+    const user = await this.userRepo.replaceUnverifiedUser({
+      ...rest,
+      password: hashedPassword,
+      provider,
+      googleId,
+    });
+
+    if (!user) throw new Error("Failed to create user");
 
     this.logger.info("New user created");
     return user;
@@ -73,6 +96,11 @@ class UserService {
     const user = await this.userRepo.findAuthUserByGoogleId(googleId);
 
     return user;
+  }
+
+
+  async getEmailVerified(email: string) {
+    return await this.userRepo.getEmailVerified(email);
   }
 
   async checkRegistrationConflict(username: string, email: string) {
@@ -130,7 +158,19 @@ class UserService {
   }
 
   async linkGoogleAccount(userId: string, googleId: string) {
-    await this.userRepo.linkGoogleAccount(userId, googleId);
+    return await this.userRepo.linkGoogleAccount(userId, googleId);
+  }
+
+  async startEmailVerification(
+    userId: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ) {
+    await this.userRepo.startEmailVerification(userId, tokenHash, expiresAt);
+  }
+
+  async completeEmailVerification(userId: string) {
+   return await this.userRepo.completeEmailVerification(userId);
   }
 
   async startPasswordReset(userId: string, otpHash: string, expiresAt: Date) {

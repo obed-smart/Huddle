@@ -30,6 +30,9 @@ export const usersTable = pgTable(
     globalRole: globalRoleEnum("global_role").default("user").notNull(),
     isEmailVerified: boolean("is_email_verified").default(false).notNull(),
     emailVerificationToken: text("email_verification_token"),
+    emailVerificationTokenExpiry: timestamp("email_verification_expires_at", {
+      withTimezone: true,
+    }),
     passwordResetOtp: text("password_reset_otp"),
     passwordResetOtpExpiry: timestamp("password_reset_expires_at", {
       withTimezone: true,
@@ -49,6 +52,7 @@ export const usersTable = pgTable(
     uniqueIndex("users_username_unique").on(t.username),
     uniqueIndex("users_email_unique").on(t.email),
     uniqueIndex("users_google_id_unique").on(t.googleId),
+    uniqueIndex("email_token_hash_idx").on(t.emailVerificationToken),
   ],
 );
 

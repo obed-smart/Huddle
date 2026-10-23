@@ -18,7 +18,8 @@ export const registerSchema = z.object({
     .regex(
       /^[a-zA-Z0-9_]+$/,
       "Username can only contain letters, numbers, and underscores",
-    ),
+    )
+    .transform((v) => v.toLowerCase()),
 
   firstName: z.string().trim().min(1, "First name is required"),
   lastName: z.string().trim().min(1, "Last name is required"),
@@ -62,6 +63,13 @@ export const resetPasswordSchema = forgetPasswordSchema
     message: "Passwords do not match",
     path: ["passwordCompare"],
   });
+
+export const verifyEmailSchema = z.object({
+  token: z
+    .string()
+    .trim()
+    .regex(/^[a-f0-9]{64}$/, "Invalid token"),
+});
 
 export type RegisterDto = z.infer<typeof registerSchema>;
 export type LoginDto = z.infer<typeof loginSchema>;

@@ -31,7 +31,9 @@ const startServer = async () => {
     const shutdown = async (signal: string) => {
       logger.info(`${signal} received, shutting down gracefully`);
       server.close();
+      logger.info("closing email worker");
       await emailWorker.close();
+      logger.info("email worker closed");
       process.exit(0);
     };
 

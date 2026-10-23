@@ -4,7 +4,7 @@ import {
   usersTable as user,
 } from "../../db/schema/schema.user";
 import { db as dbInstance } from "../../db";
-import { and, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
+import { and, eq, gt, ilike, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import Logger from "../../shared/utils/logger";
 import { AuthUser, PublicUser } from "../../shared/types";
 import AppError from "../../shared/utils/apiError";
@@ -69,6 +69,56 @@ class UserRepository {
     }
   }
 
+  async replaceUnverifiedUser(userData: INewUser): Promise<AuthUser> {
+    try {
+      return this.db.transaction(async (tx) => {
+        await tx
+          .delete(this.usersTable)
+          .where(
+            and(
+              eq(this.usersTable.email, userData.email),
+              eq(this.usersTable.isEmailVerified, false),
+            ),
+          );
+
+        const [user] = await tx
+          .insert(this.usersTable)
+          .values(userData)
+          .returning(authUserSelection);
+
+        if (!user) throw new Error("Failed to create user");
+
+        return user;
+      });
+    } catch (error) {
+      fail(error, "Failed creating user ");
+    }
+  }
+
+  async getEmailVerified(email: string): Promise<{
+    id: string;
+    email: string;
+    username: string;
+    isEmailVerified: boolean;
+  } | null> {
+    try {
+      const [row] = await this.db
+        .select({
+          id: this.usersTable.id,
+          email: user.email,
+          username: user.username,
+          isEmailVerified: this.usersTable.isEmailVerified,
+        })
+        .from(this.usersTable)
+        .where(eq(this.usersTable.email, email))
+        .limit(1);
+
+      return row ?? null;
+    } catch (error) {
+      fail(error, "Fialed on checking user verification");
+    }
+  }
+
   async findByEmail(email: IUser["email"]) {
     try {
       const user = await this.db.query.usersTable.findFirst({
@@ -128,6 +178,7 @@ class UserRepository {
           email: this.usersTable.email,
           password: this.usersTable.password,
           globalRole: this.usersTable.globalRole,
+          isEmailVerified: this.usersTable.isEmailVerified,
         })
         .from(this.usersTable)
         .where(
@@ -272,14 +323,84 @@ class UserRepository {
     }
   }
 
-  async linkGoogleAccount(userId: string, googleId: string) {
+  async linkGoogleAccount(userId: string, googleId: string): Promise<AuthUser> {
     try {
-      return await this.db
+      const [user] = await this.db
         .update(this.usersTable)
         .set({ googleId })
+        .where(
+          and(eq(this.usersTable.id, userId), isNull(this.usersTable.googleId)),
+        )
+        .returning(authUserSelection);
+
+      if (!user) throw new AppError("Account is already linked to Google", 409);
+
+      return user;
+    } catch (error) {
+      fail(error, "Failed merging account");
+    }
+  }
+
+  async startEmailVerification(
+    userId: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ) {
+    try {
+      await this.db
+        .update(this.usersTable)
+        .set({
+          emailVerificationToken: tokenHash,
+          emailVerificationTokenExpiry: expiresAt,
+        })
+        .where(
+          and(
+            eq(this.usersTable.id, userId),
+            eq(this.usersTable.isEmailVerified, false),
+          ),
+        );
+    } catch (error) {
+      fail(error, "Failed verifyiny email");
+    }
+  }
+
+  async clearEmailVerification(userId: string) {
+    try {
+      await this.db
+        .update(this.usersTable)
+        .set({
+          emailVerificationToken: null,
+          emailVerificationTokenExpiry: null,
+        })
         .where(eq(this.usersTable.id, userId));
     } catch (error) {
-      fail(error, "Failed to link Google account", { userId, googleId });
+      fail(error, "");
+    }
+  }
+
+  async completeEmailVerification(
+    token: string,
+  ): Promise<AuthUser | undefined> {
+    try {
+      const [user] = await this.db
+        .update(this.usersTable)
+        .set({
+          emailVerificationToken: null,
+          emailVerificationTokenExpiry: null,
+          isEmailVerified: true,
+        })
+        .where(
+          and(
+            eq(this.usersTable.emailVerificationToken, token),
+            gt(this.usersTable.emailVerificationTokenExpiry, new Date()),
+            eq(this.usersTable.isEmailVerified, false),
+          ),
+        )
+        .returning(authUserSelection);
+
+      return user;
+    } catch (error) {
+      fail(error, "");
     }
   }
 
