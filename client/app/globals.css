@@ -1,26 +1,119 @@
 @import "tailwindcss";
 
+/* Dark mode is class-based (.dark on <html>), toggled later via a theme switch. */
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Huddle design system — one calm, muted iris-violet hue on soft neutrals.
+  Values mirror the Huddle Design System tokens (light theme here, dark below).
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --radius: 0.75rem;
+
+  --background: #fbfbfd; /* surface-base */
+  --foreground: #2e2e3a; /* ink-strong */
+
+  --card: #ffffff; /* surface-raised */
+  --card-foreground: #2e2e3a;
+  --popover: #ffffff;
+  --popover-foreground: #2e2e3a;
+
+  --primary: #605ac9; /* brand */
+  --primary-foreground: #ffffff; /* ink-on-brand */
+
+  --secondary: #f3f3f8; /* surface-muted */
+  --secondary-foreground: #2e2e3a;
+  --muted: #f3f3f8;
+  --muted-foreground: #6f6f7e; /* ink-muted */
+
+  --accent: #ecebf8; /* brand-soft */
+  --accent-foreground: #4a44a8; /* brand-text */
+
+  --destructive: #cf5f62; /* danger */
+  --destructive-foreground: #ffffff;
+  --success: #4f9a82;
+  --warning: #ce9a55;
+
+  --border: #e9e9f0;
+  --input: #e9e9f0;
+  --ring: #7a74da;
+}
+
+.dark {
+  --background: #201f27;
+  --foreground: #ecebf2;
+
+  --card: #282730;
+  --card-foreground: #ecebf2;
+  --popover: #282730;
+  --popover-foreground: #ecebf2;
+
+  --primary: #605ac9;
+  --primary-foreground: #ffffff;
+
+  --secondary: #191820;
+  --secondary-foreground: #ecebf2;
+  --muted: #191820;
+  --muted-foreground: #a2a1b0;
+
+  --accent: #2b2942;
+  --accent-foreground: #b6b2ec;
+
+  --destructive: #e2878b;
+  --destructive-foreground: #201f27;
+  --success: #71c0a4;
+  --warning: #e3b472;
+
+  --border: #2f2e38;
+  --input: #2f2e38;
+  --ring: #8b85e6;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-jakarta);
+  --font-mono: var(--font-jetbrains);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 8px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    border-color: var(--border);
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
 }
