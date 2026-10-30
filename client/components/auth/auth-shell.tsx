@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Logo } from "@/components/landing/logo";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 type AuthShellProps = {
   title: string;
@@ -13,7 +14,8 @@ type AuthShellProps = {
 /** Centered auth card on the soft canvas — shared by login and register. */
 export function AuthShell({ title, subtitle, children, footer }: AuthShellProps) {
   return (
-    <main className="flex min-h-screen flex-col bg-secondary">
+    <main className="relative flex min-h-screen flex-col bg-secondary">
+      <ThemeToggle className="absolute right-3 top-3 sm:right-5 sm:top-5" />
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-10 sm:px-6">
         <Link href="/" aria-label="Huddle home" className="mb-8">
           <Logo />

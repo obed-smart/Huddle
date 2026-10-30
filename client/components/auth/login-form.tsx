@@ -4,27 +4,37 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { PasswordInput } from "@/components/auth/password-input";
+import { TextField, PasswordField } from "@/components/auth/fields";
 import { login, ApiError } from "@/lib/api/auth";
+import { requiredError } from "@/lib/validation";
+
+type Errors = { identifier?: string; password?: string };
 
 export function LoginForm() {
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Errors>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const identifierError = () => requiredError(identifier, "Email or username");
+  const passwordRequired = () => (password ? undefined : "Password is required.");
+  const clear = (key: keyof Errors) => setErrors((p) => ({ ...p, [key]: undefined }));
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
+    setFormError(null);
+    const next = { identifier: identifierError(), password: passwordRequired() };
+    setErrors(next);
+    if (next.identifier || next.password) return;
+
     setSubmitting(true);
     try {
       await login(identifier.trim(), password);
       router.push("/dashboard");
     } catch (err) {
-      setError(
+      setFormError(
         err instanceof ApiError ? err.message : "Something went wrong. Try again.",
       );
       setSubmitting(false);
@@ -33,37 +43,39 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-      {error ? (
+      {formError ? (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
+          {formError}
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="identifier">Email or username</Label>
-        <Input
-          id="identifier"
-          name="identifier"
-          autoComplete="username"
-          placeholder="you@example.com"
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-          required
-        />
-      </div>
+      <TextField
+        id="identifier"
+        label="Email or username"
+        autoComplete="username"
+        placeholder="you@example.com"
+        value={identifier}
+        error={errors.identifier}
+        onChange={(e) => {
+          setIdentifier(e.target.value);
+          if (errors.identifier) clear("identifier");
+        }}
+        onBlur={() => setErrors((p) => ({ ...p, identifier: identifierError() }))}
+      />
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="password">Password</Label>
-        <PasswordInput
-          id="password"
-          name="password"
-          autoComplete="current-password"
-          placeholder="Your password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-      </div>
+      <PasswordField
+        id="password"
+        label="Password"
+        autoComplete="current-password"
+        placeholder="Your password"
+        value={password}
+        error={errors.password}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          if (errors.password) clear("password");
+        }}
+        onBlur={() => setErrors((p) => ({ ...p, password: passwordRequired() }))}
+      />
 
       <Button type="submit" size="lg" className="mt-1 w-full" disabled={submitting}>
         {submitting ? "Signing in…" : "Sign in"}
