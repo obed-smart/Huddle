@@ -1,5 +1,5 @@
-import { FeatureCard } from "@/components/landing/feature-card";
-import { features } from "@/components/landing/content";
+import { FeatureCard } from "@/features/marketing/feature-card";
+import { features } from "@/features/marketing/content";
 
 /** The short "what's inside" grid: one column on phones, up to four on desktop. */
 export function FeatureSection() {

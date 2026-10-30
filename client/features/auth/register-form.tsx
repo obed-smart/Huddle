@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { TextField, PasswordField } from "@/components/auth/fields";
+import { TextField, PasswordField } from "@/features/auth/fields";
 import { register, ApiError } from "@/lib/api/auth";
 import { requiredError, emailError, passwordError } from "@/lib/validation";
 

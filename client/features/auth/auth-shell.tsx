@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { Logo } from "@/components/landing/logo";
+import { Logo } from "@/features/marketing/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 type AuthShellProps = {

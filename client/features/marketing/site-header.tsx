@@ -2,8 +2,8 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { Logo } from "@/components/landing/logo";
-import { routes } from "@/components/landing/content";
+import { Logo } from "@/features/marketing/logo";
+import { routes } from "@/features/marketing/content";
 
 /** Sticky, translucent top bar: wordmark left, theme + auth actions right. */
 export function SiteHeader() {

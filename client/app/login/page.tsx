@@ -1,10 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
-import { AuthShell } from "@/components/auth/auth-shell";
-import { GoogleButton } from "@/components/auth/google-button";
-import { OrDivider } from "@/components/auth/or-divider";
-import { LoginForm } from "@/components/auth/login-form";
+import { AuthShell } from "@/features/auth/auth-shell";
+import { GoogleButton } from "@/features/auth/google-button";
+import { OrDivider } from "@/features/auth/or-divider";
+import { LoginForm } from "@/features/auth/login-form";
 
 export const metadata: Metadata = {
   title: "Sign in — Huddle",
