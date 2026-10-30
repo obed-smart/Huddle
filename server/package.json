@@ -6,7 +6,7 @@
   "types": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && cp src/path/to/token-bucket.lua dist/path/to/",
     "start": "NODE_ENV=production node dist/index.js",
     "client": "npx tsx test/socket/client.ts",
     "db:generate": "drizzle-kit generate",

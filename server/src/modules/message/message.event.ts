@@ -30,6 +30,11 @@ export function messageEvent(io: Server, socket: Socket) {
   socket.on(
     "message:send",
     catchSocketAsync(async (data, callback) => {
+      const { id: userId, sid: sessionId } = socket.data.user;
+
+      
+
+
       const {
         tempId,
         replyToMessageId,
@@ -38,8 +43,6 @@ export function messageEvent(io: Server, socket: Socket) {
         mentions,
         attachments,
       } = validateSocketData(sendMessageSchema, data);
-
-      const userId = socket.data.user.id;
 
       const headLimit = pLimit(5);
 
@@ -413,8 +416,4 @@ export function messageEvent(io: Server, socket: Socket) {
       });
     }),
   );
-
-
 }
-
-
