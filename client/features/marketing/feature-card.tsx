@@ -1,4 +1,4 @@
-import type { Feature } from "@/components/landing/content";
+import type { Feature } from "@/features/marketing/content";
 
 /** One quiet feature: soft icon tile, title, a line of plain description. */
 export function FeatureCard({ feature }: { feature: Feature }) {

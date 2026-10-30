@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { routes } from "@/components/landing/content";
+import { routes } from "@/features/marketing/content";
 
 /** A calm closing invitation — soft tint, one primary action. */
 export function CtaSection() {

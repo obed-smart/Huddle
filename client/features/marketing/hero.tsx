@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { AppPreview } from "@/components/landing/app-preview";
-import { routes } from "@/components/landing/content";
+import { AppPreview } from "@/features/marketing/app-preview";
+import { routes } from "@/features/marketing/content";
 
 /** Top of the page: the one honest headline, two actions, and a calm preview. */
 export function Hero() {

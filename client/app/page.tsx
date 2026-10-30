@@ -1,8 +1,8 @@
-import { SiteHeader } from "@/components/landing/site-header";
-import { Hero } from "@/components/landing/hero";
-import { FeatureSection } from "@/components/landing/feature-section";
-import { CtaSection } from "@/components/landing/cta-section";
-import { SiteFooter } from "@/components/landing/site-footer";
+import { SiteHeader } from "@/features/marketing/site-header";
+import { Hero } from "@/features/marketing/hero";
+import { FeatureSection } from "@/features/marketing/feature-section";
+import { CtaSection } from "@/features/marketing/cta-section";
+import { SiteFooter } from "@/features/marketing/site-footer";
 
 export default function Home() {
   return (

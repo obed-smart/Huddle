@@ -1,7 +1,7 @@
 import Link from "next/link";
 
-import { Logo } from "@/components/landing/logo";
-import { routes } from "@/components/landing/content";
+import { Logo } from "@/features/marketing/logo";
+import { routes } from "@/features/marketing/content";
 
 /** A small, honest footer. */
 export function SiteFooter() {
