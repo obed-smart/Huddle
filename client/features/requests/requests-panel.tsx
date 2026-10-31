@@ -1,112 +1,95 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { ArrowLeft } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { springs } from "@/lib/springs";
-import { toast } from "@/lib/notify";
-import { acceptPing, declinePing, respondInvite } from "@/lib/api/requests";
-import { useRequests } from "@/stores/requests";
-import { useConversations } from "@/stores/conversations";
-import { RequestItem } from "./request-item";
+import { useIsDesktop } from "./use-is-desktop";
+import { RequestList } from "./request-list";
 
 type Props = { open: boolean; onClose: () => void };
 
-/** The requests inbox: a parallel, non-blocking panel (translucent, no scrim)
-    that scales from the bell it belongs to, holding pending pings and invites. */
+/**
+ * The requests inbox, adapted to the platform (a core design principle):
+ * - desktop: a parallel, non-blocking popover that scales from the bell, no
+ *   scrim so the flow is not broken, solid (the header is already translucent,
+ *   and stacking translucency collapses legibility);
+ * - phones: a full screen, which quick-touch devices call for over a cramped
+ *   dropdown, pushed in from the side like any secondary screen.
+ */
 export function RequestsPanel({ open, onClose }: Props) {
+  const isDesktop = useIsDesktop();
+  return isDesktop ? (
+    <DesktopPopover open={open} onClose={onClose} />
+  ) : (
+    <MobileScreen open={open} onClose={onClose} />
+  );
+}
+
+function DesktopPopover({ open, onClose }: Props) {
   const reduce = useReducedMotion();
-  const pings = useRequests((s) => s.pings);
-  const invites = useRequests((s) => s.invites);
-  const status = useRequests((s) => s.status);
-  const removePing = useRequests((s) => s.removePing);
-  const removeInvite = useRequests((s) => s.removeInvite);
-  const refresh = useConversations((s) => s.refresh);
-  const total = pings.length + invites.length;
-
-  const variants = reduce
-    ? { hidden: { opacity: 0 }, visible: { opacity: 1 } }
-    : { hidden: { opacity: 0, scale: 0.96 }, visible: { opacity: 1, scale: 1 } };
-
   return (
     <AnimatePresence>
       {open ? (
-        <>
+        <motion.div initial="hidden" animate="visible" exit="hidden">
           <div className="fixed inset-0 z-40" onClick={onClose} />
           <motion.div
             role="dialog"
             aria-label="Requests"
-            className="absolute right-0 top-full z-50 mt-2 w-[min(340px,calc(100vw-1.5rem))] origin-top-right overflow-hidden rounded-2xl border border-border bg-popover shadow-xl"
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
-            variants={variants}
+            className="absolute right-0 top-full z-50 mt-2 w-[340px] origin-top-right overflow-hidden rounded-2xl border border-border bg-popover shadow-xl"
+            variants={
+              reduce
+                ? { hidden: { opacity: 0 }, visible: { opacity: 1 } }
+                : { hidden: { opacity: 0, scale: 0.96 }, visible: { opacity: 1, scale: 1 } }
+            }
             transition={springs.snappy}
           >
-            <header className="flex items-center justify-between border-b px-4 py-2.5">
+            <header className="border-b px-4 py-2.5">
               <p className="text-sm font-semibold">Requests</p>
-              {total > 0 ? <span className="text-xs text-muted-foreground">{total}</span> : null}
             </header>
-
             <div className="max-h-[70vh] overflow-y-auto p-2">
-              {status === "loading" && total === 0 ? (
-                <p className="px-2 py-8 text-center text-sm text-muted-foreground">Loading…</p>
-              ) : total === 0 ? (
-                <div className="px-2 py-8 text-center">
-                  <p className="text-sm text-muted-foreground">Nothing waiting right now.</p>
-                  <p className="pt-1 text-xs text-muted-foreground">
-                    Pings and group invites show up here.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {pings.map((p) => (
-                    <RequestItem
-                      key={`ping-${p.conversationId}`}
-                      avatarName={p.requester.username}
-                      avatarSrc={p.requester.avatarUrl}
-                      title={
-                        <>
-                          <span className="font-semibold">@{p.requester.username}</span> pinged you
-                        </>
-                      }
-                      subtitle="Wants to start a chat"
-                      onAccept={async () => {
-                        await acceptPing(p.conversationId);
-                        await refresh();
-                        toast(`Chat with @${p.requester.username} started.`);
-                      }}
-                      onDecline={() => declinePing(p.conversationId).then(() => undefined)}
-                      onDone={() => removePing(p.conversationId)}
-                    />
-                  ))}
-
-                  {invites.map((i) => (
-                    <RequestItem
-                      key={`invite-${i.id}`}
-                      avatarName={i.conversationName ?? "Group"}
-                      avatarSrc={i.conversationAvatar}
-                      title={
-                        <>
-                          Invite to join{" "}
-                          <span className="font-semibold">{i.conversationName ?? "a group"}</span>
-                        </>
-                      }
-                      subtitle="Group invitation"
-                      onAccept={async () => {
-                        await respondInvite(i.id, "accept");
-                        await refresh();
-                        toast(`You joined ${i.conversationName ?? "the group"}.`);
-                      }}
-                      onDecline={() => respondInvite(i.id, "decline").then(() => undefined)}
-                      onDone={() => removeInvite(i.id)}
-                    />
-                  ))}
-                </>
-              )}
+              <RequestList />
             </div>
           </motion.div>
-        </>
+        </motion.div>
       ) : null}
     </AnimatePresence>
+  );
+}
+
+function MobileScreen({ open, onClose }: Props) {
+  const reduce = useReducedMotion();
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <AnimatePresence>
+      {open ? (
+        <motion.div
+          role="dialog"
+          aria-label="Requests"
+          className="fixed inset-0 z-[60] flex flex-col bg-background"
+          initial={{ opacity: 0, x: reduce ? 0 : 24 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: reduce ? 0 : 24 }}
+          transition={springs.default}
+        >
+          <header
+            className="flex items-center gap-2 border-b px-3 py-3"
+            style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+          >
+            <Button variant="ghost" size="icon" aria-label="Close" onClick={onClose}>
+              <ArrowLeft />
+            </Button>
+            <p className="text-base font-semibold">Requests</p>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            <RequestList />
+          </div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>,
+    document.body,
   );
 }
