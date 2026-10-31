@@ -5,11 +5,19 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/notify";
+import { Avatar } from "@/components/ui/avatar";
+import { useSession } from "@/stores/session";
+import { UserButton } from "./user-button";
 import { navItems, type NavItem } from "./nav-items";
 
-/** Mobile bottom tab bar. */
+const itemClass =
+  "flex w-full flex-col items-center gap-1 rounded-lg py-1 text-[10px] font-medium transition-colors active:scale-95";
+
+/** Mobile bottom tab bar: Chats, Calls, Meet, and You (account). */
 export function BottomNav({ className }: { className?: string }) {
   const pathname = usePathname();
+  const user = useSession((s) => s.user);
+  const name = user?.displayName || user?.username || "";
 
   return (
     <nav
@@ -26,14 +34,25 @@ export function BottomNav({ className }: { className?: string }) {
           active={item.enabled && pathname === item.href}
         />
       ))}
+
+      <UserButton
+        menuSide="top"
+        className="flex-1"
+        triggerClassName={cn(itemClass, "text-muted-foreground")}
+        trigger={
+          <>
+            <Avatar src={user?.avatarUrl} name={name} className="size-6" />
+            You
+          </>
+        }
+      />
     </nav>
   );
 }
 
 function BottomItem({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.icon;
-  const base =
-    "flex flex-1 flex-col items-center gap-1 rounded-lg py-1 text-[10px] font-medium transition-colors active:scale-95";
+  const base = cn("flex-1", itemClass);
 
   if (item.enabled && item.href) {
     return (

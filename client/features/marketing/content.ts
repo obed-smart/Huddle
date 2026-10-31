@@ -30,7 +30,7 @@ export const features: Feature[] = [
     icon: Phone,
     title: "Voice & video calls",
     description:
-      "Ring someone directly, or turn a chat into a call. Answer, decline, hang up — the way you'd expect.",
+      "Ring someone directly, or turn a chat into a call. Answer, decline, or hang up the way you'd expect.",
   },
   {
     icon: Video,

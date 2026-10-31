@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.5.0",
+    "@shadcn/react": "^0.3.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.65.0",
@@ -21,6 +22,7 @@
     "socket.io-client": "^4.8.4",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
+    "webrtc-adapter": "^9.0.6",
     "zustand": "^5.0.16"
   },
   "devDependencies": {
