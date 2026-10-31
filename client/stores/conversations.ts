@@ -11,6 +11,8 @@ type ConversationsState = {
   error: string | null;
   unread: Record<string, number>;
   load: () => Promise<void>;
+  /** Refetch without flipping to the loading state (after accepting a request). */
+  refresh: () => Promise<void>;
   /** Move a conversation to the top (a message arrived there). */
   bump: (conversationId: string) => void;
   incUnread: (conversationId: string) => void;
@@ -33,6 +35,15 @@ export const useConversations = create<ConversationsState>((set, get) => ({
         status: "error",
         error: err instanceof Error ? err.message : "Could not load conversations.",
       });
+    }
+  },
+
+  refresh: async () => {
+    try {
+      const items = await fetchConversations();
+      set({ items: Array.isArray(items) ? items : [], status: "ready" });
+    } catch {
+      // A failed quiet refresh leaves the current list in place.
     }
   },
 

@@ -8,8 +8,9 @@ import { ConversationPanel } from "@/features/conversations/conversation-panel";
 import { NavRail } from "./nav-rail";
 import { BottomNav } from "./bottom-nav";
 import { EmptyConversation } from "./empty-conversation";
-import { ThreadPlaceholder } from "./thread-placeholder";
+import { ChatView } from "@/features/chat/chat-view";
 import { useConversationRealtime } from "./use-conversation-realtime";
+import { useRequestRealtime } from "@/features/requests/use-request-realtime";
 
 /** The whole app shell: nav + conversation list + open-conversation pane. */
 export function DashboardView() {
@@ -19,6 +20,7 @@ export function DashboardView() {
   const selected = items.find((c) => c.id === selectedId) ?? null;
 
   useConversationRealtime(selectedId);
+  useRequestRealtime();
 
   function onSelect(id: string) {
     setSelectedId(id);
@@ -45,7 +47,11 @@ export function DashboardView() {
         )}
       >
         {selected ? (
-          <ThreadPlaceholder conversation={selected} onBack={() => setSelectedId(null)} />
+          <ChatView
+            key={selected.id}
+            conversation={selected}
+            onBack={() => setSelectedId(null)}
+          />
         ) : (
           <EmptyConversation />
         )}
