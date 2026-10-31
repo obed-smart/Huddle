@@ -5,6 +5,7 @@ import { NextFunction, Request, Response } from "express";
 
 import redisClient from "../config/redis.config";
 import { ApiResponse } from "../shared/utils/apiResponse";
+import logger from "../shared/utils/logger";
 
  export interface BucketConfig {
   maxTokens: number;
@@ -12,7 +13,10 @@ import { ApiResponse } from "../shared/utils/apiResponse";
   keyTtlMs: number;
 }
 
-const luascript = readFileSync(join(__dirname, "token-bucket.lua"), "utf-8");
+const luascript = readFileSync(
+  join(__dirname, "../config/token-bucket.lua"),
+  "utf-8",
+);;
 
 declare module "ioredis" {
   interface RedisCommander<Context> {
@@ -33,26 +37,16 @@ export function registerRateLimiterBucket(redis: Redis) {
   });
 }
 
-async function checkLimit(
-  key: string,
-  config: BucketConfig,
-): Promise<{ allowed: boolean; remaining: number }> {
-  try {
-    const [allowed, remaining] = await redisClient.tokenBucket(
-      key,
-      config.maxTokens,
-      config.refillPerSecond,
-      Date.now(),
-      config.keyTtlMs,
-    );
+export async function checkLimit(key: string, config: BucketConfig) {
+  const [allowed, remaining] = await redisClient.tokenBucket(
+    key,
+    config.maxTokens,
+    config.refillPerSecond,
+    Date.now(),
+    config.keyTtlMs,
+  );
 
-    return {
-      allowed: allowed === 1,
-      remaining: parseFloat(remaining),
-    };
-  } catch (error) {
-    throw error;
-  }
+  return { allowed: allowed === 1, remaining: parseFloat(remaining) };
 }
 
 export function rateLimit(
@@ -60,19 +54,29 @@ export function rateLimit(
   keyFn: (req: Request) => string,
 ) {
   return async (req: Request, res: Response, next: NextFunction) => {
-    const { allowed, remaining } = await checkLimit(keyFn(req), config);
-    res.setHeader("x-RateLimit-Limit", config.maxTokens);
-    res.setHeader("x-RateLimit-Remaining", Math.floor(remaining));
+    let result: { allowed: boolean; remaining: number };
+
+    try {
+      result = await checkLimit(keyFn(req), config);
+    } catch (err) {
+      logger.error({ err }, "Rate limiter failed, allowing request");
+      return next(); // fail open
+    }
+
+    const { allowed, remaining } = result;
+    res.setHeader("X-RateLimit-Limit", config.maxTokens);
+    res.setHeader("X-RateLimit-Remaining", Math.floor(remaining));
 
     if (!allowed) {
-      res.setHeader("Retry-After", Math.ceil(1 / config.refillPerSecond));
+      // Time until the bucket has 1 full token again
+      const retryAfter = Math.ceil((1 - remaining) / config.refillPerSecond);
+      res.setHeader("Retry-After", retryAfter);
 
       return res.status(429).json(
-        ApiResponse.error({
-          message: "Too many request : Try again later",
-        }),
+        ApiResponse.error({ message: "Too many requests: try again later" }),
       );
     }
+
     next();
   };
 }

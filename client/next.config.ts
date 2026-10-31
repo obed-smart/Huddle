@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: fileURLToPath(new URL(".", import.meta.url)),
   },
+  allowedDevOrigins: ["10.191.91.217"],
 };
 
 export default nextConfig;

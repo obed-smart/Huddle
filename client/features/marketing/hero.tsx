@@ -19,7 +19,7 @@ export function Hero() {
           </h1>
 
           <p className="max-w-xl text-base text-muted-foreground sm:text-lg">
-            Huddle keeps your messages, calls, and meetings together — so a
+            Huddle keeps your messages, calls, and meetings together, so a
             quick question doesn&apos;t mean opening three different apps.
           </p>
 
