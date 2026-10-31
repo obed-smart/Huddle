@@ -1,3 +1,5 @@
+"use client";
+
 import { FileText, Music, Play } from "lucide-react";
 
 import {
@@ -9,6 +11,7 @@ import {
   AttachmentTrigger,
 } from "@/components/ui/attachment";
 import { MESSAGE_TYPES, type Attachment as Att, type MessageType } from "@/lib/messages/types";
+import { useAttachmentUrl } from "./use-attachment-url";
 
 function formatSize(bytes: number): string {
   if (!bytes) return "";
@@ -30,7 +33,7 @@ const ICONS: Partial<Record<MessageType, typeof FileText>> = {
 
 /** One attachment inside a bubble, built on the ChatCN Attachment component. */
 export function ChatAttachment({ attachment }: { attachment: Att }) {
-  const src = attachment.url || attachment.remoteUrl || "";
+  const { src, onError } = useAttachmentUrl(attachment);
   const isImage = attachment.type === MESSAGE_TYPES.IMAGE && Boolean(src);
   const Icon = ICONS[attachment.type] || FileText;
   const kind = attachment.type.charAt(0).toUpperCase() + attachment.type.slice(1);
@@ -41,7 +44,7 @@ export function ChatAttachment({ attachment }: { attachment: Att }) {
       {isImage ? (
         <AttachmentMedia variant="image">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt={attachment.name} />
+          <img src={src} alt={attachment.name} onError={onError} />
         </AttachmentMedia>
       ) : (
         <>

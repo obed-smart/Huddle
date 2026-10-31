@@ -12,7 +12,7 @@ type Props = { conversation: Conversation; onBack: () => void };
 /** The inner chat screen: header, transcript, and composer, all live. */
 export function ChatView({ conversation, onBack }: Props) {
   const isGroup = conversation.type === "group";
-  const { messages, status, send, currentUser } = useChat(conversation.id);
+  const { messages, status, send, sendMedia, currentUser } = useChat(conversation.id);
   const { label, ping } = useTyping(conversation.id, isGroup);
 
   return (
@@ -27,7 +27,7 @@ export function ChatView({ conversation, onBack }: Props) {
         typingLabel={label}
       />
 
-      <ChatComposer onSend={send} onTyping={() => ping("typing")} />
+      <ChatComposer onSend={send} onSendMedia={sendMedia} onTyping={() => ping("typing")} />
     </div>
   );
 }
