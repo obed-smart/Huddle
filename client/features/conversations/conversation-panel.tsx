@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
-import { toast } from "@/lib/notify";
 import { NotificationBell } from "@/features/dashboard/notification-bell";
+import { UserSearchSheet } from "@/features/search/user-search-sheet";
 import { useConversations } from "@/stores/conversations";
 import { ConversationList } from "./conversation-list";
 import { ConversationTabs, type ConversationFilter } from "./conversation-tabs";
@@ -29,6 +29,7 @@ export function ConversationPanel({ selectedId, onSelect, className }: Props) {
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [query, setQuery] = useState("");
   const [searchHidden, setSearchHidden] = useState(false);
+  const [newChatOpen, setNewChatOpen] = useState(false);
   const lastScroll = useRef(0);
 
   useEffect(() => {
@@ -58,7 +59,7 @@ export function ConversationPanel({ selectedId, onSelect, className }: Props) {
               variant="ghost"
               size="icon"
               aria-label="New chat"
-              onClick={() => toast("Starting a new chat is coming soon.")}
+              onClick={() => setNewChatOpen(true)}
             >
               <PenSquare />
             </Button>
@@ -103,6 +104,8 @@ export function ConversationPanel({ selectedId, onSelect, className }: Props) {
           onSelect={onSelect}
         />
       </div>
+
+      <UserSearchSheet open={newChatOpen} onClose={() => setNewChatOpen(false)} />
     </div>
   );
 }
