@@ -4,7 +4,7 @@ type Line = { from: "them" | "me"; text: string; time: string };
 
 const lines: Line[] = [
   { from: "them", text: "Are we still on for the kickoff at 4?", time: "9:17" },
-  { from: "me", text: "Yep — I'll start the room a few minutes early.", time: "9:18" },
+  { from: "me", text: "Yep, I'll start the room a few minutes early.", time: "9:18" },
   { from: "them", text: "Perfect. Sending the notes over now.", time: "9:19" },
 ];
 

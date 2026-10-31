@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 
@@ -8,11 +8,19 @@ import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/stores/session";
 
-/** Avatar that opens a small account menu (name + sign out). */
+type Side = "right" | "bottom" | "top";
+
+/** Account control: a trigger that opens a small menu (name + sign out). */
 export function UserButton({
   menuSide = "right",
+  trigger,
+  triggerClassName,
+  className,
 }: {
-  menuSide?: "right" | "bottom";
+  menuSide?: Side;
+  trigger?: ReactNode;
+  triggerClassName?: string;
+  className?: string;
 }) {
   const router = useRouter();
   const user = useSession((s) => s.user);
@@ -28,15 +36,25 @@ export function UserButton({
     router.replace("/login");
   }
 
+  const place =
+    menuSide === "right"
+      ? "bottom-0 left-full ml-2"
+      : menuSide === "top"
+        ? "bottom-full right-0 mb-2"
+        : "right-0 top-full mt-2";
+
   return (
-    <div className="relative">
+    <div className={cn("relative", className)}>
       <button
         type="button"
         aria-label="Account"
         onClick={() => setOpen((o) => !o)}
-        className="rounded-full outline-none transition-transform active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className={cn(
+          "outline-none transition-transform active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          triggerClassName ?? "rounded-full",
+        )}
       >
-        <Avatar src={user.avatarUrl} name={name} className="size-9" />
+        {trigger ?? <Avatar src={user.avatarUrl} name={name} className="size-9" />}
       </button>
 
       {open ? (
@@ -45,9 +63,7 @@ export function UserButton({
           <div
             className={cn(
               "absolute z-50 w-52 overflow-hidden rounded-xl border border-border bg-popover p-1 shadow-lg",
-              menuSide === "right"
-                ? "bottom-0 left-full ml-2"
-                : "right-0 top-full mt-2",
+              place,
             )}
           >
             <div className="px-3 py-2">

@@ -6,7 +6,7 @@ import { routes } from "@/features/marketing/content";
 /** A calm closing invitation — soft tint, one primary action. */
 export function CtaSection() {
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 pb-14 sm:px-6 sm:pb-20">
+    <section className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
       <div className="flex flex-col items-center gap-5 rounded-2xl border border-border bg-accent px-6 py-12 text-center">
         <h2 className="font-display text-2xl font-bold tracking-tight text-accent-foreground sm:text-3xl">
           Ready to jump in?
