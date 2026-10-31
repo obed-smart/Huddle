@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/features/dashboard/notification-bell";
 import { UserSearchSheet } from "@/features/search/user-search-sheet";
+import { GroupCreateSheet } from "@/features/groups/group-create-sheet";
 import { useConversations } from "@/stores/conversations";
 import { ConversationList } from "./conversation-list";
 import { ConversationTabs, type ConversationFilter } from "./conversation-tabs";
@@ -30,6 +31,7 @@ export function ConversationPanel({ selectedId, onSelect, className }: Props) {
   const [query, setQuery] = useState("");
   const [searchHidden, setSearchHidden] = useState(false);
   const [newChatOpen, setNewChatOpen] = useState(false);
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
   const lastScroll = useRef(0);
 
   useEffect(() => {
@@ -105,7 +107,22 @@ export function ConversationPanel({ selectedId, onSelect, className }: Props) {
         />
       </div>
 
-      <UserSearchSheet open={newChatOpen} onClose={() => setNewChatOpen(false)} />
+      <UserSearchSheet
+        open={newChatOpen}
+        onClose={() => setNewChatOpen(false)}
+        onNewGroup={() => {
+          setNewChatOpen(false);
+          setNewGroupOpen(true);
+        }}
+      />
+      <GroupCreateSheet
+        open={newGroupOpen}
+        onClose={() => setNewGroupOpen(false)}
+        onBack={() => {
+          setNewGroupOpen(false);
+          setNewChatOpen(true);
+        }}
+      />
     </div>
   );
 }

@@ -1,22 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Loader2, Search, X } from "lucide-react";
+import { Loader2, Search, Users, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { springs } from "@/lib/springs";
+import { SheetModal } from "@/components/ui/sheet-modal";
 import { useUserSearch } from "./use-user-search";
 import { UserResult } from "./user-result";
 
-type Props = { open: boolean; onClose: () => void };
+type Props = { open: boolean; onClose: () => void; onNewGroup?: () => void };
 
-/** A focused "find people" task, presented as a modal: a dimming scrim pushes
-    the list back, the panel rises and settles on a spring (a cross-fade when
-    motion is reduced), centered on desktop and a bottom sheet on phones. */
-export function UserSearchSheet({ open, onClose }: Props) {
-  const reduce = useReducedMotion();
+/** The "find people" task: search by username to start a chat, or jump to
+    creating a group. Presented as a focused modal via SheetModal. */
+export function UserSearchSheet({ open, onClose, onNewGroup }: Props) {
   const [query, setQuery] = useState("");
   const { results, status } = useUserSearch(query);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -24,68 +21,45 @@ export function UserSearchSheet({ open, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
     const focus = requestAnimationFrame(() => inputRef.current?.focus());
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      cancelAnimationFrame(focus);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open, onClose]);
-
-  const panel = reduce
-    ? { hidden: { opacity: 0 }, visible: { opacity: 1 } }
-    : { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } };
+    return () => cancelAnimationFrame(focus);
+  }, [open]);
 
   return (
-    <AnimatePresence onExitComplete={() => setQuery("")}>
-      {open ? (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4"
-          initial="hidden"
-          animate="visible"
-          exit="hidden"
-        >
-          <motion.div
-            className="absolute inset-0 bg-foreground/30 backdrop-blur-sm"
-            variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
-            transition={springs.snappy}
-            onClick={onClose}
+    <SheetModal open={open} onClose={onClose} label="Find people" onExited={() => setQuery("")}>
+      <header className="flex items-center gap-2 border-b px-3 py-2.5">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by username"
+            aria-label="Search by username"
+            className="pl-9"
           />
+        </div>
+        <Button variant="ghost" size="icon" aria-label="Close" onClick={onClose}>
+          <X />
+        </Button>
+      </header>
 
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Find people"
-            className="relative flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-popover shadow-xl md:max-w-md md:rounded-2xl"
-            variants={panel}
-            transition={springs.sheet}
+      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        {onNewGroup ? (
+          <button
+            type="button"
+            onClick={onNewGroup}
+            className="mb-1 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-secondary"
           >
-            <header className="flex items-center gap-2 border-b px-3 py-2.5">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  ref={inputRef}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search by username"
-                  aria-label="Search by username"
-                  className="pl-9"
-                />
-              </div>
-              <Button variant="ghost" size="icon" aria-label="Close" onClick={onClose}>
-                <X />
-              </Button>
-            </header>
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+              <Users className="size-5" />
+            </span>
+            <span className="text-sm font-medium">New group</span>
+          </button>
+        ) : null}
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-2">
-              <Body query={query} results={results} status={status} />
-            </div>
-          </motion.div>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+        <Body query={query} results={results} status={status} />
+      </div>
+    </SheetModal>
   );
 }
 
@@ -98,9 +72,7 @@ function Body({
   results: ReturnType<typeof useUserSearch>["results"];
   status: ReturnType<typeof useUserSearch>["status"];
 }) {
-  if (status === "idle") {
-    return <Hint>Search by username to start a chat.</Hint>;
-  }
+  if (status === "idle") return <Hint>Search by username to start a chat.</Hint>;
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
@@ -108,12 +80,8 @@ function Body({
       </div>
     );
   }
-  if (status === "error") {
-    return <Hint>Could not search just now. Try again.</Hint>;
-  }
-  if (results.length === 0) {
-    return <Hint>No one found for “{query.trim()}”.</Hint>;
-  }
+  if (status === "error") return <Hint>Could not search just now. Try again.</Hint>;
+  if (results.length === 0) return <Hint>No one found for “{query.trim()}”.</Hint>;
   return (
     <div className="flex flex-col">
       {results.map((user) => (
