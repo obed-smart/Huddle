@@ -10,6 +10,7 @@ import { BottomNav } from "./bottom-nav";
 import { EmptyConversation } from "./empty-conversation";
 import { ChatView } from "@/features/chat/chat-view";
 import { useConversationRealtime } from "./use-conversation-realtime";
+import { useRequestRealtime } from "@/features/requests/use-request-realtime";
 
 /** The whole app shell: nav + conversation list + open-conversation pane. */
 export function DashboardView() {
@@ -19,6 +20,7 @@ export function DashboardView() {
   const selected = items.find((c) => c.id === selectedId) ?? null;
 
   useConversationRealtime(selectedId);
+  useRequestRealtime();
 
   function onSelect(id: string) {
     setSelectedId(id);

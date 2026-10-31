@@ -4,14 +4,16 @@ import { useState } from "react";
 import { Bell } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useRequests } from "@/stores/requests";
+import { RequestsPanel } from "@/features/requests/requests-panel";
 
 /**
  * Requests inbox trigger. The only notifications Huddle raises are a direct
- * ping or a group invite, so they live here, not per message. The list and
- * count are wired to the backend in a later pass.
+ * ping or a group invite, so they live here, not per message.
  */
-export function NotificationBell({ count = 0 }: { count?: number }) {
+export function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const count = useRequests((s) => s.pings.length + s.invites.length);
 
   return (
     <div className="relative">
@@ -29,20 +31,7 @@ export function NotificationBell({ count = 0 }: { count?: number }) {
         ) : null}
       </Button>
 
-      {open ? (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-border bg-popover p-3 shadow-lg">
-            <p className="px-1 pb-2 text-sm font-semibold">Requests</p>
-            <p className="px-1 text-sm text-muted-foreground">
-              Nothing waiting right now.
-            </p>
-            <p className="px-1 pt-1 text-xs text-muted-foreground">
-              When someone pings you or invites you to a group, it shows up here.
-            </p>
-          </div>
-        </>
-      ) : null}
+      <RequestsPanel open={open} onClose={() => setOpen(false)} />
     </div>
   );
 }
