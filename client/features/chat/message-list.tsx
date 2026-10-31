@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "@/components/ui/message-scroller";
 import type { Message } from "@/lib/messages/types";
 import type { AuthUser } from "@/lib/api/types";
 import { isMine } from "./owner";
@@ -17,14 +23,11 @@ type Props = {
   typingLabel: string | null;
 };
 
-/** The scrollable transcript. Sticks to the bottom as new messages land. */
+const senderKey = (m: Message) => m.sender.id ?? m.sender.username ?? "";
+
+/** The scrollable transcript, built on the ChatCN MessageScroller (sticks to
+    the bottom, restores position, and offers a jump-to-latest button). */
 export function MessageList({ messages, loading, isGroup, currentUser, typingLabel }: Props) {
-  const endRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages.length, typingLabel]);
-
   if (loading && messages.length === 0) {
     return (
       <div className="flex flex-1 flex-col gap-3 p-4">
@@ -44,23 +47,43 @@ export function MessageList({ messages, loading, isGroup, currentUser, typingLab
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-3 py-4 sm:px-4">
-      {messages.map((message, i) => {
-        const mine = isMine(message, currentUser);
-        const prev = messages[i - 1];
-        const samePrev = prev && (prev.sender.id ?? prev.sender.username) === (message.sender.id ?? message.sender.username);
-        return (
-          <MessageBubble
-            key={message.tempId || message.id || `m-${i}`}
-            message={message}
-            mine={mine}
-            showName={isGroup && !mine && !samePrev}
-          />
-        );
-      })}
+    <MessageScrollerProvider autoScroll>
+      <MessageScroller className="flex-1">
+        <MessageScrollerViewport className="px-3 py-4 sm:px-4">
+          <MessageScrollerContent className="gap-3">
+            {messages.map((message, i) => {
+              const mine = isMine(message, currentUser);
+              const prev = messages[i - 1];
+              const next = messages[i + 1];
+              const samePrev = prev && senderKey(prev) === senderKey(message);
+              const sameNext = next && senderKey(next) === senderKey(message);
+              return (
+                <MessageScrollerItem
+                  key={message.tempId || message.id || `m-${i}`}
+                  messageId={message.tempId || message.id || `m-${i}`}
+                  scrollAnchor={mine}
+                >
+                  <MessageBubble
+                    message={message}
+                    mine={mine}
+                    isGroup={isGroup}
+                    showAvatar={!sameNext}
+                    showName={isGroup && !samePrev}
+                  />
+                </MessageScrollerItem>
+              );
+            })}
 
-      {typingLabel ? <TypingIndicator label={typingLabel} /> : null}
-      <div ref={endRef} />
-    </div>
+            {typingLabel ? (
+              <MessageScrollerItem messageId="typing">
+                <TypingIndicator label={typingLabel} />
+              </MessageScrollerItem>
+            ) : null}
+          </MessageScrollerContent>
+        </MessageScrollerViewport>
+
+        <MessageScrollerButton />
+      </MessageScroller>
+    </MessageScrollerProvider>
   );
 }

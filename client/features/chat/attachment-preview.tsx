@@ -1,6 +1,14 @@
-import { FileText, Play } from "lucide-react";
+import { FileText, Music, Play } from "lucide-react";
 
-import { MESSAGE_TYPES, type Attachment } from "@/lib/messages/types";
+import {
+  Attachment,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentMedia,
+  AttachmentTitle,
+  AttachmentTrigger,
+} from "@/components/ui/attachment";
+import { MESSAGE_TYPES, type Attachment as Att, type MessageType } from "@/lib/messages/types";
 
 function formatSize(bytes: number): string {
   if (!bytes) return "";
@@ -14,39 +22,44 @@ function formatSize(bytes: number): string {
   return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
-/** One attachment inside a bubble: a thumbnail for media, a chip for a file. */
-export function AttachmentPreview({ attachment }: { attachment: Attachment }) {
+const ICONS: Partial<Record<MessageType, typeof FileText>> = {
+  [MESSAGE_TYPES.VIDEO]: Play,
+  [MESSAGE_TYPES.AUDIO]: Music,
+  [MESSAGE_TYPES.FILE]: FileText,
+};
+
+/** One attachment inside a bubble, built on the ChatCN Attachment component. */
+export function ChatAttachment({ attachment }: { attachment: Att }) {
   const src = attachment.url || attachment.remoteUrl || "";
-
-  if (attachment.type === MESSAGE_TYPES.IMAGE && src) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={attachment.name} className="max-h-72 w-full rounded-lg object-cover" />;
-  }
-
-  if (attachment.type === MESSAGE_TYPES.VIDEO && src) {
-    return <video src={src} controls className="max-h-72 w-full rounded-lg" />;
-  }
-
-  if (attachment.type === MESSAGE_TYPES.AUDIO && src) {
-    return <audio src={src} controls className="w-full" />;
-  }
+  const isImage = attachment.type === MESSAGE_TYPES.IMAGE && Boolean(src);
+  const Icon = ICONS[attachment.type] || FileText;
+  const kind = attachment.type.charAt(0).toUpperCase() + attachment.type.slice(1);
+  const meta = [kind, formatSize(attachment.size)].filter(Boolean).join(" · ");
 
   return (
-    <a
-      href={src || undefined}
-      target="_blank"
-      rel="noreferrer"
-      className="flex items-center gap-3 rounded-lg bg-background/60 p-2.5 text-left transition-colors hover:bg-background"
-    >
-      <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-        {attachment.type === MESSAGE_TYPES.VIDEO ? <Play className="size-4" /> : <FileText className="size-4" />}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{attachment.name}</span>
-        {attachment.size ? (
-          <span className="block text-xs text-muted-foreground">{formatSize(attachment.size)}</span>
-        ) : null}
-      </span>
-    </a>
+    <Attachment state="done" orientation={isImage ? "vertical" : "horizontal"}>
+      {isImage ? (
+        <AttachmentMedia variant="image">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt={attachment.name} />
+        </AttachmentMedia>
+      ) : (
+        <>
+          <AttachmentMedia variant="icon">
+            <Icon />
+          </AttachmentMedia>
+          <AttachmentContent>
+            <AttachmentTitle>{attachment.name}</AttachmentTitle>
+            {meta ? <AttachmentDescription>{meta}</AttachmentDescription> : null}
+          </AttachmentContent>
+        </>
+      )}
+
+      {src ? (
+        <AttachmentTrigger asChild>
+          <a href={src} target="_blank" rel="noreferrer" aria-label={`Open ${attachment.name}`} />
+        </AttachmentTrigger>
+      ) : null}
+    </Attachment>
   );
 }

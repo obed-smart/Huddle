@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useState, type FormEvent, type KeyboardEvent } from "react";
 import { SendHorizonal } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 import { MediaMenu } from "./media-menu";
 
 type Props = {
@@ -12,17 +13,9 @@ type Props = {
   disabled?: boolean;
 };
 
-/** The message input: media picker, a growing text field, and send. */
+/** The message input: media picker, an auto-growing text field, and send. */
 export function ChatComposer({ onSend, onTyping, disabled }: Props) {
   const [value, setValue] = useState("");
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  function grow() {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
-  }
 
   function submit(e?: FormEvent) {
     e?.preventDefault();
@@ -30,7 +23,6 @@ export function ChatComposer({ onSend, onTyping, disabled }: Props) {
     if (!text || disabled) return;
     onSend(text);
     setValue("");
-    requestAnimationFrame(grow);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -48,19 +40,17 @@ export function ChatComposer({ onSend, onTyping, disabled }: Props) {
     >
       <MediaMenu />
 
-      <textarea
-        ref={ref}
+      <Textarea
         rows={1}
         value={value}
         onChange={(e) => {
           setValue(e.target.value);
-          grow();
           if (e.target.value) onTyping();
         }}
         onKeyDown={onKeyDown}
         placeholder="Message"
         aria-label="Message"
-        className="max-h-32 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+        className="max-h-32 min-h-9 flex-1 resize-none rounded-2xl border-transparent bg-secondary px-3.5 py-2 shadow-none"
       />
 
       <button

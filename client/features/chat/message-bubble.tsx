@@ -4,8 +4,19 @@ import { AlertCircle, Check, CheckCheck, Clock, Pencil } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/notify";
-import { MESSAGE_TYPES, type Message, type Reaction } from "@/lib/messages/types";
-import { AttachmentPreview } from "./attachment-preview";
+import { Avatar } from "@/components/ui/avatar";
+import {
+  Message,
+  MessageAvatar,
+  MessageContent,
+  MessageFooter,
+  MessageHeader,
+} from "@/components/ui/message";
+import { Bubble, BubbleContent, BubbleReactions } from "@/components/ui/bubble";
+import { Marker, MarkerContent } from "@/components/ui/marker";
+import { AttachmentGroup } from "@/components/ui/attachment";
+import { MESSAGE_TYPES, type Message as Msg, type Reaction } from "@/lib/messages/types";
+import { ChatAttachment } from "./attachment-preview";
 
 function clock(value?: string | null): string {
   if (!value) return "";
@@ -15,106 +26,102 @@ function clock(value?: string | null): string {
     : d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
-/** Reactions the server attached to a message, if any (display only for now). */
-function reactionsOf(message: Message): Reaction[] {
+function reactionsOf(message: Msg): Reaction[] {
   const raw = message.metadata?.reactions;
   return Array.isArray(raw) ? (raw as Reaction[]) : [];
 }
 
-type Props = { message: Message; mine: boolean; showName: boolean };
+type Props = {
+  message: Msg;
+  mine: boolean;
+  isGroup: boolean;
+  showAvatar: boolean;
+  showName: boolean;
+};
 
-/** One message. Mine sit right on the primary tint, others left on a card. */
-export function MessageBubble({ message, mine, showName }: Props) {
+/** One message row, composed from the ChatCN Message and Bubble primitives. */
+export function MessageBubble({ message, mine, isGroup, showAvatar, showName }: Props) {
   if (message.type === MESSAGE_TYPES.SYSTEM) {
     return (
-      <div className="my-1 text-center text-xs text-muted-foreground">{message.system}</div>
+      <Marker variant="separator" className="py-1">
+        <MarkerContent>{message.system}</MarkerContent>
+      </Marker>
     );
   }
 
   const reactions = reactionsOf(message);
   const hasText = Boolean(message.content) && !message.deleted;
+  const name = message.sender.displayName || message.sender.username || "Someone";
   const canEdit = mine && message.type === MESSAGE_TYPES.TEXT && !message.deleted && !message.pending;
 
   return (
-    <div className={cn("group flex w-full gap-2", mine ? "justify-end" : "justify-start")}>
+    <Message align={mine ? "end" : "start"}>
+      {!mine && isGroup ? (
+        <MessageAvatar className={cn(!showAvatar && "invisible")}>
+          <Avatar src={message.sender.avatar} name={name} className="size-8" />
+        </MessageAvatar>
+      ) : null}
+
+      <MessageContent>
+        {showName && !mine ? <MessageHeader>{name}</MessageHeader> : null}
+
+        <Bubble
+          variant={mine ? "default" : "muted"}
+          align={mine ? "end" : "start"}
+          className={cn(message.pending && "opacity-70", message.failed && "opacity-90")}
+        >
+          {message.attachments.length > 0 ? (
+            <AttachmentGroup className="mb-1">
+              {message.attachments.map((a) => (
+                <ChatAttachment key={a.id} attachment={a} />
+              ))}
+            </AttachmentGroup>
+          ) : null}
+
+          {message.deleted ? (
+            <BubbleContent className="italic opacity-70">Message deleted</BubbleContent>
+          ) : hasText ? (
+            <BubbleContent className="whitespace-pre-wrap">{message.content}</BubbleContent>
+          ) : null}
+
+          {reactions.length > 0 ? (
+            <BubbleReactions side="bottom" align={mine ? "end" : "start"}>
+              {reactions.map((r) => (
+                <span key={r.emoji} className="text-xs">
+                  {r.emoji} {r.count}
+                </span>
+              ))}
+            </BubbleReactions>
+          ) : null}
+        </Bubble>
+
+        <MessageFooter className="gap-1">
+          {message.edited ? <span>edited</span> : null}
+          <span>{clock(message.createdAt)}</span>
+          {mine ? <Status message={message} /> : null}
+          {message.failed ? (
+            <span className="text-destructive">
+              · {message.failureMessage || "Not delivered"}
+            </span>
+          ) : null}
+        </MessageFooter>
+      </MessageContent>
+
       {canEdit ? (
         <button
           type="button"
           aria-label="Edit message"
           onClick={() => toast("Editing messages is coming soon.")}
-          className="mt-1 hidden size-7 shrink-0 place-items-center self-center rounded-full text-muted-foreground transition-colors hover:bg-secondary group-hover:grid"
+          className="mt-1 hidden size-7 shrink-0 place-items-center self-center rounded-full text-muted-foreground transition-colors hover:bg-secondary group-hover/message:grid"
         >
           <Pencil className="size-3.5" />
         </button>
       ) : null}
-
-      <div className="flex min-w-0 max-w-[78%] flex-col gap-1 sm:max-w-[68%]">
-        {showName && !mine ? (
-          <span className="px-1 text-xs font-medium text-muted-foreground">
-            {message.sender.displayName || message.sender.username || "Someone"}
-          </span>
-        ) : null}
-
-        <div
-          className={cn(
-            "rounded-2xl px-3 py-2 text-sm shadow-sm transition-opacity",
-            mine
-              ? "rounded-br-md bg-primary text-primary-foreground"
-              : "rounded-bl-md bg-card text-card-foreground",
-            message.pending && "opacity-70",
-            message.failed && "ring-1 ring-destructive",
-          )}
-        >
-          {message.attachments.length > 0 ? (
-            <div className="mb-1 flex flex-col gap-1.5">
-              {message.attachments.map((a) => (
-                <AttachmentPreview key={a.id} attachment={a} />
-              ))}
-            </div>
-          ) : null}
-
-          {message.deleted ? (
-            <span className="italic opacity-70">Message deleted</span>
-          ) : hasText ? (
-            <p className="whitespace-pre-wrap break-words">{message.content}</p>
-          ) : null}
-
-          <span
-            className={cn(
-              "mt-0.5 flex items-center justify-end gap-1 text-[10px]",
-              mine ? "text-primary-foreground/70" : "text-muted-foreground",
-            )}
-          >
-            {message.edited ? <span>edited</span> : null}
-            {clock(message.createdAt)}
-            {mine ? <Status message={message} /> : null}
-          </span>
-        </div>
-
-        {reactions.length > 0 ? (
-          <div className={cn("flex flex-wrap gap-1", mine ? "justify-end" : "justify-start")}>
-            {reactions.map((r) => (
-              <span
-                key={r.emoji}
-                className="rounded-full bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground"
-              >
-                {r.emoji} {r.count}
-              </span>
-            ))}
-          </div>
-        ) : null}
-
-        {message.failed ? (
-          <span className="px-1 text-[10px] text-destructive">
-            {message.failureMessage || "Not delivered"}
-          </span>
-        ) : null}
-      </div>
-    </div>
+    </Message>
   );
 }
 
-function Status({ message }: { message: Message }) {
+function Status({ message }: { message: Msg }) {
   if (message.failed) return <AlertCircle className="size-3 text-destructive" />;
   if (message.pending) return <Clock className="size-3" />;
   if (message.id) return <CheckCheck className="size-3" />;
