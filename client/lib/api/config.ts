@@ -1,13 +1,11 @@
 /**
- * Where the Huddle backend lives. Empty = same-origin (simplest for the
- * httpOnly session cookie). Set NEXT_PUBLIC_API_URL to the backend origin
- * when the client is served separately (then the backend must send
- * SameSite=None; Secure and allow this origin with credentials).
+ * The API is same-origin: the deployment serves `/api/v1` and `/socket.io` from
+ * the same host as the app — a reverse proxy, or the guarded rewrites in
+ * next.config pointing at the server-only `BACKEND_ORIGIN`. No backend URL is
+ * ever shipped to the browser (that keeps it out of the bundle and lets the
+ * httpOnly session cookie ride along as a first-party cookie).
  */
-export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(
-  /\/+$/,
-  "",
-);
+export const API_BASE = "";
 
 export const paths = {
   login: "/api/v1/auth/login",

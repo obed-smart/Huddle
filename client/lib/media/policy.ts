@@ -1,14 +1,16 @@
 /** Mirrors the server's media policy (media.policy.ts). The server is still the
-    gate; this lets the picker offer, and the client reject, only what will sign. */
+    gate; this lets the picker offer, and the client reject, only what will sign.
+    The kind union is the shared `MediaKind` contract. */
+import type { MediaKind } from "@/lib/contracts";
 
-export const MEDIA_POLICY = {
+export type ServerKind = MediaKind;
+
+export const MEDIA_POLICY: Record<MediaKind, { maxBytes: number; mimes: readonly string[] }> = {
   voice: { maxBytes: 16 * 1024 * 1024, mimes: ["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg"] },
   image: { maxBytes: 10 * 1024 * 1024, mimes: ["image/jpeg", "image/png", "image/webp"] },
   video: { maxBytes: 100 * 1024 * 1024, mimes: ["video/mp4", "video/quicktime", "video/webm"] },
   file: { maxBytes: 25 * 1024 * 1024, mimes: ["application/pdf"] },
-} as const;
-
-export type ServerKind = keyof typeof MEDIA_POLICY;
+};
 
 export const MAX_FILES = 10;
 export const MAX_TOTAL_BYTES = 100 * 1024 * 1024;

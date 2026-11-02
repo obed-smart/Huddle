@@ -1,38 +1,7 @@
 import { request } from "./http";
+import type { GroupDetails, GroupMember, GroupRole, JoinRequest } from "@/lib/contracts";
 
-export type GroupRole = "super_admin" | "admin" | "member";
-
-export type GroupMember = {
-  id: string;
-  username: string;
-  displayName?: string | null;
-  avatarUrl?: string | null;
-  role: GroupRole;
-};
-
-/**
- * Everything the group-info screen needs, in one fetch. Needs a backend route:
- *   GET /api/v1/conversation/:id  (member-only)
- * returning these fields (participants mirror the public-user shape + role).
- */
-export type GroupDetails = {
-  id: string;
-  name: string;
-  description?: string | null;
-  avatarUrl?: string | null;
-  visibility?: "private" | "public";
-  membersCount: number;
-  inviteCode?: string | null;
-  myRole: GroupRole;
-  participants: GroupMember[];
-};
-
-export type JoinRequest = {
-  id: string;
-  userId: string;
-  username: string;
-  avatarUrl?: string | null;
-};
+export type { GroupDetails, GroupMember, GroupRole, JoinRequest };
 
 const base = (id: string) => `/api/v1/conversation/${encodeURIComponent(id)}`;
 
