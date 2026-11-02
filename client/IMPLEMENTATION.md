@@ -87,10 +87,25 @@ party cookie.
 
 In production the rewrites in `next.config.ts` proxy `/api/v1` and `/socket.io`
 to `BACKEND_ORIGIN`. When that is unset (the API is already served same origin
-by a reverse proxy) the rewrites are a no op. There are no custom route handlers
-yet; the proxy and the server only reads cover the current needs. If a call ever
-needs secrets or server side shaping beyond a plain proxy, that is the point to
-add a Route Handler under `app/`.
+by a reverse proxy) the rewrites are a no op.
+
+### Why there is no Backend for Frontend
+
+This was a deliberate decision, not a gap. The only credential the backend
+expects is the user's httpOnly session cookie, which the browser already sends
+on same origin requests and which no script can read. There is no server side
+API key or service token to inject. A rewrite proxy only forwards; a Route
+Handler BFF only earns its place when the server has something of its own to add
+to a request, such as a secret the client must never see, or shaping that hides
+the backend's error shapes. With neither in play, Route Handlers would be an
+empty layer between the hook and the backend, so the plain proxy is the honest
+choice.
+
+The one condition that flips this: if the backend ever starts expecting a
+server held key or token beyond the cookie, that key must stay on the server,
+and the point to add it is a Route Handler under `app/` (a real BFF) rather than
+anything the browser can reach. That is the moment to build the BFF, and not
+before.
 
 ## State: zustand stores
 
