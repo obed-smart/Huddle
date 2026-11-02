@@ -1,8 +1,14 @@
-# Huddle client architecture
+# Huddle client implementation
 
-A reference for how this client is built and why. It is the engineering
-companion to `DESIGN.md` (which covers the visual language). Read this when you
-come back to the code and want the shape of the whole thing before diving in.
+A reference for how this client is built and why: the structure, the data flow,
+and the architectural decisions behind them. Read this when you come back to the
+code and want the shape of the whole thing before diving in.
+
+This is the implementation and architecture record. It is deliberately separate
+from `DESIGN.md`, which is about design and styling (color, layout, motion
+language, typography). When a decision is about how the code is organized, how
+data moves, or how the app stays secure, it belongs here. When it is about how
+the product looks and feels, it belongs in `DESIGN.md`.
 
 The one rule that shapes everything: the client is a thin, typed, secure skin
 over Obed's real backend. It owns rendering, motion, and session plumbing. It
