@@ -9,6 +9,8 @@ type Status = "idle" | "loading" | "authed" | "anon";
 type SessionState = {
   user: AuthUser | null;
   status: Status;
+  /** Adopt a session resolved on the server (the first-paint fast path). */
+  hydrate: (user: AuthUser) => void;
   /** Ask the server who we are (and open the socket if signed in). */
   load: () => Promise<boolean>;
   signOut: () => Promise<void>;
@@ -16,17 +18,24 @@ type SessionState = {
 };
 
 let guardInstalled = false;
+function installGuard(onExpired: () => void) {
+  if (guardInstalled) return;
+  guardInstalled = true;
+  // A 401 a refresh can't fix means the session is dead — sign out.
+  setSessionExpiredHandler(onExpired);
+}
 
 export const useSession = create<SessionState>((set, get) => ({
   user: null,
   status: "idle",
 
+  hydrate: (user) => {
+    installGuard(() => get().reset());
+    set({ user, status: "authed" });
+  },
+
   load: async () => {
-    if (!guardInstalled) {
-      guardInstalled = true;
-      // A 401 a refresh can't fix means the session is dead — sign out.
-      setSessionExpiredHandler(() => get().reset());
-    }
+    installGuard(() => get().reset());
     set({ status: "loading" });
     try {
       const user = await fetchMe();

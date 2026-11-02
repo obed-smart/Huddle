@@ -1,36 +1,22 @@
-"use client";
+import { getMe, getConversations } from "@/lib/server/data";
+import { DashboardGate } from "@/features/dashboard/dashboard-gate";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+// The dashboard is per-user and reads the session cookie, so it renders per
+// request rather than being prerendered.
+export const dynamic = "force-dynamic";
 
-import { useSession } from "@/stores/session";
-import { LogoMark } from "@/features/marketing/logo";
-
-/** Guards the dashboard: loads the session, bounces anonymous visitors to login. */
-export default function DashboardLayout({
+/** Resolves the session and the conversation list on the server, then hands
+    both to the client gate for the first paint. */
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  const status = useSession((s) => s.status);
-  const load = useSession((s) => s.load);
+  const [user, conversations] = await Promise.all([getMe(), getConversations()]);
 
-  useEffect(() => {
-    if (status === "idle") load();
-  }, [status, load]);
-
-  useEffect(() => {
-    if (status === "anon") router.replace("/login");
-  }, [status, router]);
-
-  if (status !== "authed") {
-    return (
-      <div className="flex h-dvh items-center justify-center">
-        <LogoMark className="size-10 animate-pulse" />
-      </div>
-    );
-  }
-
-  return <>{children}</>;
+  return (
+    <DashboardGate user={user} conversations={conversations ?? []}>
+      {children}
+    </DashboardGate>
+  );
 }
