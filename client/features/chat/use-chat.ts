@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 
-import { emitWithAck, getSocket, onSocketConnected, type Ack } from "@/lib/socket";
+import { emitWithAck, onSocketConnected, type Ack } from "@/lib/socket";
+import { useSocket } from "@/features/realtime/socket-provider";
 import { conversationIdOf, normalizeMessage } from "@/lib/messages/normalize";
 import type { Message } from "@/lib/messages/types";
 import { uploadFiles } from "@/lib/media/upload";
@@ -29,6 +30,7 @@ function idFromAck(ack: Ack): string | null {
 /** Open a conversation: load its history, join its room (rejoining on
     reconnect), stream in new messages, and send with optimistic echo. */
 export function useChat(conversationId: string) {
+  const socket = useSocket();
   const user = useSession((s) => s.user);
   const messages = useMessages((s) => s.byId[conversationId] ?? EMPTY);
   const status = useMessages((s) => s.status[conversationId] ?? "idle");
@@ -37,9 +39,14 @@ export function useChat(conversationId: string) {
   const settle = useMessages((s) => s.settle);
   const bump = useConversations((s) => s.bump);
 
+  // History is a REST read that depends only on which conversation is open.
   useEffect(() => {
     load(conversationId);
-    const socket = getSocket();
+  }, [conversationId, load]);
+
+  // Join the room (rejoining on reconnect) and stream in new messages.
+  useEffect(() => {
+    if (!socket) return;
     const offConnected = onSocketConnected(() => {
       emitWithAck("conversation:join", { conversationId });
     });
@@ -52,13 +59,13 @@ export function useChat(conversationId: string) {
       record(conversationId, message);
       bump(conversationId);
     };
-    if (socket) for (const e of MESSAGE_EVENTS) socket.on(e, handler);
+    for (const e of MESSAGE_EVENTS) socket.on(e, handler);
 
     return () => {
       offConnected();
-      if (socket) for (const e of MESSAGE_EVENTS) socket.off(e, handler);
+      for (const e of MESSAGE_EVENTS) socket.off(e, handler);
     };
-  }, [conversationId, user, load, record, bump]);
+  }, [socket, conversationId, user, record, bump]);
 
   async function send(text: string) {
     const content = text.trim();

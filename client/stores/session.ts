@@ -3,7 +3,6 @@ import { create } from "zustand";
 import type { AuthUser } from "@/lib/api/types";
 import { fetchMe, logout as apiLogout } from "@/lib/api/auth";
 import { setSessionExpiredHandler } from "@/lib/api/http";
-import { connectSocket, disconnectSocket } from "@/lib/socket";
 
 type Status = "idle" | "loading" | "authed" | "anon";
 
@@ -31,7 +30,7 @@ export const useSession = create<SessionState>((set, get) => ({
     set({ status: "loading" });
     try {
       const user = await fetchMe();
-      connectSocket();
+      // The socket lifecycle lives in SocketProvider, which reacts to status.
       set({ user, status: "authed" });
       return true;
     } catch {
@@ -50,7 +49,7 @@ export const useSession = create<SessionState>((set, get) => ({
   },
 
   reset: () => {
-    disconnectSocket();
+    // Status flips to anon; SocketProvider disconnects on that transition.
     set({ user: null, status: "anon" });
   },
 }));

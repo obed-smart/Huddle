@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { getSocket } from "@/lib/socket";
+import { useSocket } from "@/features/realtime/socket-provider";
 import { toast } from "@/lib/notify";
 import { useRequests } from "@/stores/requests";
 import { useConversations } from "@/stores/conversations";
@@ -19,13 +19,17 @@ type PingPayload = {
  * whether or not the panel is open.
  */
 export function useRequestRealtime() {
+  const socket = useSocket();
   const addPing = useRequests((s) => s.addPing);
   const loadInvites = useRequests((s) => s.loadInvites);
   const refresh = useConversations((s) => s.refresh);
 
+  // Pending invites are a one-time REST read; the socket keeps them fresh after.
   useEffect(() => {
     loadInvites();
-    const socket = getSocket();
+  }, [loadInvites]);
+
+  useEffect(() => {
     if (!socket) return;
 
     const onPingNew = (p: PingPayload) => {
@@ -47,5 +51,5 @@ export function useRequestRealtime() {
       socket.off("invite:new", onInviteNew);
       socket.off("ping:accepted", onPingAccepted);
     };
-  }, [addPing, loadInvites, refresh]);
+  }, [socket, addPing, loadInvites, refresh]);
 }

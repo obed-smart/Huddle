@@ -16,10 +16,6 @@ export function connectSocket(): Socket | null {
   return socket;
 }
 
-export function getSocket(): Socket | null {
-  return socket;
-}
-
 /** What the server answers an emit with: `{ success, message, data }`. On the
     send path `message` carries the new message id on success. */
 export type Ack = {

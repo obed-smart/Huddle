@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { emitWithAck, getSocket } from "@/lib/socket";
+import { emitWithAck } from "@/lib/socket";
+import { useSocket } from "@/features/realtime/socket-provider";
 import { conversationIdOf } from "@/lib/messages/normalize";
 import { useSession } from "@/stores/session";
 
@@ -30,6 +31,7 @@ function buildLabel(list: Typist[], isGroup: boolean): string | null {
 /** Who is typing in this conversation (with expiry), plus a throttled `ping`
     to tell the server the current user is typing. */
 export function useTyping(conversationId: string, isGroup: boolean) {
+  const socket = useSocket();
   const user = useSession((s) => s.user);
   const [typists, setTypists] = useState<Record<string, Typist>>({});
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -72,7 +74,6 @@ export function useTyping(conversationId: string, isGroup: boolean) {
   }, []);
 
   useEffect(() => {
-    const socket = getSocket();
     if (!socket) return;
     const handler = (payload: Record<string, unknown>) => {
       if (conversationIdOf(payload) !== conversationId) return;
@@ -87,7 +88,7 @@ export function useTyping(conversationId: string, isGroup: boolean) {
     return () => {
       for (const e of TYPING_EVENTS) socket.off(e, handler);
     };
-  }, [conversationId, user, note, stop]);
+  }, [socket, conversationId, user, note, stop]);
 
   const ping = useCallback(
     (action: "typing" | "recording" = "typing") => {
