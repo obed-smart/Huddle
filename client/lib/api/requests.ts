@@ -1,15 +1,7 @@
 import { request } from "./http";
+import type { GroupInvite } from "@/lib/contracts";
 
-/** A pending group invite from GET /user/me/pending-invites. `id` is the
-    request id used to respond; `fromUser` is the inviter's user id. */
-export type GroupInvite = {
-  id: string;
-  conversationId: string;
-  conversationName: string | null;
-  conversationAvatar: string | null;
-  fromUser: string | null;
-  createdAt?: string | null;
-};
+export type { GroupInvite };
 
 export function fetchPendingInvites() {
   return request<{ result: number; invites: GroupInvite[] }>(

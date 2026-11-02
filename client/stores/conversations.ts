@@ -10,6 +10,8 @@ type ConversationsState = {
   status: Status;
   error: string | null;
   unread: Record<string, number>;
+  /** Seed the list from a server render (the first-paint fast path). */
+  hydrate: (items: Conversation[]) => void;
   load: () => Promise<void>;
   /** Refetch without flipping to the loading state (after accepting a request). */
   refresh: () => Promise<void>;
@@ -24,6 +26,9 @@ export const useConversations = create<ConversationsState>((set, get) => ({
   status: "idle",
   error: null,
   unread: {},
+
+  hydrate: (items) =>
+    set({ items: Array.isArray(items) ? items : [], status: "ready" }),
 
   load: async () => {
     set({ status: "loading", error: null });

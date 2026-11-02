@@ -1,13 +1,9 @@
 import { create } from "zustand";
 
-import { fetchPendingInvites, type GroupInvite } from "@/lib/api/requests";
+import { fetchPendingInvites } from "@/lib/api/requests";
+import type { GroupInvite, PingRequest } from "@/lib/contracts";
 
-/** A direct ping received this session (arrives over the socket; there is no
-    REST backfill for received pings). */
-export type PingRequest = {
-  conversationId: string;
-  requester: { id: string; username: string; avatarUrl?: string | null };
-};
+export type { PingRequest };
 
 type Status = "idle" | "loading" | "ready" | "error";
 
