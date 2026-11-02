@@ -1,14 +1,6 @@
 # Huddle Backend
 
-Huddle is a real-time communication backend built for chat and audio/video
-calling applications.
-
-It provides the server-side infrastructure for authentication, user
-management, conversations, messaging, real-time communication, and WebRTC
-call signaling.
-
-The backend exposes a REST API for request-response operations and a
-Socket.IO gateway for real-time events and call signaling..
+Huddle is the backend engine for a real-time chat and audio/video calling application. It lets developers build messaging, group conversations, and WebRTC-powered calls into their products without managing complex signaling, presence, and session logic from scratch. Everything runs through a clean REST API plus a Socket.IO gateway, so teams can focus on their frontend while the server handles auth, real-time events, and call state.
 
 ## System Architecture
 
@@ -18,22 +10,50 @@ flowchart LR
   APIServer["API Server"]
   WSServer["WebSocket Gateway"]
   PostgreSQL[("PostgreSQL")]
+  Redis["Redis Cache / Queue"]
+  EmailWorker["Email Worker"]
 
   WebClient --> APIServer
   WebClient --> WSServer
   APIServer --> PostgreSQL
+  APIServer --> Redis
   WSServer --> PostgreSQL
+  WSServer --> Redis
+  APIServer --> EmailWorker
 
   style WebClient fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff
   style APIServer fill:#2e1065,stroke:#8b5cf6,stroke-width:2px,color:#fff
   style WSServer fill:#2e1065,stroke:#8b5cf6,stroke-width:2px,color:#fff
   style PostgreSQL fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#fff
+  style Redis fill:#4c0519,stroke:#ef4444,stroke-width:2px,color:#fff
+  style EmailWorker fill:#451a03,stroke:#f59e0b,stroke-width:2px,color:#fff
 ```
 
 ## Features
 
-- **Real-Time Messaging**: Support for direct messages and group conversations with instant delivery.
-- **WebRTC Call Signaling**: Built-in signaling for audio and video calls, managing offers, answers, and ICE candidates.
+- **Real-Time Messaging**: Direct and group chats with text, attachments, replies, mentions, reactions, typing indicators, and read receipts.
+- **Audio and Video Calling**: WebRTC signaling for offer/answer exchange and ICE candidates, with in-memory call state and persistent call logs.
+- **Conference Rooms**: Scheduled and instant meeting rooms with their own participant rosters and WebRTC mesh signaling.
+- **Flexible Conversations**: Direct pings, public and private groups, invite links, admin roles, join requests, and member management.
+- **Secure Authentication**: Local email/password login, Google OAuth, email verification, password reset, and HttpOnly cookie-based JWT sessions with refresh token rotation.
+- **Production Ready Touches**: Redis-backed rate limiting, BullMQ email queue, Helmet CSP, request logging, global error handling, and graceful shutdown.
+
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant Server
+  participant Database
+
+  User->>Server: Submit credentials
+  Server->>Database: Verify user
+  Database->>Server: User valid
+  Server->>Server: Create session + tokens
+  Server->>User: Set HttpOnly cookies
+```
+
+### Call Signaling Flow
 
 ```mermaid
 sequenceDiagram
@@ -41,46 +61,47 @@ sequenceDiagram
   participant Server
   actor Callee
 
-  Caller->>Server: Initiate Call
-  Server->>Callee: Incoming Call Alert
-  Callee->>Server: Accept Call
-  Server->>Caller: Call Accepted
-  Caller->>Server: Send SDP Offer
-  Server->>Callee: Deliver SDP Offer
+  Caller->>Server: Start call
+  Server->>Callee: Incoming call alert
+  Callee->>Server: Accept call
+  Server->>Caller: Call accepted
+  Caller->>Server: Send media offer
+  Server->>Callee: Forward offer
 ```
 
-- **Advanced Chat Functions**: Features message reactions, mentions, and read receipts across all active clients.
-- **Secure Authentication**: Handles user registration, local login, and Google OAuth with secure, HttpOnly cookie-based JWT sessions.
+### Message Delivery Flow
 
 ```mermaid
 sequenceDiagram
-  actor User
+  actor Sender
   participant Server
-  participant Database as DB
+  participant Database
+  actor Recipient
 
-  User->>Server: Login with credentials
-  Server->>Database: Verify user
-  Database->>Server: User valid
-  Server->>Server: Generate Access & Refresh Tokens
-  Server->>User: Return HttpOnly Cookies
+  Sender->>Server: Send message
+  Server->>Database: Save and validate mentions
+  Database->>Server: Message stored
+  Server->>Recipient: Deliver in real time
+  Recipient->>Server: Mark as read
+  Server->>Sender: Read receipt update
 ```
 
 ## Installation
 
-Clone the Repository:
+Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/obed-smart/Huddle.git
+cd Huddle
 ```
 
-Navigate to the project directory and install dependencies:
+Install dependencies:
 
 ```bash
-cd huddle
 npm install
 ```
 
-Set up your database schemas:
+Set up the database. The project uses Drizzle Kit to manage PostgreSQL schemas:
 
 ```bash
 npm run db:generate
@@ -88,9 +109,14 @@ npm run db:migrate
 npm run db:push
 ```
 
-## Usage
+Copy `token-bucket.lua` to the expected build location (used by the rate limiter):
 
-Create a `.env` file in the root of the project and define your environment variables.
+```bash
+mkdir -p dist/config
+cp src/config/token-bucket.lua dist/config/token-bucket.lua
+```
+
+Create a `.env` file in the project root. See the Environment Variables section below for the required keys.
 
 Start the development server:
 
@@ -98,30 +124,65 @@ Start the development server:
 npm run dev
 ```
 
-For production environments, build the project and run the output:
+## Usage
+
+Run the API in development mode with hot reload:
+
+```bash
+npm run dev
+```
+
+Build and run in production:
 
 ```bash
 npm run build
 npm start
 ```
 
+Check that the server is healthy:
+
+```bash
+curl http://localhost:8080/health
+```
+
+Connect to the Socket.IO gateway from a client using the same `FRONTEND_URL` origin and include credentials so the access token cookie is sent.
+
 ## Environment Variables
 
-Create a `.env` file and populate it with the following configuration keys:
+Create a `.env` file and add the following keys:
 
-- `PORT`: The port on which the server will run (default is 8080).
-- `NODE_ENV`: Set to `development` or `production`.
-- `DATABASE_URL`: Your PostgreSQL connection string.
-- `FRONTEND_URL`: The URL of your frontend application to allow CORS.
-- `JWT_ACCESS_SECRET`: Secret key for signing access tokens.
+| Variable | Description | Example |
+| --- | --- | --- |
+| `PORT` | Port the server listens on | `8080` |
+| `NODE_ENV` | Runtime environment | `development` or `production` |
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/huddle` |
+| `FRONTEND_URL` | Allowed frontend origin for CORS and redirects | `http://localhost:3000` |
+| `JWT_ACCESS_SECRET` | Secret for signing access tokens | `a-long-random-string` |
+| `REFRESH_TOKEN_LIFESPAN_DAYS` | How many days refresh tokens remain valid | `7` |
+| `EMAIL_VERIFICATION_LIFESPAN` | Email verification link lifetime in hours | `24` |
+| `OTP_SECRET` | Secret used to hash password reset codes | `another-long-random-string` |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID | |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | |
+| `REDIS_URL` | Redis connection string for rate limiting and presence | `redis://localhost:6379` |
+| `BULLMQ_REDIS_URL` | Redis connection for the email queue | `redis://localhost:6379` |
+| `SMTP_HOST` | SMTP server for outbound email | |
+| `SMTP_PORT` | SMTP port | `587` |
+| `SMTP_USER` | SMTP username | |
+| `SMTP_PASS` | SMTP password | |
+| `R2_ENDPOINT` | Cloudflare R2 or S3-compatible endpoint for attachments | |
+| `R2_ACCESS_KEY_ID` | R2 access key | |
+| `R2_SECRET_ACCESS_KEY` | R2 secret key | |
+| `R2_BUCKET_NAME` | R2 bucket name | |
 
 ## API Documentation
+
+All REST endpoints are prefixed with `/api/v1`.
 
 ### Auth Routes
 
 #### POST /api/v1/auth/register
 
-**Description**: Registers a new user and returns authentication cookies.
+Registers a new user and sends a verification email.
 
 **Request**:
 
@@ -141,10 +202,7 @@ Create a `.env` file and populate it with the following configuration keys:
 {
   "success": true,
   "data": {
-    "id": "uuid-string",
-    "email": "user@example.com",
-    "username": "johndoe",
-    "avataUrl": null
+    "message": "If this email can be used, we've sent you a message."
   },
   "message": null
 }
@@ -152,12 +210,12 @@ Create a `.env` file and populate it with the following configuration keys:
 
 **Errors**:
 
-- 400: Validation errors (e.g., password too short, invalid email).
-- 409: Registration failed due to conflicting email or username.
+- 400: Validation errors
+- 409: Username or email conflict
 
 #### POST /api/v1/auth/login
 
-**Description**: Authenticates a user and sets HttpOnly cookies for sessions.
+Authenticates a user with email/username and password, then sets HttpOnly cookies.
 
 **Request**:
 
@@ -185,47 +243,52 @@ Create a `.env` file and populate it with the following configuration keys:
 
 **Errors**:
 
-- 401: Unauthorized (incorrect credentials).
+- 401: Invalid credentials
+- 429: Too many login attempts
 
 #### POST /api/v1/auth/logout
 
-**Description**: Revokes the refresh token and clears session cookies.
+Revokes the current session and clears cookies.
 
 **Request**: Empty body.
 
-**Response**:
-
-```json
-{
-  "success": true,
-  "data": null,
-  "message": null
-}
-```
+**Response**: `204 No Content`
 
 **Errors**:
 
-- 400: Refresh token not found.
+- 401: Unauthorized
+
+#### POST /api/v1/auth/logoutAll
+
+Revokes all active sessions for the current user.
+
+**Request**: Empty body.
+
+**Response**: `204 No Content`
+
+**Errors**:
+
+- 401: Unauthorized
 
 #### GET /api/v1/auth/google
 
-**Description**: Initiates the Google OAuth login flow.
+Initiates Google OAuth login.
 
-**Response**: Redirects to the Google consent screen.
+**Response**: Redirects to Google's consent screen.
 
 #### GET /api/v1/auth/google/callback
 
-**Description**: Callback URL for Google OAuth to finalize authentication.
+Completes Google OAuth and redirects to the frontend dashboard.
 
-**Response**: Redirects to the frontend chat application.
+**Response**: Redirect to `${FRONTEND_URL}/#/dashboard`.
 
 **Errors**:
 
-- 401: Unauthorized if Google authentication fails.
+- 401: Google authentication failed
 
 #### POST /api/v1/auth/refresh
 
-**Description**: Refreshes an expired access token using the stored refresh token cookie.
+Issues a new access token using the refresh token cookie.
 
 **Request**: Empty body.
 
@@ -241,16 +304,115 @@ Create a `.env` file and populate it with the following configuration keys:
 
 **Errors**:
 
-- 400: Refresh token not found.
-- 401: Invalid or expired refresh token.
+- 400: Refresh token not found
+- 401: Invalid or reused refresh token
+
+#### POST /api/v1/auth/forgot-password
+
+Sends a password reset OTP to the user's email.
+
+**Request**:
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "data": "If an account exists, we've sent a code to that email.",
+  "message": null
+}
+```
+
+#### POST /api/v1/auth/reset-password
+
+Resets the password using the OTP.
+
+**Request**:
+
+```json
+{
+  "email": "user@example.com",
+  "otp": "123456",
+  "password": "newpassword123",
+  "passwordCompare": "newpassword123"
+}
+```
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "data": "password Reset successfully",
+  "message": null
+}
+```
+
+**Errors**:
+
+- 400: Invalid or expired code
+
+#### POST /api/v1/auth/verify-email
+
+Verifies a user's email using the token from the verification link.
+
+**Request**:
+
+```json
+{
+  "token": "64-character-hex-token"
+}
+```
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "email verification successfull"
+  },
+  "message": null
+}
+```
+
+#### POST /api/v1/auth/resend-verification
+
+Resends the verification email.
+
+**Request**:
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "If this email can be used, we've sent you a message."
+  },
+  "message": null
+}
+```
 
 ### User Routes
 
+All user routes require authentication.
+
 #### GET /api/v1/user/me
 
-**Description**: Retrieves the currently authenticated user's profile.
-
-**Request**: Empty body.
+Returns the current user's profile.
 
 **Response**:
 
@@ -271,15 +433,11 @@ Create a `.env` file and populate it with the following configuration keys:
 }
 ```
 
-**Errors**:
-
-- 401: Unauthorized.
-
 #### GET /api/v1/user/search
 
-**Description**: Searches for users by username.
+Searches users by username.
 
-**Request**: Query parameter `?username=searchterm`
+**Request**: `?username=searchterm`
 
 **Response**:
 
@@ -299,15 +457,9 @@ Create a `.env` file and populate it with the following configuration keys:
 }
 ```
 
-**Errors**:
-
-- 401: Unauthorized.
-
 #### GET /api/v1/user/:username
 
-**Description**: Retrieves a specific user's public profile by their username.
-
-**Request**: Empty body.
+Returns a public profile for the given username.
 
 **Response**:
 
@@ -327,13 +479,11 @@ Create a `.env` file and populate it with the following configuration keys:
 
 **Errors**:
 
-- 404: User not found.
+- 404: User not found
 
 #### GET /api/v1/user/me/pending-invites
 
-**Description**: Fetches all pending group invitations for the current user.
-
-**Request**: Empty body.
+Returns pending group invitations for the current user.
 
 **Response**:
 
@@ -358,17 +508,13 @@ Create a `.env` file and populate it with the following configuration keys:
 }
 ```
 
-**Errors**:
-
-- 401: Unauthorized.
-
 ### Conversation Routes
+
+All conversation routes require authentication.
 
 #### GET /api/v1/conversation
 
-**Description**: Retrieves all conversations the current user is a participant in.
-
-**Request**: Empty body.
+Lists all conversations the current user participates in.
 
 **Response**:
 
@@ -392,7 +538,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### POST /api/v1/conversation/ping
 
-**Description**: Initiates a direct conversation (ping) with another user.
+Starts a direct conversation request with another user.
 
 **Request**:
 
@@ -419,13 +565,11 @@ Create a `.env` file and populate it with the following configuration keys:
 
 **Errors**:
 
-- 400: Cannot start a conversation with yourself.
+- 400: Cannot start a conversation with yourself
 
 #### POST /api/v1/conversation/pings/:id/accept
 
-**Description**: Accepts an incoming direct conversation request.
-
-**Request**: Empty body.
+Accepts an incoming direct conversation request.
 
 **Response**:
 
@@ -439,15 +583,9 @@ Create a `.env` file and populate it with the following configuration keys:
 }
 ```
 
-**Errors**:
-
-- 400: No pending request or trying to accept your own ping.
-
 #### POST /api/v1/conversation/pings/:id/decline
 
-**Description**: Declines an incoming direct conversation request.
-
-**Request**: Empty body.
+Declines an incoming direct conversation request.
 
 **Response**:
 
@@ -463,7 +601,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### POST /api/v1/conversation/groups
 
-**Description**: Creates a new group conversation with specified participants.
+Creates a new group conversation.
 
 **Request**:
 
@@ -493,12 +631,12 @@ Create a `.env` file and populate it with the following configuration keys:
 
 **Errors**:
 
-- 400: Requires at least two participants or validation failed.
-- 403: Cannot invite yourself.
+- 400: Less than two valid participants
+- 403: Cannot invite yourself
 
 #### PATCH /api/v1/conversation/invites/:requestId
 
-**Description**: Accepts or declines a pending group invitation (called by the invitee).
+Accepts or declines a group invitation. Called by the invitee.
 
 **Request**:
 
@@ -523,12 +661,12 @@ Create a `.env` file and populate it with the following configuration keys:
 
 **Errors**:
 
-- 403: Not your invite.
-- 409: Request already resolved.
+- 403: Not your invite
+- 409: Request already resolved
 
 #### PATCH /api/v1/conversation/:conversationId
 
-**Description**: Updates group conversation details. Requires admin permissions.
+Updates group details. Requires admin permissions.
 
 **Request**:
 
@@ -552,13 +690,9 @@ Create a `.env` file and populate it with the following configuration keys:
 }
 ```
 
-**Errors**:
-
-- 403: Not authorized to manage this group.
-
 #### PATCH /api/v1/conversation/join-requests/:requestId
 
-**Description**: Resolves a user's request to join a private group. Requires admin permissions.
+Approves or declines a user's request to join a private group. Requires admin permissions.
 
 **Request**:
 
@@ -583,9 +717,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### PATCH /api/v1/conversation/:conversationId/invite-code
 
-**Description**: Generates a new invite code for a conversation. Requires admin permissions.
-
-**Request**: Empty body.
+Generates a new invite code for a group. Requires admin permissions.
 
 **Response**:
 
@@ -602,9 +734,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### GET /api/v1/conversation/invites/:inviteCode
 
-**Description**: Retrieves conversation details associated with a specific invite code.
-
-**Request**: Empty body.
+Returns public details for a conversation invite.
 
 **Response**:
 
@@ -622,9 +752,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### POST /api/v1/conversation/invites/:inviteCode
 
-**Description**: Joins a group using an invite code.
-
-**Request**: Empty body.
+Joins a group via invite code. Private groups create an admin approval request.
 
 **Response**:
 
@@ -638,7 +766,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### POST /api/v1/conversation/invites
 
-**Description**: Invites a specific user to a group. Requires admin permissions.
+Invites a specific user to a group. Requires admin permissions.
 
 **Request**:
 
@@ -663,9 +791,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### GET /api/v1/conversation/:conversationId/requests
 
-**Description**: Lists all pending join requests for a group. Requires admin permissions.
-
-**Request**: Empty body.
+Lists pending join requests for a group. Requires admin permissions.
 
 **Response**:
 
@@ -689,9 +815,9 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### GET /api/v1/conversation/:conversationId/messages
 
-**Description**: Retrieves the message timeline for a conversation.
+Returns the message timeline for a conversation.
 
-**Request**: Query parameters `?limit=50&before=timestamp`
+**Request**: `?limit=50&before=2023-01-01T00:00:00.000Z`
 
 **Response**:
 
@@ -714,7 +840,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### PATCH /api/v1/conversation/:conversationId/participants/:userId/role
 
-**Description**: Updates a participant's role (admin/member). Requires admin permissions.
+Promotes or demotes a member to admin. Requires admin permissions.
 
 **Request**:
 
@@ -736,9 +862,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### DELETE /api/v1/conversation/:conversationId/participants/me
 
-**Description**: Leaves a conversation.
-
-**Request**: Empty body.
+Leaves a conversation.
 
 **Response**:
 
@@ -752,9 +876,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### DELETE /api/v1/conversation/:conversationId/participants/:userId
 
-**Description**: Removes a member from a conversation. Requires admin permissions.
-
-**Request**: Empty body.
+Removes a member from a conversation. Requires admin permissions.
 
 **Response**:
 
@@ -770,9 +892,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### DELETE /api/v1/conversation/:conversationId
 
-**Description**: Deletes a conversation entirely. Only the creator can perform this action.
-
-**Request**: Empty body.
+Deletes a conversation entirely. Only the creator can perform this action.
 
 **Response**:
 
@@ -788,9 +908,11 @@ Create a `.env` file and populate it with the following configuration keys:
 
 ### Message Routes
 
+All message routes require authentication.
+
 #### POST /api/v1/message
 
-**Description**: Creates a new message in a conversation.
+Creates a new text message.
 
 **Request**:
 
@@ -819,9 +941,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### GET /api/v1/message/conversation/:conversationId
 
-**Description**: Fetches standard messages by conversation ID.
-
-**Request**: Empty body.
+Fetches messages for a conversation.
 
 **Response**:
 
@@ -841,9 +961,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### GET /api/v1/message/:messageId
 
-**Description**: Fetches a single message by its ID.
-
-**Request**: Empty body.
+Fetches a single message.
 
 **Response**:
 
@@ -860,7 +978,7 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### PUT /api/v1/message/:messageId
 
-**Description**: Edits an existing message. The user must be the sender.
+Edits a message. Only the sender can edit it.
 
 **Request**:
 
@@ -886,15 +1004,125 @@ Create a `.env` file and populate it with the following configuration keys:
 
 #### DELETE /api/v1/message/:messageId
 
-**Description**: Deletes a message.
+Deletes a message.
 
-**Request**: Empty body.
+**Response**: `204 No Content`
 
-**Response**: Returns 204 No Content.
+### Call Routes
+
+All call routes require authentication.
+
+#### GET /api/v1/call
+
+Returns the current user's paginated call history.
+
+**Request**: `?cursor=base64cursor`
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "callLOg": [],
+    "nextCursor": "base64cursor-or-null"
+  },
+  "message": null
+}
+```
+
+#### GET /api/v1/call/active
+
+Returns active calls the user is eligible to join.
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "callId": "call-uuid",
+      "conversationId": "convo-uuid",
+      "callMediaType": "video",
+      "conversationType": "group",
+      "directTypeLenght": "group",
+      "name": "Team Call"
+    }
+  ],
+  "message": null
+}
+```
+
+### Meet Routes
+
+All meet routes require authentication.
+
+#### POST /api/v1/meet
+
+Creates a new conference room in a conversation.
+
+**Request**:
+
+```json
+{
+  "conversationId": "convo-uuid",
+  "title": "Weekly Standup",
+  "scheduledFor": "2023-01-01T10:00:00.000Z"
+}
+```
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "meetId": "meet-uuid",
+    "conversationId": "convo-uuid",
+    "title": "Weekly Standup",
+    "scheduledFor": "2023-01-01T10:00:00.000Z"
+  },
+  "message": null
+}
+```
+
+#### GET /api/v1/meet/active
+
+Returns active conference rooms the user can join.
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "meetId": "meet-uuid",
+      "conversationId": "convo-uuid",
+      "title": "Weekly Standup",
+      "scheduledFor": "2023-01-01T10:00:00.000Z"
+    }
+  ],
+  "message": null
+}
+```
+
+### Socket.IO Events
+
+The gateway requires the access token cookie and joins rooms automatically. Key events include:
+
+- `message:send` / `message:new`: send and receive messages
+- `typing:start` / `typing:update`: typing and recording indicators
+- `message:read` / `read:update`: read receipts
+- `reactions:add` / `reactions:remove` / `reactions:update`: message reactions
+- `conversation:join` / `conversation:leave`: join or leave a conversation room
+- `call:initiate` / `call:incoming` / `call:accept` / `call:offer` / `call:answer` / `call:ice-candidate`: WebRTC call signaling
+- `meet:join` / `meet:offer` / `meet:answer` / `meet:ice-candidate`: conference room signaling
 
 ## Contributing
 
-We welcome community contributions. To contribute, fork the repository, make your desired changes, and submit a pull request for review. Please make sure your code adheres to standard styling rules and includes relevant tests for new features.
+Pull requests are welcome. If you want to add a feature or fix a bug, fork the repo, create a branch, and open a PR. Please keep code formatted consistently and add tests for new behavior when possible.
 
 ## Author Info
 
@@ -903,11 +1131,12 @@ We welcome community contributions. To contribute, fork the repository, make you
 
 ## Technologies Used
 
-| Category  | Technologies                                                                                                                                                                                                                                                                           |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Category | Technologies |
+| --- | --- |
 | Languages | [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/) |
-| Backend   | [![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/) [![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socketdotio&logoColor=white)](https://socket.io/)           |
-| Database  | [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/) [![Drizzle](https://img.shields.io/badge/Drizzle-C5F74F?style=for-the-badge&logo=drizzle&logoColor=black)](https://orm.drizzle.team/) |
-| Security  | [![Passport](https://img.shields.io/badge/Passport-34E27A?style=for-the-badge&logo=passport&logoColor=white)](https://www.passportjs.org/) [![Zod](https://img.shields.io/badge/Zod-3068B7?style=for-the-badge&logo=zod&logoColor=white)](https://zod.dev/)                            |
+| Backend | [![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/) [![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socketdotio&logoColor=white)](https://socket.io/) |
+| Database | [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/) [![Drizzle](https://img.shields.io/badge/Drizzle-C5F74F?style=for-the-badge&logo=drizzle&logoColor=black)](https://orm.drizzle.team/) [![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/) |
+| Auth & Validation | [![Passport](https://img.shields.io/badge/Passport-34E27A?style=for-the-badge&logo=passport&logoColor=white)](https://www.passportjs.org/) [![Zod](https://img.shields.io/badge/Zod-3068B7?style=for-the-badge&logo=zod&logoColor=white)](https://zod.dev/) |
+| Queue | [![BullMQ](https://img.shields.io/badge/BullMQ-8B0000?style=for-the-badge&logo=bullmq&logoColor=white)](https://bullmq.io/) |
 
 [![Readme was generated by Dokugen](https://img.shields.io/badge/Readme%20was%20generated%20by-Dokugen-brightgreen)](https://dokugen.samueltuoyo.com)

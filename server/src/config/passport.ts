@@ -3,7 +3,11 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as JwtStrategy } from "passport-jwt";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { comparePassword, generateUniqueUsername } from "../shared/utils/utits";
+import {
+  burnHashTime,
+  comparePassword,
+  generateUniqueUsername,
+} from "../shared/utils/utits";
 import { userService } from "../modules/user/user.modules";
 import logger from "../shared/utils/logger";
 import { authService } from "../modules/auth/auth.modules";
@@ -19,19 +23,17 @@ passport.use(
         logger.debug(
           `User query result: ${user ? JSON.stringify({ id: user.id, username: user.username }) : "NULL"}`,
         );
-        if (!user) return done(null, false, { message: "invalid credentials" });
-
-        logger.debug(`User password hash present: ${!!user.password}`);
-
-        if (!user.password) {
+        if (!user || !user.password) {
+          await burnHashTime(password);
           return done(null, false, { message: "invalid credentials" });
         }
+
+        logger.debug(`User password hash present: ${!!user.password}`);
 
         logger.debug("passwprd reach");
         const isMatch = await comparePassword(password, user.password);
         logger.debug("password pass");
 
-        logger.debug(`Bcrypt password match result: ${isMatch}`);
 
         if (!isMatch) {
           return done(null, false, { message: "invalid credentials" });

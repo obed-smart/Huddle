@@ -87,7 +87,6 @@ class UserService {
 
   async findUserForLogin(identifier: string) {
     const user = await this.userRepo.findUserForLogin(identifier);
-    if (!user) throw new AppError("User not found", 404);
 
     return user;
   }
@@ -97,7 +96,6 @@ class UserService {
 
     return user;
   }
-
 
   async getEmailVerified(email: string) {
     return await this.userRepo.getEmailVerified(email);
@@ -170,7 +168,7 @@ class UserService {
   }
 
   async completeEmailVerification(userId: string) {
-   return await this.userRepo.completeEmailVerification(userId);
+    return await this.userRepo.completeEmailVerification(userId);
   }
 
   async startPasswordReset(userId: string, otpHash: string, expiresAt: Date) {
