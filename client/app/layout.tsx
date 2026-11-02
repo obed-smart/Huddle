@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -26,9 +27,13 @@ export const metadata: Metadata = {
     "Huddle is one place to message your people, hop on a call, and run a meeting. A demo client for the Huddle real-time backend.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // The per-request CSP nonce (set by middleware) so next-themes can tag its
+  // anti-flash inline script; without it the strict CSP would block the script.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="en"
@@ -41,6 +46,7 @@ export default function RootLayout({
           defaultTheme="light"
           enableSystem
           disableTransitionOnChange
+          nonce={nonce}
         >
           <SocketProvider>{children}</SocketProvider>
           <Toaster />
