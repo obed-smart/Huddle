@@ -48,4 +48,25 @@ export function resendVerification(email: string) {
   });
 }
 
+/** Email a 6-digit reset code. */
+export function forgotPassword(email: string) {
+  return request(paths.forgotPassword, {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+/** Reset the password with the email, the 6-digit code, and the new password. */
+export function resetPassword(input: {
+  email: string;
+  otp: string;
+  password: string;
+  passwordCompare: string;
+}) {
+  return request(paths.resetPassword, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export { ApiError };

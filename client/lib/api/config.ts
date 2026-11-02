@@ -17,6 +17,8 @@ export const paths = {
   refresh: "/api/v1/auth/refresh",
   verifyEmail: "/api/v1/auth/verify-email",
   resendVerification: "/api/v1/auth/resend-verification",
+  forgotPassword: "/api/v1/auth/forgot-password",
+  resetPassword: "/api/v1/auth/reset-password",
   me: "/api/v1/user/me",
   userSearch: "/api/v1/user/search",
   conversations: "/api/v1/conversation",
