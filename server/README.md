@@ -4,7 +4,9 @@ A real-time messaging, voice, and video backend that handles conversations, call
 
 ## Overview
 
-Huddle helps developers add real-time chat and voice or video calling to their products without building complex signaling, presence, and session logic from scratch. It manages authentication, conversation membership, WebRTC call setup, and message delivery, so teams can focus on their frontend. Everything is exposed through a straightforward REST API plus a Socket.IO gateway.
+Huddle is a real-time communication platform that allows users to connect and communicate through direct messaging, group conversations, and voice or video calls. It provides a seamless space for sharing messages, staying connected, and collaborating with others.
+
+Built with real-time messaging, online presence, conversation management, and WebRTC-powered calling, Huddle brings everyday communication together in one application.
 
 ## System Architecture
 
