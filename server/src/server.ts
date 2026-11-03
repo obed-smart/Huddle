@@ -7,6 +7,9 @@ import { testDatabaseConnection } from "./db";
 import logger from "./shared/utils/logger";
 import { createSocketServer } from "./sockets";
 import { emailWorker } from "./modules/notification/email.worker";
+import redisClient from "./config/redis.config";
+import { registerRateLimiterBucket } from "./middlewares/rate.limiter";
+import bullmqConnection from "./config/bullmq.connection";
 
 const startServer = async () => {
   try {
@@ -15,6 +18,11 @@ const startServer = async () => {
     logger.info("Initializing database connection...");
     await testDatabaseConnection();
     logger.info("Database connection established successfully.");
+
+    logger.info("Verifying Redis connection...");
+    await redisClient.ping();
+    registerRateLimiterBucket(redisClient);
+    logger.info("Rate limiter ready.");
 
     logger.info("Initializing WebSocket layers...");
     createSocketServer(server);
@@ -34,6 +42,8 @@ const startServer = async () => {
       logger.info("closing email worker");
       await emailWorker.close();
       logger.info("email worker closed");
+      await redisClient.quit();
+      await bullmqConnection.quit();
       process.exit(0);
     };
 
@@ -42,6 +52,8 @@ const startServer = async () => {
   } catch (err) {
     logger.error({ err }, "Server initialization failed");
     await emailWorker.close();
+    await redisClient.quit();
+    await bullmqConnection.quit();
     process.exit(1);
   }
 };

@@ -59,7 +59,7 @@ app.use(cookieParser());
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  "http://localhost:8080",
+  "http://localhost:3000",
   "https://oauth.pstmn.io",
   "https://mainland-essentials-roles-fitting.trycloudflare.com",
 ];

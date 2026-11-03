@@ -22,6 +22,8 @@ import {
   MessageResponseDTO,
   MessageWithAttachmentDTO,
 } from "./message.types";
+import { checkLimit } from "../../middlewares/rate.limiter";
+import { MESSAGE_LIMIT } from "../../sockets/rate.limiter";
 
 const TYPING_TIMEOUT_MS = 4000;
 const typingTimers = new Map<string, NodeJS.Timeout>();
@@ -30,6 +32,17 @@ export function messageEvent(io: Server, socket: Socket) {
   socket.on(
     "message:send",
     catchSocketAsync(async (data, callback) => {
+      const { id: userId, sid: sessionId } = socket.data.user;
+
+      const { allowed, remaining } = await checkLimit(
+        `rateLimite:message:${sessionId}`,
+        MESSAGE_LIMIT,
+      );
+
+      if (!allowed) {
+        callback?.({});
+      }
+
       const {
         tempId,
         replyToMessageId,
@@ -38,8 +51,6 @@ export function messageEvent(io: Server, socket: Socket) {
         mentions,
         attachments,
       } = validateSocketData(sendMessageSchema, data);
-
-      const userId = socket.data.user.id;
 
       const headLimit = pLimit(5);
 
@@ -413,8 +424,4 @@ export function messageEvent(io: Server, socket: Socket) {
       });
     }),
   );
-
-
 }
-
-
