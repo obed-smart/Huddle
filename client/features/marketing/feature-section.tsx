@@ -1,26 +1,30 @@
 import { FeatureCard } from "@/features/marketing/feature-card";
+import { Reveal } from "@/features/marketing/reveal";
 import { features } from "@/features/marketing/content";
 
-/** The short "what's inside" grid: one column on phones, up to four on desktop. */
+/** The "what's inside" grid: one column on phones, three on desktop. */
 export function FeatureSection() {
   return (
     <section
       id="features"
-      className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24"
+      className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-28"
     >
-      <div className="flex flex-col gap-3 text-center">
-        <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+      <Reveal className="flex flex-col items-center gap-3 text-center">
+        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+          Features
+        </span>
+        <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
           Everything a conversation needs
         </h2>
-        <p className="mx-auto max-w-xl text-sm text-muted-foreground sm:text-base">
+        <p className="max-w-xl text-sm text-muted-foreground sm:text-base">
           The basics done well. Message, call, and meet without leaving the same
           window.
         </p>
-      </div>
+      </Reveal>
 
-      <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {features.map((feature) => (
-          <FeatureCard key={feature.title} feature={feature} />
+      <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {features.map((feature, index) => (
+          <FeatureCard key={feature.title} feature={feature} index={index} />
         ))}
       </div>
     </section>
