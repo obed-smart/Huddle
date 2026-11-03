@@ -4,13 +4,13 @@ import { fileURLToPath } from "node:url";
 const isDev = process.env.NODE_ENV === "development";
 
 /**
- * The backend origin stays server-only (never NEXT_PUBLIC). The REST API is
- * forwarded by the BFF route handler (`app/api/v1/[...path]/route.ts`), so the
- * only thing left to rewrite here is the socket: a websocket cannot pass through
- * a route handler, so `/socket.io` is proxied at the edge straight to the
- * backend. The browser only ever sees same-origin paths, so no backend URL
- * reaches the shipped bundle. When `BACKEND_ORIGIN` is unset the rewrite is a
- * no-op (the API is assumed to be served on the same host already).
+ * The backend origin stays server-only (never NEXT_PUBLIC). REST is proxied
+ * same-origin to the backend (the `/api/v1` rewrite here, or the route handler
+ * at `app/api/v1/[...path]`), so no backend URL reaches the shipped bundle and
+ * the session cookie stays first party. The socket is the exception: a websocket
+ * cannot be proxied cleanly through Next, so it connects straight to the backend
+ * (`NEXT_PUBLIC_SOCKET_URL`) and there is no `/socket.io` rewrite. When
+ * `BACKEND_ORIGIN` is unset the rewrite is a no-op.
  */
 const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN?.replace(/\/+$/, "");
 
@@ -22,7 +22,8 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  // fetch/XHR/WebSocket targets. Same-origin because of the proxy rewrites.
+  // fetch/XHR stay same-origin (the REST proxy). The socket connects straight
+  // to the backend over websocket, so any ws(s) origin is allowed.
   `connect-src 'self' ws: wss:`,
   // <video>/<audio> playing MediaStreams or recordings use blob: URLs.
   "media-src 'self' blob:",
@@ -65,18 +66,7 @@ const nextConfig: NextConfig = {
 
   async rewrites() {
     if (!BACKEND_ORIGIN) return [];
-
-    return [
-      {
-        source: "/api/v1/:path*",
-        destination: `${BACKEND_ORIGIN}/api/v1/:path*`,
-      },
-      {
-        source: "/socket.io/:path*",
-        destination: `${BACKEND_ORIGIN}/socket.io/:path*`,
-      },
-    ];
-
+    return [{ source: "/api/v1/:path*", destination: `${BACKEND_ORIGIN}/api/v1/:path*` }];
   },
 
   async headers() {

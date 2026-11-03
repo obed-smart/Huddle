@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { googleLoginUrl } from "@/lib/api/config";
+import { googleLoginUrl } from "@/lib/api/auth";
 
 /** Full-page redirect to the backend's Google OAuth route. */
 export function GoogleButton({ label }: { label: string }) {

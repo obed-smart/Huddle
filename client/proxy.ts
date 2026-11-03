@@ -18,12 +18,25 @@ import { NextResponse, type NextRequest } from "next/server";
 const EMPTY_STYLE_HASH = "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='";
 const SONNER_STYLE_HASH = "'sha256-StEaX+se6YS7pqjzrzMIA0KaX9zF/8zAhvQXZAe5epY='";
 
+/** The socket connects straight to the backend over websocket, so connect-src
+    must allow that origin's ws (and wss) form. */
+function socketWs(): string[] {
+  const raw = process.env.NEXT_PUBLIC_SOCKET_URL?.trim();
+  if (!raw) return [];
+  try {
+    const url = new URL(raw);
+    const ws = url.protocol === "https:" ? "wss:" : "ws:";
+    return [`${ws}//${url.host}`];
+  } catch {
+    return [];
+  }
+}
+
 function buildCsp(nonce: string, host: string | null, dev: boolean): string {
-  // Same origin only: the API and socket are proxied through our own host, so
-  // the socket connects to our ws, never to the backend. BACKEND_WS_ORIGIN is
-  // an escape hatch for a deployment that serves the socket from elsewhere.
+  // Our own origin (REST and the SSR reads are same origin), our own ws, and the
+  // backend the socket connects straight to over websocket.
   const wsSelf = host ? `ws://${host} wss://${host}` : "";
-  const connect = ["'self'", wsSelf, process.env.BACKEND_WS_ORIGIN?.trim()]
+  const connect = ["'self'", wsSelf, ...socketWs(), process.env.BACKEND_WS_ORIGIN?.trim()]
     .filter(Boolean)
     .join(" ");
 

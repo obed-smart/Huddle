@@ -13,34 +13,10 @@ export class ApiError extends Error {
   }
 }
 
-/* Called when the session is truly gone (a 401 a refresh couldn't fix). The
-   session store registers a handler that signs out and returns to /login. */
-let onSessionExpired: () => void = () => {};
-export function setSessionExpiredHandler(fn: () => void) {
-  onSessionExpired = fn;
-}
-
-/* A 401 from these means what it says — don't try to refresh them. */
-const NO_REFRESH = new Set<string>([paths.login, paths.logout, paths.refresh]);
-
-/* One refresh at a time: five parallel 401s trigger a single refresh. */
-let refreshInFlight: Promise<boolean> | null = null;
-function refreshSession(): Promise<boolean> {
-  if (!refreshInFlight) {
-    refreshInFlight = fetch(API_BASE + paths.refresh, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-    })
-      .then((r) => r.ok)
-      .catch(() => false)
-      .finally(() => {
-        refreshInFlight = null;
-      });
-  }
-  return refreshInFlight;
-}
-
+/**
+ * The backend wraps every response as `{ success, data, message, code }`.
+ * `request` returns the unwrapped `data`, or throws an `ApiError`.
+ */
 type Envelope<T> = {
   success?: boolean;
   data?: T;
@@ -49,15 +25,51 @@ type Envelope<T> = {
   error?: unknown;
 };
 
-/** Request the backend with the session cookie, unwrapping its {data} envelope. */
+/* When the session is truly gone (a 401 that even a refresh cannot fix), the
+   session store signs out and returns to /login. It registers that here. */
+let onSessionExpired: () => void = () => {};
+export function setSessionExpiredHandler(fn: () => void) {
+  onSessionExpired = fn;
+}
+
+/* A 401 from the auth routes themselves means the credentials are wrong, not
+   that the access token expired, so refreshing and retrying them is pointless. */
+const SKIP_REFRESH_ON_401 = new Set<string>([paths.login, paths.logout, paths.refresh]);
+
+/* The access token expired: mint a fresh one from the httpOnly refresh cookie.
+   Kept to one in-flight call so a burst of parallel 401s triggers a single
+   refresh, not one per request. Resolves true when the refresh succeeded. */
+let refreshInFlight: Promise<boolean> | null = null;
+function refreshSession(): Promise<boolean> {
+  refreshInFlight ??= fetch(API_BASE + paths.refresh, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  })
+    .then((response) => response.ok)
+    .catch(() => false)
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
+}
+
+/**
+ * Call the backend with the session cookie and unwrap its envelope.
+ *
+ * On a 401 it refreshes the token once and replays the request; if the refresh
+ * also fails, the session is over and `onSessionExpired` runs. Any non-ok
+ * response (or `success: false`) becomes an `ApiError` carrying a message safe
+ * to show the user.
+ */
 export async function request<T = unknown>(
   path: string,
   options: RequestInit = {},
-  retried = false,
+  isRetry = false,
 ): Promise<T> {
-  let res: Response;
+  let response: Response;
   try {
-    res = await fetch(API_BASE + path, {
+    response = await fetch(API_BASE + path, {
       credentials: "include",
       ...options,
       headers: { "Content-Type": "application/json", ...(options.headers ?? {}) },
@@ -66,22 +78,23 @@ export async function request<T = unknown>(
     throw new ApiError("Can't reach the server. Check your connection.", 0);
   }
 
-  if (res.status === 401 && !NO_REFRESH.has(path)) {
-    if (!retried && (await refreshSession())) return request<T>(path, options, true);
+  if (response.status === 401 && !SKIP_REFRESH_ON_401.has(path)) {
+    if (!isRetry && (await refreshSession())) return request<T>(path, options, true);
     onSessionExpired();
   }
 
-  const body = (await res.json().catch(() => ({}))) as Envelope<T>;
-  if (!res.ok || body.success === false) {
-    throw new ApiError(describeFailure(body, res.status), res.status, body.code ?? null);
+  const body = (await response.json().catch(() => ({}))) as Envelope<T>;
+  if (!response.ok || body.success === false) {
+    throw new ApiError(describeFailure(body, response.status), response.status, body.code ?? null);
   }
   return (body.data ?? (body as unknown)) as T;
 }
 
+/** Turn a failed envelope into one user-facing sentence, without leaking any
+    server internals. Prefers the backend's own message, falls back to the status. */
 function describeFailure(body: Envelope<unknown>, status: number): string {
-  const candidates = [body?.message, body?.error];
-  for (const c of candidates) {
-    if (typeof c === "string" && c.trim()) return c;
+  for (const candidate of [body?.message, body?.error]) {
+    if (typeof candidate === "string" && candidate.trim()) return candidate;
   }
   if (status >= 500) return `The server errored (${status}). Try again shortly.`;
   return `Request failed (${status}).`;

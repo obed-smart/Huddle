@@ -1,18 +1,25 @@
 import { io, type Socket } from "socket.io-client";
 
-import { API_BASE } from "@/lib/api/config";
+import { SOCKET_URL } from "@/lib/api/config";
 
 let socket: Socket | null = null;
 
 /**
- * Open the authenticated socket. `withCredentials` sends the httpOnly session
- * cookie on the handshake — there is no token to pass. Guarded so a second
- * call never opens a duplicate (which would double every delivered message).
+ * Open the authenticated socket, straight to the backend (`SOCKET_URL`); a
+ * websocket does not survive the Next proxy, so this one call does not go
+ * through it. The transport is pinned to `websocket` so there is no HTTP
+ * long-polling to allow through CSP, only the ws upgrade. `withCredentials`
+ * sends the httpOnly session cookie on the handshake (there is no token to
+ * pass). Guarded so a second call never opens a duplicate, which would double
+ * every delivered message. An empty `SOCKET_URL` falls back to this origin.
  */
 export function connectSocket(): Socket | null {
   if (socket) return socket;
   if (typeof window === "undefined") return null;
-  socket = io(API_BASE || undefined, { withCredentials: true });
+  socket = io(SOCKET_URL || undefined, {
+    withCredentials: true,
+    transports: ["websocket"],
+  });
   return socket;
 }
 
