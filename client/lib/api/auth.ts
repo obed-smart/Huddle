@@ -1,5 +1,5 @@
 import { request, ApiError } from "./http";
-import { paths } from "./config";
+import { API_BASE, paths } from "./config";
 import type { AuthUser } from "./types";
 
 export type RegisterInput = {
@@ -67,6 +67,13 @@ export function resetPassword(input: {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+/** Where "Continue with Google" points. It is a full-page navigation (a GET the
+    backend redirects to Google), not a fetch, because an OAuth redirect cannot
+    ride an XHR. It lives here with the rest of auth, not in config. */
+export function googleLoginUrl() {
+  return `${API_BASE}${paths.google}`;
 }
 
 export { ApiError };
