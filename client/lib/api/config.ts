@@ -1,11 +1,17 @@
 /**
- * The API is same-origin: the deployment serves `/api/v1` and `/socket.io` from
- * the same host as the app — a reverse proxy, or the guarded rewrites in
- * next.config pointing at the server-only `BACKEND_ORIGIN`. No backend URL is
- * ever shipped to the browser (that keeps it out of the bundle and lets the
- * httpOnly session cookie ride along as a first-party cookie).
+ * The backend base URL. The client talks to the backend directly (REST and the
+ * socket connect straight to this origin), so it must be public. It is not a
+ * secret: the only credential is the httpOnly session cookie, which no script
+ * can read. The backend serves Express and Socket.IO on this one origin, and the
+ * socket.io client appends its own `/socket.io` path there automatically.
+ *
+ * Set `NEXT_PUBLIC_API_URL` to that origin (for example http://localhost:5000).
+ * Left empty, the app talks to its own origin, which only works behind a reverse
+ * proxy that serves the API on the same host. The backend must allow this origin
+ * with credentials (CORS) and set the session cookie SameSite=None;Secure so it
+ * rides cross origin requests.
  */
-export const API_BASE = "";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "";
 
 export const paths = {
   login: "/api/v1/auth/login",

@@ -8,20 +8,20 @@ import { TextField, PasswordField } from "@/features/auth/fields";
 import { register, ApiError } from "@/lib/api/auth";
 import { requiredError, emailError, passwordError } from "@/lib/validation";
 
-type Fields = { fullName: string; username: string; email: string; password: string };
+type Fields = {
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  password: string;
+};
 type Errors = Partial<Record<keyof Fields, string>>;
-
-/** Split a typed full name into the first / last the backend expects. */
-function splitName(fullName: string) {
-  const parts = fullName.trim().split(/\s+/);
-  const firstName = parts.shift() ?? "";
-  return { firstName, lastName: parts.join(" ") };
-}
 
 export function RegisterForm() {
   const router = useRouter();
   const [values, setValues] = useState<Fields>({
-    fullName: "",
+    firstName: "",
+    lastName: "",
     username: "",
     email: "",
     password: "",
@@ -31,7 +31,8 @@ export function RegisterForm() {
   const [submitting, setSubmitting] = useState(false);
 
   function errorFor(key: keyof Fields, v: Fields): string | undefined {
-    if (key === "fullName") return requiredError(v.fullName, "Full name");
+    if (key === "firstName") return requiredError(v.firstName, "First name");
+    if (key === "lastName") return requiredError(v.lastName, "Last name");
     if (key === "username") return requiredError(v.username, "Username");
     if (key === "email") return emailError(v.email);
     return passwordError(v.password);
@@ -49,7 +50,8 @@ export function RegisterForm() {
     event.preventDefault();
     setFormError(null);
     const next: Errors = {
-      fullName: errorFor("fullName", values),
+      firstName: errorFor("firstName", values),
+      lastName: errorFor("lastName", values),
       username: errorFor("username", values),
       email: errorFor("email", values),
       password: errorFor("password", values),
@@ -58,14 +60,13 @@ export function RegisterForm() {
     if (Object.values(next).some(Boolean)) return;
 
     setSubmitting(true);
-    const { firstName, lastName } = splitName(values.fullName);
     try {
       await register({
         email: values.email.trim(),
         password: values.password,
         username: values.username.trim(),
-        firstName,
-        lastName,
+        firstName: values.firstName.trim(),
+        lastName: values.lastName.trim(),
       });
       router.push("/dashboard");
     } catch (err) {
@@ -84,16 +85,28 @@ export function RegisterForm() {
         </p>
       ) : null}
 
-      <TextField
-        id="fullName"
-        label="Full name"
-        autoComplete="name"
-        placeholder="Ada Lovelace"
-        value={values.fullName}
-        error={errors.fullName}
-        onChange={(e) => set("fullName", e.target.value)}
-        onBlur={() => blur("fullName")}
-      />
+      <div className="grid grid-cols-2 gap-3">
+        <TextField
+          id="firstName"
+          label="First name"
+          autoComplete="given-name"
+          placeholder="Ada"
+          value={values.firstName}
+          error={errors.firstName}
+          onChange={(e) => set("firstName", e.target.value)}
+          onBlur={() => blur("firstName")}
+        />
+        <TextField
+          id="lastName"
+          label="Last name"
+          autoComplete="family-name"
+          placeholder="Lovelace"
+          value={values.lastName}
+          error={errors.lastName}
+          onChange={(e) => set("lastName", e.target.value)}
+          onBlur={() => blur("lastName")}
+        />
+      </div>
       <TextField
         id="username"
         label="Username"

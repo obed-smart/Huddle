@@ -77,35 +77,47 @@ Each resource gets a small typed module beside it (`auth.ts`, `conversations.ts`
 `group.ts`, `media.ts`, `users.ts`, `requests.ts`). Components never call fetch;
 they call a hook, the hook calls one of these.
 
-## Same origin, no backend URL in the browser
+## Talking to the backend
 
-The browser only ever sees same origin paths (`/api/v1/...`, `/socket.io/...`).
-The real backend address lives in `BACKEND_ORIGIN`, a server only variable read
-in `next.config.ts` and `lib/server/`. It is never prefixed `NEXT_PUBLIC`, so it
-never reaches the shipped bundle, and the httpOnly cookie rides along as a first
-party cookie.
+The backend serves Express (the REST API) and Socket.IO on one origin. The
+client talks to it **directly**: `NEXT_PUBLIC_API_URL` holds that origin, and
+both the REST layer (`lib/api/config.ts` sets `API_BASE` from it) and the socket
+(`io(API_BASE)`) point straight at it. The socket.io client appends its own
+`/socket.io` path there; there is no `/socket.io` on our own origin.
 
-In production the rewrites in `next.config.ts` proxy `/api/v1` and `/socket.io`
-to `BACKEND_ORIGIN`. When that is unset (the API is already served same origin
-by a reverse proxy) the rewrites are a no op.
+That URL is public, and that is fine: it is not a secret. The only credential is
+the httpOnly session cookie, which no script can read. Because the calls are
+cross origin, two things must hold on the backend, and they are backend config,
+not ours:
+
+- CORS allows this frontend origin **with credentials**.
+- The session cookie is set `SameSite=None; Secure`, so the browser sends it on
+  cross origin REST and socket requests.
+
+Leaving `NEXT_PUBLIC_API_URL` empty makes the app talk to its own origin instead,
+which only works when a reverse proxy serves the API on the same host. The
+`BACKEND_ORIGIN` variable and the `next.config.ts` rewrites still exist for that
+same origin deployment, and are inert (a no op) when `BACKEND_ORIGIN` is unset.
 
 ### Why there is no Backend for Frontend
 
-This was a deliberate decision, not a gap. The only credential the backend
-expects is the user's httpOnly session cookie, which the browser already sends
-on same origin requests and which no script can read. There is no server side
-API key or service token to inject. A rewrite proxy only forwards; a Route
-Handler BFF only earns its place when the server has something of its own to add
-to a request, such as a secret the client must never see, or shaping that hides
-the backend's error shapes. With neither in play, Route Handlers would be an
-empty layer between the hook and the backend, so the plain proxy is the honest
-choice.
+A deliberate decision, not a gap. The only credential the backend expects is the
+session cookie; there is no server held API key or service token to inject. A
+Route Handler BFF only earns its place when the server has something of its own
+to add to a request, such as a secret the client must never see. With none in
+play it would be an empty layer between the hook and the backend. The moment
+that flips is the moment the backend expects a server held key beyond the
+cookie: that key must stay on the server, and a Route Handler under `app/` is
+where it would go. Not before.
 
-The one condition that flips this: if the backend ever starts expecting a
-server held key or token beyond the cookie, that key must stay on the server,
-and the point to add it is a Route Handler under `app/` (a real BFF) rather than
-anything the browser can reach. That is the moment to build the BFF, and not
-before.
+### Env vars
+
+- `NEXT_PUBLIC_API_URL` (public): the backend origin, for the direct REST and
+  socket connection. For example `http://localhost:5000`.
+- `BACKEND_ORIGIN` (server only, optional): only for a same origin proxy or for
+  the server side first paint reads. Unset in the direct model.
+- `BACKEND_WS_ORIGIN` (optional): a distinct socket origin for CSP `connect-src`,
+  if the socket ever lives somewhere other than `NEXT_PUBLIC_API_URL`.
 
 ## State: zustand stores
 
@@ -160,6 +172,13 @@ session is adopted in an effect so the socket provider, which watches session
 status, reacts after mount rather than during a render. The dashboard is
 `force-dynamic` since it depends on the request.
 
+Note the direct backend model changes which path runs. The session cookie is a
+backend origin cookie, so our own server never receives it; `getMe` on the
+server returns null and the gate always takes the client path. The server
+prefetch only does real work in the same origin proxy deployment, where the
+cookie is first party to our origin. The gate handles both, so the dashboard
+loads either way.
+
 ## Security posture
 
 - **Nonce based CSP.** `proxy.ts` (Next 16's renamed middleware) sets a per
@@ -168,10 +187,14 @@ status, reacts after mount rather than during a render. The dashboard is
   script cannot run. Styles are nonce gated as well, with no `unsafe-inline`
   anywhere: inline style attributes (Framer Motion, React style props) go
   through `style-src-attr`, and sonner's runtime stylesheet is allowed by exact
-  hash. `connect-src` carries the same origin socket plus an optional distinct
-  ws origin. The root layout threads the nonce into next-themes so its anti
-  flash script keeps running. Using a per request nonce makes every route
-  dynamic, which is the accepted cost.
+  hash. `connect-src` carries our own origin plus the backend origin from
+  `NEXT_PUBLIC_API_URL` in both its http and ws form, so the direct REST and
+  socket connections are allowed. The root layout threads the nonce into
+  next-themes so its anti flash script keeps running. Using a per request nonce
+  makes every route dynamic, which is the accepted cost. In development the
+  policy is relaxed (`unsafe-eval`, inline, no forced https upgrade) because
+  `next dev` needs eval for hot reload and the error overlay; production stays
+  strict.
 - **Static security headers.** `next.config.ts` adds nosniff, frame deny,
   referrer policy, and a permissions policy that grants camera and microphone to
   this origin only (for calling) and nothing else.
