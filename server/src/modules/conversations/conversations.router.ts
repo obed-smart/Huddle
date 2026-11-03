@@ -24,6 +24,11 @@ const router = Router();
 router.use(authenticate);
 
 router.get("/", conversationController.getConversation);
+router.get(
+  "/:conversationId",
+  validate(conversationParamsSchema, "params"),
+  conversationController.getConversationDetailAndUsers,
+);
 
 router.post(
   "/ping",
