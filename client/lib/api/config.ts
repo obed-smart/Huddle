@@ -1,17 +1,12 @@
 /**
- * The backend base URL. The client talks to the backend directly (REST and the
- * socket connect straight to this origin), so it must be public. It is not a
- * secret: the only credential is the httpOnly session cookie, which no script
- * can read. The backend serves Express and Socket.IO on this one origin, and the
- * socket.io client appends its own `/socket.io` path there automatically.
- *
- * Set `NEXT_PUBLIC_API_URL` to that origin (for example http://localhost:5000).
- * Left empty, the app talks to its own origin, which only works behind a reverse
- * proxy that serves the API on the same host. The backend must allow this origin
- * with credentials (CORS) and set the session cookie SameSite=None;Secure so it
- * rides cross origin requests.
+ * The client always talks to its own origin, never to the backend directly. The
+ * Next server is the reverse proxy: the `next.config.ts` rewrites forward
+ * same-origin `/api/v1` and `/socket.io` to the server-only `BACKEND_ORIGIN`,
+ * and the first paint reads happen in server components. So `API_BASE` is empty
+ * (same origin): the backend URL never reaches the browser, and the httpOnly
+ * session cookie stays first party, which means no CORS and no SameSite=None.
  */
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "";
+export const API_BASE = "";
 
 export const paths = {
   login: "/api/v1/auth/login",

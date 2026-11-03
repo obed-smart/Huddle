@@ -13,29 +13,17 @@ import { NextResponse, type NextRequest } from "next/server";
  *
  * Development is relaxed, because `next dev` (React refresh, Turbopack, the error
  * overlay) needs `eval` and inline scripts and styles. We also drop
- * `upgrade-insecure-requests` in dev so a plain http backend on localhost is not
- * force upgraded to https.
+ * `upgrade-insecure-requests` in dev, since the dev server runs on plain http.
  */
 const EMPTY_STYLE_HASH = "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='";
 const SONNER_STYLE_HASH = "'sha256-StEaX+se6YS7pqjzrzMIA0KaX9zF/8zAhvQXZAe5epY='";
 
-/** The backend origin, plus its ws form, so the direct API and socket are
-    allowed by connect-src. Empty when the app talks to its own origin. */
-function apiOrigins(): string[] {
-  const raw = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (!raw) return [];
-  try {
-    const url = new URL(raw);
-    const ws = url.protocol === "https:" ? "wss:" : "ws:";
-    return [url.origin, `${ws}//${url.host}`];
-  } catch {
-    return [];
-  }
-}
-
 function buildCsp(nonce: string, host: string | null, dev: boolean): string {
+  // Same origin only: the API and socket are proxied through our own host, so
+  // the socket connects to our ws, never to the backend. BACKEND_WS_ORIGIN is
+  // an escape hatch for a deployment that serves the socket from elsewhere.
   const wsSelf = host ? `ws://${host} wss://${host}` : "";
-  const connect = ["'self'", wsSelf, ...apiOrigins(), process.env.BACKEND_WS_ORIGIN?.trim()]
+  const connect = ["'self'", wsSelf, process.env.BACKEND_WS_ORIGIN?.trim()]
     .filter(Boolean)
     .join(" ");
 
@@ -82,9 +70,9 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Every page, but not static assets.
+    // Every page, but not the proxied API, the socket, or static assets.
     {
-      source: "/((?!_next/static|_next/image|favicon.ico).*)",
+      source: "/((?!api/v1|socket.io|_next/static|_next/image|favicon.ico).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

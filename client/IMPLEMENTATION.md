@@ -79,45 +79,39 @@ they call a hook, the hook calls one of these.
 
 ## Talking to the backend
 
-The backend serves Express (the REST API) and Socket.IO on one origin. The
-client talks to it **directly**: `NEXT_PUBLIC_API_URL` holds that origin, and
-both the REST layer (`lib/api/config.ts` sets `API_BASE` from it) and the socket
-(`io(API_BASE)`) point straight at it. The socket.io client appends its own
-`/socket.io` path there; there is no `/socket.io` on our own origin.
+The client never talks to the backend directly. The Next server sits in front as
+a reverse proxy, so the browser only ever sees our own origin. This is the BFF
+boundary.
 
-That URL is public, and that is fine: it is not a secret. The only credential is
-the httpOnly session cookie, which no script can read. Because the calls are
-cross origin, two things must hold on the backend, and they are backend config,
-not ours:
+- **REST and socket** go to same-origin paths (`/api/v1/...`, `/socket.io/...`).
+  The `next.config.ts` rewrites forward those to `BACKEND_ORIGIN`. `API_BASE` is
+  empty, and the socket connects to our own origin, so the rewrite proxies the
+  `/socket.io` handshake and traffic through to the backend.
+- **First paint** reads happen in server components (`lib/server/data.ts`), which
+  call `BACKEND_ORIGIN` directly on the server and forward the incoming cookie.
 
-- CORS allows this frontend origin **with credentials**.
-- The session cookie is set `SameSite=None; Secure`, so the browser sends it on
-  cross origin REST and socket requests.
+`BACKEND_ORIGIN` is server only (never `NEXT_PUBLIC`), so the backend URL never
+reaches the shipped bundle. Because everything is same origin from the browser's
+side, the httpOnly session cookie stays first party: no CORS, no
+`SameSite=None`, nothing to configure cross origin. When `BACKEND_ORIGIN` is
+unset the rewrites are a no op, which is the right default for a deployment that
+already serves the API on the same host (for example the backend serving the
+built client itself).
 
-Leaving `NEXT_PUBLIC_API_URL` empty makes the app talk to its own origin instead,
-which only works when a reverse proxy serves the API on the same host. The
-`BACKEND_ORIGIN` variable and the `next.config.ts` rewrites still exist for that
-same origin deployment, and are inert (a no op) when `BACKEND_ORIGIN` is unset.
+### No Route Handler BFF (yet)
 
-### Why there is no Backend for Frontend
-
-A deliberate decision, not a gap. The only credential the backend expects is the
-session cookie; there is no server held API key or service token to inject. A
-Route Handler BFF only earns its place when the server has something of its own
-to add to a request, such as a secret the client must never see. With none in
-play it would be an empty layer between the hook and the backend. The moment
-that flips is the moment the backend expects a server held key beyond the
-cookie: that key must stay on the server, and a Route Handler under `app/` is
-where it would go. Not before.
+The reverse proxy above is the BFF boundary, and it is a plain proxy because the
+only credential is the session cookie, which the browser already carries. There
+is no server held API key or token to inject, so Route Handlers under `app/`
+would be an empty layer. The moment the backend expects a server held secret
+beyond the cookie is the moment to add them, and not before.
 
 ### Env vars
 
-- `NEXT_PUBLIC_API_URL` (public): the backend origin, for the direct REST and
-  socket connection. For example `http://localhost:5000`.
-- `BACKEND_ORIGIN` (server only, optional): only for a same origin proxy or for
-  the server side first paint reads. Unset in the direct model.
+- `BACKEND_ORIGIN` (server only): the backend origin the rewrites and the server
+  component reads forward to, for example `http://localhost:5000`.
 - `BACKEND_WS_ORIGIN` (optional): a distinct socket origin for CSP `connect-src`,
-  if the socket ever lives somewhere other than `NEXT_PUBLIC_API_URL`.
+  only if the socket is served from somewhere other than our own origin.
 
 ## State: zustand stores
 
@@ -172,12 +166,10 @@ session is adopted in an effect so the socket provider, which watches session
 status, reacts after mount rather than during a render. The dashboard is
 `force-dynamic` since it depends on the request.
 
-Note the direct backend model changes which path runs. The session cookie is a
-backend origin cookie, so our own server never receives it; `getMe` on the
-server returns null and the gate always takes the client path. The server
-prefetch only does real work in the same origin proxy deployment, where the
-cookie is first party to our origin. The gate handles both, so the dashboard
-loads either way.
+Because the cookie is first party to our origin (the reverse proxy keeps
+everything same origin), the server component does receive it, so the server
+prefetch path is the common one and the client fallback is only for an expired
+token. The gate handles both.
 
 ## Security posture
 
@@ -187,14 +179,12 @@ loads either way.
   script cannot run. Styles are nonce gated as well, with no `unsafe-inline`
   anywhere: inline style attributes (Framer Motion, React style props) go
   through `style-src-attr`, and sonner's runtime stylesheet is allowed by exact
-  hash. `connect-src` carries our own origin plus the backend origin from
-  `NEXT_PUBLIC_API_URL` in both its http and ws form, so the direct REST and
-  socket connections are allowed. The root layout threads the nonce into
-  next-themes so its anti flash script keeps running. Using a per request nonce
-  makes every route dynamic, which is the accepted cost. In development the
-  policy is relaxed (`unsafe-eval`, inline, no forced https upgrade) because
-  `next dev` needs eval for hot reload and the error overlay; production stays
-  strict.
+  hash. `connect-src` is our own origin plus our ws (the socket is same origin
+  through the proxy). The root layout threads the nonce into next-themes so its
+  anti flash script keeps running. Using a per request nonce makes every route
+  dynamic, which is the accepted cost. In development the policy is relaxed
+  (`unsafe-eval`, inline, no forced https upgrade) because `next dev` needs eval
+  for hot reload and the error overlay; production stays strict.
 - **Static security headers.** `next.config.ts` adds nosniff, frame deny,
   referrer policy, and a permissions policy that grants camera and microphone to
   this origin only (for calling) and nothing else.
