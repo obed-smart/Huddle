@@ -102,33 +102,26 @@ class AuthService {
         `rl:user:unverified:${status.email.toLowerCase()}`,
         "1",
         "EX",
-        180,
+        300,
         "NX",
       );
 
       if (!allowed) return;
 
-      const user = await this.userService.replaceUnverifiedUser({
-        ...userData,
-        provider: "local",
-      });
+      const user = status;
 
       const token = await this.generateEmailverificationToken(user.id);
       const verifyUrl = this.buildVerifyEmailUrl(token);
 
-      await addVerifyEmailJob(
-        user.email,
-        user.displayName ?? user.username,
-        verifyUrl,
-        token,
-      );
+      await addVerifyEmailJob(user.email, user.username, verifyUrl, token);
+
       this.logger.info("New user registered successfully");
     } else {
       const allowed = await redisClient.set(
         `rl:user:exists:${status.id}`,
         "1",
         "EX",
-        180,
+        300,
         "NX",
       );
 
@@ -321,8 +314,8 @@ class AuthService {
   }
 
   private buildVerifyEmailUrl(token: string): string {
-    const base = env.FRONTEND_URL.replace(/\+$/, "")
-    return `${base}/#/verify-email?token=${encodeURIComponent(token)}`
+    const base = env.FRONTEND_URL.replace(/\+$/, "");
+    return `${base}/#/verify-email?token=${encodeURIComponent(token)}`;
   }
 
   private async generateEmailverificationToken(userId: string) {
@@ -364,7 +357,7 @@ class AuthService {
         `rl:resend:${existing.id}`,
         "1",
         "EX",
-        60,
+        120,
         "NX",
       );
       if (!allowed) return;

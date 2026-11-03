@@ -93,7 +93,6 @@ export const hashToken = (token: string) => {
 export const hashOtp = (otp: string) =>
   crypto.createHmac("sha256", env.OTP_SECRET).update(otp).digest("hex");
 
-
 export const verifyOtp = (otp: string, storedHash: string): boolean => {
   if (!otp || !storedHash) return false;
 
@@ -179,18 +178,21 @@ export function dbErrorConstraint(error: unknown) {
     : undefined;
 }
 
+export function fail(
+  error: unknown,
+  message: string,
+  context: Record<string, unknown> = {},
+): never {
+  if (error instanceof AppError) throw error;
 
-  export function fail(
-    error: unknown,
-    message: string,
-    context: Record<string, unknown> = {},
-  ): never {
-    if (error instanceof AppError) throw error;
+  logger.error({ err: error, ...context }, message);
 
-    logger.error({ err: error, ...context }, message);
+  throw new AppError(message, 500);
+}
 
-    throw new AppError(message, 500);
-  }
+let dummyHash: Promise<string> | null = null;
+const getDummyHash = () => (dummyHash ??= hashPassword("not-a-real-password"));
 
-  
-
+export async function burnHashTime(password: string) {
+  await comparePassword(password, await getDummyHash());
+}

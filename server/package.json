@@ -6,7 +6,7 @@
   "types": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && cp src/path/to/token-bucket.lua dist/path/to/",
     "start": "NODE_ENV=production node dist/index.js",
     "client": "npx tsx test/socket/client.ts",
     "db:generate": "drizzle-kit generate",
@@ -44,6 +44,7 @@
     "pg": "^8.22.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
+    "rate-limiter-flexible": "^11.2.3",
     "socket.io": "^4.8.3",
     "zod": "^4.4.3"
   },

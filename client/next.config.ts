@@ -15,21 +15,34 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Calls need the camera/mic from this origin; nothing else.
-  { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=()" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(self), microphone=(self), geolocation=()",
+  },
 ];
 
 const nextConfig: NextConfig = {
   // Pin the workspace root to this folder: the repo also has a lockfile at its
+
   // root, which would otherwise make Next guess the wrong root.
+
   turbopack: {
     root: fileURLToPath(new URL(".", import.meta.url)),
   },
 
+  allowedDevOrigins: ["10.18.66.217"],
+
   async rewrites() {
     if (!BACKEND_ORIGIN) return [];
     return [
-      { source: "/api/v1/:path*", destination: `${BACKEND_ORIGIN}/api/v1/:path*` },
-      { source: "/socket.io/:path*", destination: `${BACKEND_ORIGIN}/socket.io/:path*` },
+      {
+        source: "/api/v1/:path*",
+        destination: `${BACKEND_ORIGIN}/api/v1/:path*`,
+      },
+      {
+        source: "/socket.io/:path*",
+        destination: `${BACKEND_ORIGIN}/socket.io/:path*`,
+      },
     ];
   },
 

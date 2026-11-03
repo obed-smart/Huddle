@@ -8,7 +8,6 @@ import authServices from "./auth.services";
 import AppError from "../../shared/utils/apiError";
 import { AuthUser } from "../../shared/types";
 import env from "../../config/env";
-
 const isProduction = process.env.NODE_ENV === "production";
 
 const cookieOptions = {
@@ -45,11 +44,13 @@ class AuthController {
 
     await this.authService.register({ ...req.body, displayName });
 
-    res.status(201).json(
-      ApiResponse.success({
-        message: "If this email can be used, we've sent you a message.",
-      }),
-    );
+    res
+      .status(201)
+      .json(
+        ApiResponse.success(
+          "If this email can be used, we've sent you a message.",
+        ),
+      );
   });
 
   login = catchAsync(async (req, res) => {

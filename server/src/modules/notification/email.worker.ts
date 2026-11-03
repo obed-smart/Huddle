@@ -6,9 +6,7 @@ import logger from "../../shared/utils/logger";
 export const emailWorker = new Worker<ISendEmailPayload>(
   "email",
   async (job) => {
-    const data = job.data;
-
-    sendMail(data);
+    await sendMail(job.data);
   },
   {
     connection: bullmqConnection,
@@ -23,13 +21,24 @@ emailWorker.on("completed", (job) => {
   //   jobsProcessedCounter.inc({ job_type: 'email_job' });
 });
 
-emailWorker.on("failed", (job, err: Error) => {
+// emailWorker.on("failed", (job, err: Error) => {
+//   logger.error(
+//     {
+//       error: err.message,
+//       stack: err.stack,
+//     },
+//     ` [Email Worker failed] Email Job ${job?.id} failed.`,
+//   );
+//   //   jobsFailedCounter.inc({ job_type: 'email_job' });
+// });
+
+emailWorker.on("failed", (job, err) => {
   logger.error(
-    {
-      error: err.message,
-      stack: err.stack,
-    },
-    ` [Email Worker failed] Email Job ${job?.id} failed.`,
+    { err, jobId: job?.id, attemptsMade: job?.attemptsMade },
+    "email job failed",
   );
-  //   jobsFailedCounter.inc({ job_type: 'email_job' });
+});
+
+emailWorker.on("error", (err) => {
+  logger.error({ err }, "email worker error");
 });

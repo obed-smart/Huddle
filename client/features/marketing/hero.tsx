@@ -5,6 +5,7 @@ import { AppPreview } from "@/features/marketing/app-preview";
 import { routes } from "@/features/marketing/content";
 
 /** Top of the page: the one honest headline, two actions, and a calm preview. */
+
 export function Hero() {
   return (
     <section className="mx-auto w-full max-w-6xl px-4 sm:px-6">
@@ -27,7 +28,12 @@ export function Hero() {
             <Button asChild size="lg" className="w-full sm:w-auto">
               <Link href={routes.register}>Create account</Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="w-full sm:w-auto"
+            >
               <Link href={routes.login}>Sign in</Link>
             </Button>
           </div>

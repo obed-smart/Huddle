@@ -21,7 +21,7 @@ const emailQueue = new Queue<ISendEmailPayload>("email", {
       delay: 2000,
     },
     removeOnComplete: { count: 100, age: 900 },
-    removeOnFail: { count: 7 * 24 * 3600 },
+    removeOnFail: { age: 7 * 24 * 3600 , count: 100},
   },
 });
 

@@ -5,6 +5,8 @@ import logger from "../shared/utils/logger";
 import { registerEvents } from "./register-events";
 import { setIoInstance } from "./socket.gateway";
 import { onlineUsers } from "../shared/utils/utits";
+import { GLOBAL_SOCKET_LIMIT, globalSocketRateLimit } from "./rate.limiter";
+import { checkLimit } from "../middlewares/rate.limiter";
 
 export function createSocketServer(server: HttpServer) {
   logger.debug("SOCKET.IO");
@@ -29,6 +31,8 @@ export function createSocketServer(server: HttpServer) {
         { user: socket.data.user },
         "socket connected with user data",
       );
+
+      socket.use(globalSocketRateLimit(userId));
 
       socket.join(`user:${userId}`);
       socket.join(`session:${sessionId}`);
