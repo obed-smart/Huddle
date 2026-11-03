@@ -1,33 +1,46 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { Reveal } from "@/features/marketing/reveal";
 import { routes } from "@/features/marketing/content";
 
-/** A calm closing invitation — soft tint, one primary action. */
+/** The closing invitation: one bold brand band, one clear action. */
 export function CtaSection() {
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
-      <div className="flex flex-col items-center gap-5 rounded-2xl border border-border bg-accent px-6 py-12 text-center">
-        <h2 className="font-display text-2xl font-bold tracking-tight text-accent-foreground sm:text-3xl">
-          Ready to jump in?
-        </h2>
-        <p className="max-w-md text-sm text-accent-foreground/80 sm:text-base">
-          Create an account and start a conversation in about a minute.
-        </p>
-        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-          <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link href={routes.register}>Create account</Link>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            size="lg"
-            className="w-full border-transparent bg-card sm:w-auto"
-          >
-            <Link href={routes.login}>Sign in</Link>
-          </Button>
+    <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
+      <Reveal>
+        <div className="relative overflow-hidden rounded-3xl bg-primary px-6 py-16 text-center text-primary-foreground sm:px-12">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -top-24 left-1/2 h-64 w-96 -translate-x-1/2 rounded-full bg-primary-foreground/15 blur-3xl"
+          />
+          <div className="relative flex flex-col items-center gap-5">
+            <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Ready to jump in?
+            </h2>
+            <p className="max-w-md text-sm text-primary-foreground/80 sm:text-base">
+              Create an account and start a conversation in about a minute.
+            </p>
+            <div className="flex w-full flex-col gap-3 pt-2 sm:w-auto sm:flex-row">
+              <Button
+                asChild
+                size="lg"
+                className="w-full rounded-full bg-background px-6 text-foreground hover:bg-background/90 sm:w-auto"
+              >
+                <Link href={routes.register}>Create account</Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="w-full rounded-full border-primary-foreground/40 bg-transparent px-6 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:w-auto"
+              >
+                <Link href={routes.login}>Sign in</Link>
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }
