@@ -349,16 +349,18 @@ class ConversationsRepository {
           eq(this.usersTable.id, this.conversation_participants.userId),
         )
         .where(
-          eq(this.conversation_participants.conversationId, conversationId),
+          and(
+            eq(this.conversation_participants.conversationId, conversationId),
+            eq(this.conversation_participants.status, "accepted"),
+          ),
         );
 
       return {
         ...conversation,
         participants,
       };
-      
     } catch (error) {
-      // logger.error({ err: error }, "Failed fetching conversation detail");
+      logger.error({ err: error }, "Failed fetching conversation detail");
       fail(error, "Failed to conversation detail");
     }
   }
