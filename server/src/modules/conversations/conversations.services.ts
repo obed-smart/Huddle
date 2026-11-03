@@ -19,7 +19,7 @@ class ConversationService {
     private readonly Logger: typeof logger,
     private readonly realtime: RealtimeGateway,
   ) {}
-  
+
   private async roomEvent(
     eventName: string,
     conversationId: string,
@@ -121,7 +121,6 @@ class ConversationService {
         requester: requesterPayload,
       });
 
-
       logger.debug("conversation cretae");
       return conversation;
     } catch (err: any) {
@@ -222,6 +221,17 @@ class ConversationService {
 
     if (!conversation) throw new AppError("Conversation Not found", 404);
 
+    return conversation;
+  }
+
+  async findConversationDetailAndUsers(conversationId: string, userId: string) {
+    const conversation =
+      await this.conversationRepo.findConversationDetailAndUsers(
+        conversationId,
+        userId,
+      );
+
+    if (!conversation) throw new AppError("Conversation Not found", 404);
     return conversation;
   }
 

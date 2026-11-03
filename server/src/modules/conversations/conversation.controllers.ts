@@ -384,6 +384,24 @@ class ConversationController {
 
     res.status(201).json(ApiResponse.success(conversations));
   });
+
+  getConversationDetailAndUsers = catchAsync(async (req, res) => {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401);
+    }
+
+    const { conversationId } = req.params;
+
+    logger.debug({ conversationId }, "this is conversation Id");
+
+    const conversationDetail =
+      await this.conversationService.findConversationDetailAndUsers(
+        String(conversationId),
+        req.user?.id,
+      );
+
+    res.status(200).json(ApiResponse.success(conversationDetail));
+  });
 }
 
 export default ConversationController;

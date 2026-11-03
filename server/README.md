@@ -1,6 +1,10 @@
 # Huddle Backend
 
-Huddle is the backend engine for a real-time chat and audio/video calling application. It lets developers build messaging, group conversations, and WebRTC-powered calls into their products without managing complex signaling, presence, and session logic from scratch. Everything runs through a clean REST API plus a Socket.IO gateway, so teams can focus on their frontend while the server handles auth, real-time events, and call state.
+A real-time messaging, voice, and video backend that handles conversations, calls, and conference rooms through a clean REST API and Socket.IO gateway.
+
+## Overview
+
+Huddle helps developers add real-time chat and voice or video calling to their products without building complex signaling, presence, and session logic from scratch. It manages authentication, conversation membership, WebRTC call setup, and message delivery, so teams can focus on their frontend. Everything is exposed through a straightforward REST API plus a Socket.IO gateway.
 
 ## System Architecture
 
@@ -32,11 +36,11 @@ flowchart LR
 ## Features
 
 - **Real-Time Messaging**: Direct and group chats with text, attachments, replies, mentions, reactions, typing indicators, and read receipts.
-- **Audio and Video Calling**: WebRTC signaling for offer/answer exchange and ICE candidates, with in-memory call state and persistent call logs.
-- **Conference Rooms**: Scheduled and instant meeting rooms with their own participant rosters and WebRTC mesh signaling.
+- **Audio and Video Calling**: WebRTC signaling for offer, answer, and ICE exchange, with in-memory call state and persistent call logs.
+- **Conference Rooms**: Scheduled and instant meeting rooms with participant rosters and mesh WebRTC signaling.
 - **Flexible Conversations**: Direct pings, public and private groups, invite links, admin roles, join requests, and member management.
-- **Secure Authentication**: Local email/password login, Google OAuth, email verification, password reset, and HttpOnly cookie-based JWT sessions with refresh token rotation.
-- **Production Ready Touches**: Redis-backed rate limiting, BullMQ email queue, Helmet CSP, request logging, global error handling, and graceful shutdown.
+- **Secure Authentication**: Local email and password login, Google OAuth, email verification, password reset, and HttpOnly cookie-based JWT sessions with refresh token rotation.
+- **Production Touches**: Redis-backed rate limiting, BullMQ email queue, Helmet CSP, request logging, global error handling, and graceful shutdown.
 
 ### Authentication Flow
 
@@ -109,7 +113,7 @@ npm run db:migrate
 npm run db:push
 ```
 
-Copy `token-bucket.lua` to the expected build location (used by the rate limiter):
+Copy the rate limiter Lua script to the expected build location:
 
 ```bash
 mkdir -p dist/config
@@ -201,10 +205,7 @@ Registers a new user and sends a verification email.
 ```json
 {
   "success": true,
-  "data": {
-    "message": "If this email can be used, we've sent you a message."
-  },
-  "message": null
+  "data": "If this email can be used, we've sent you a message."
 }
 ```
 
@@ -215,7 +216,7 @@ Registers a new user and sends a verification email.
 
 #### POST /api/v1/auth/login
 
-Authenticates a user with email/username and password, then sets HttpOnly cookies.
+Authenticates a user with email or username and password, then sets HttpOnly cookies.
 
 **Request**:
 
@@ -236,8 +237,7 @@ Authenticates a user with email/username and password, then sets HttpOnly cookie
     "email": "user@example.com",
     "username": "johndoe",
     "avataUrl": null
-  },
-  "message": null
+  }
 }
 ```
 
@@ -297,8 +297,7 @@ Issues a new access token using the refresh token cookie.
 ```json
 {
   "success": true,
-  "data": null,
-  "message": null
+  "data": null
 }
 ```
 
@@ -324,8 +323,7 @@ Sends a password reset OTP to the user's email.
 ```json
 {
   "success": true,
-  "data": "If an account exists, we've sent a code to that email.",
-  "message": null
+  "data": "If an account exists, we've sent a code to that email."
 }
 ```
 
@@ -349,8 +347,7 @@ Resets the password using the OTP.
 ```json
 {
   "success": true,
-  "data": "password Reset successfully",
-  "message": null
+  "data": "password Reset successfully"
 }
 ```
 
@@ -377,8 +374,7 @@ Verifies a user's email using the token from the verification link.
   "success": true,
   "data": {
     "message": "email verification successfull"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -401,8 +397,7 @@ Resends the verification email.
   "success": true,
   "data": {
     "message": "If this email can be used, we've sent you a message."
-  },
-  "message": null
+  }
 }
 ```
 
@@ -428,8 +423,7 @@ Returns the current user's profile.
     "bio": null,
     "globalRole": "user",
     "isEmailVerified": false
-  },
-  "message": null
+  }
 }
 ```
 
@@ -452,8 +446,7 @@ Searches users by username.
       "avatarUrl": "url",
       "bio": "Hello"
     }
-  ],
-  "message": null
+  ]
 }
 ```
 
@@ -472,8 +465,7 @@ Returns a public profile for the given username.
     "displayName": "Target User",
     "avatarUrl": "url",
     "bio": "Bio content"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -503,8 +495,7 @@ Returns pending group invitations for the current user.
         "createdAt": "2023-01-01T00:00:00.000Z"
       }
     ]
-  },
-  "message": null
+  }
 }
 ```
 
@@ -531,8 +522,7 @@ Lists all conversations the current user participates in.
       "membersCount": null,
       "updatedAt": "2023-01-01T00:00:00.000Z"
     }
-  ],
-  "message": null
+  ]
 }
 ```
 
@@ -558,8 +548,7 @@ Starts a direct conversation request with another user.
     "type": "direct",
     "visibility": "private",
     "pingStatus": "pending"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -578,8 +567,7 @@ Accepts an incoming direct conversation request.
   "success": true,
   "data": {
     "message": "Ping accepted"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -594,8 +582,7 @@ Declines an incoming direct conversation request.
   "success": true,
   "data": {
     "message": "Ping declined"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -624,8 +611,7 @@ Creates a new group conversation.
     "type": "group",
     "name": "Project Team",
     "visibility": "private"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -654,8 +640,7 @@ Accepts or declines a group invitation. Called by the invitee.
   "data": {
     "status": "accepted",
     "conversationId": "convo-uuid"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -685,8 +670,7 @@ Updates group details. Requires admin permissions.
   "data": {
     "message": "Conversation updated successfully",
     "updatedConversation": {}
-  },
-  "message": null
+  }
 }
 ```
 
@@ -710,8 +694,7 @@ Approves or declines a user's request to join a private group. Requires admin pe
   "data": {
     "status": "accepted",
     "conversationId": "convo-uuid"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -727,8 +710,7 @@ Generates a new invite code for a group. Requires admin permissions.
   "data": {
     "inviteCode": "generatedcode",
     "invitelink": "https://frontend.com/invite/generatedcode"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -745,8 +727,7 @@ Returns public details for a conversation invite.
     "id": "convo-uuid",
     "name": "Public Group",
     "membersCount": 5
-  },
-  "message": null
+  }
 }
 ```
 
@@ -759,8 +740,7 @@ Joins a group via invite code. Private groups create an admin approval request.
 ```json
 {
   "success": true,
-  "data": "Request sent successfully and waiting for admin approval",
-  "message": null
+  "data": "Request sent successfully and waiting for admin approval"
 }
 ```
 
@@ -784,8 +764,7 @@ Invites a specific user to a group. Requires admin permissions.
   "success": true,
   "data": {
     "message": "User invited successfully"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -808,8 +787,7 @@ Lists pending join requests for a group. Requires admin permissions.
         "username": "johndoe"
       }
     ]
-  },
-  "message": null
+  }
 }
 ```
 
@@ -833,8 +811,7 @@ Returns the message timeline for a conversation.
         "body": "Hello world"
       }
     }
-  ],
-  "message": null
+  ]
 }
 ```
 
@@ -855,8 +832,7 @@ Promotes or demotes a member to admin. Requires admin permissions.
 ```json
 {
   "success": true,
-  "data": "New Admin added successfully",
-  "message": null
+  "data": "New Admin added successfully"
 }
 ```
 
@@ -869,8 +845,7 @@ Leaves a conversation.
 ```json
 {
   "success": true,
-  "data": "User left the group successfully",
-  "message": null
+  "data": "User left the group successfully"
 }
 ```
 
@@ -885,8 +860,7 @@ Removes a member from a conversation. Requires admin permissions.
   "success": true,
   "data": {
     "message": "Member removed successfully"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -901,8 +875,7 @@ Deletes a conversation entirely. Only the creator can perform this action.
   "success": true,
   "data": {
     "message": "Conversation deleted successfully"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -934,8 +907,7 @@ Creates a new text message.
     "senderId": "user-uuid",
     "body": "Hello team!",
     "createdAt": "2023-01-01T00:00:00.000Z"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -954,8 +926,7 @@ Fetches messages for a conversation.
       "body": "Hello team!",
       "createdAt": "2023-01-01T00:00:00.000Z"
     }
-  ],
-  "message": null
+  ]
 }
 ```
 
@@ -971,8 +942,7 @@ Fetches a single message.
   "data": {
     "id": "msg-uuid",
     "body": "Hello team!"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -997,8 +967,7 @@ Edits a message. Only the sender can edit it.
     "id": "msg-uuid",
     "body": "Edited message content",
     "editedAt": "2023-01-01T00:05:00.000Z"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -1026,8 +995,7 @@ Returns the current user's paginated call history.
   "data": {
     "callLOg": [],
     "nextCursor": "base64cursor-or-null"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -1049,8 +1017,7 @@ Returns active calls the user is eligible to join.
       "directTypeLenght": "group",
       "name": "Team Call"
     }
-  ],
-  "message": null
+  ]
 }
 ```
 
@@ -1082,8 +1049,7 @@ Creates a new conference room in a conversation.
     "conversationId": "convo-uuid",
     "title": "Weekly Standup",
     "scheduledFor": "2023-01-01T10:00:00.000Z"
-  },
-  "message": null
+  }
 }
 ```
 
@@ -1103,8 +1069,7 @@ Returns active conference rooms the user can join.
       "title": "Weekly Standup",
       "scheduledFor": "2023-01-01T10:00:00.000Z"
     }
-  ],
-  "message": null
+  ]
 }
 ```
 
@@ -1120,6 +1085,16 @@ The gateway requires the access token cookie and joins rooms automatically. Key 
 - `call:initiate` / `call:incoming` / `call:accept` / `call:offer` / `call:answer` / `call:ice-candidate`: WebRTC call signaling
 - `meet:join` / `meet:offer` / `meet:answer` / `meet:ice-candidate`: conference room signaling
 
+## Technologies Used
+
+| Category | Technologies |
+| --- | --- |
+| Languages | [TypeScript](https://www.typescriptlang.org/), [Node.js](https://nodejs.org/) |
+| Backend | [Express](https://expressjs.com/), [Socket.io](https://socket.io/) |
+| Database | [PostgreSQL](https://www.postgresql.org/), [Drizzle](https://orm.drizzle.team/), [Redis](https://redis.io/) |
+| Auth & Validation | [Passport](https://www.passportjs.org/), [Zod](https://zod.dev/) |
+| Queue | [BullMQ](https://bullmq.io/) |
+
 ## Contributing
 
 Pull requests are welcome. If you want to add a feature or fix a bug, fork the repo, create a branch, and open a PR. Please keep code formatted consistently and add tests for new behavior when possible.
@@ -1129,14 +1104,17 @@ Pull requests are welcome. If you want to add a feature or fix a bug, fork the r
 - LinkedIn: https://linkedin.com/in/obed-smart
 - X (Twitter): https://x.com/eberechukwuobed
 
-## Technologies Used
+## Badges
 
-| Category | Technologies |
-| --- | --- |
-| Languages | [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/) |
-| Backend | [![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/) [![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socketdotio&logoColor=white)](https://socket.io/) |
-| Database | [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/) [![Drizzle](https://img.shields.io/badge/Drizzle-C5F74F?style=for-the-badge&logo=drizzle&logoColor=black)](https://orm.drizzle.team/) [![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/) |
-| Auth & Validation | [![Passport](https://img.shields.io/badge/Passport-34E27A?style=for-the-badge&logo=passport&logoColor=white)](https://www.passportjs.org/) [![Zod](https://img.shields.io/badge/Zod-3068B7?style=for-the-badge&logo=zod&logoColor=white)](https://zod.dev/) |
-| Queue | [![BullMQ](https://img.shields.io/badge/BullMQ-8B0000?style=for-the-badge&logo=bullmq&logoColor=white)](https://bullmq.io/) |
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
+[![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socketdotio&logoColor=white)](https://socket.io/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Drizzle](https://img.shields.io/badge/Drizzle-C5F74F?style=for-the-badge&logo=drizzle&logoColor=black)](https://orm.drizzle.team/)
+[![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+[![BullMQ](https://img.shields.io/badge/BullMQ-8B0000?style=for-the-badge&logo=bullmq&logoColor=white)](https://bullmq.io/)
+[![Passport](https://img.shields.io/badge/Passport-34E27A?style=for-the-badge&logo=passport&logoColor=white)](https://www.passportjs.org/)
+[![Zod](https://img.shields.io/badge/Zod-3068B7?style=for-the-badge&logo=zod&logoColor=white)](https://zod.dev/)
 
 [![Readme was generated by Dokugen](https://img.shields.io/badge/Readme%20was%20generated%20by-Dokugen-brightgreen)](https://dokugen.samueltuoyo.com)

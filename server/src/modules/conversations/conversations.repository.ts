@@ -18,6 +18,7 @@ import {
   INewConversation,
   conversationParticipants,
   INewConversationParticipant,
+  IConversationParticipant,
 } from "../../db/schema/schema.conversations";
 import {
   groupJoinRequestsTable as groupRequest,
@@ -41,7 +42,11 @@ import { inArray } from "drizzle-orm";
 import { count } from "drizzle-orm";
 import { IupdateConversationSchema } from "./conversations.validation";
 import { alias } from "drizzle-orm/pg-core";
-import { MessageTimelineWithAttachmentDTO, MessageWithAttachmentDTO } from "../message/message.types";
+import {
+  MessageTimelineWithAttachmentDTO,
+  MessageWithAttachmentDTO,
+} from "../message/message.types";
+import { fail } from "../../shared/utils/utits";
 
 export const conversationResponse = {
   id: conversation.id,
@@ -293,6 +298,71 @@ class ConversationsRepository {
       .where(eq(this.conversationsTable.id, conversationId));
 
     return conversation ?? null;
+  }
+
+  async findConversationDetailAndUsers(conversationId: string, userId: string) {
+    try {
+      const [conversation] = await this.db
+        .select({
+          id: this.conversationsTable.id,
+          name: this.conversationsTable.name,
+          description: this.conversationsTable.description,
+          avatarUrl: this.conversationsTable.avatarUrl,
+          visibility: this.conversationsTable.visibility,
+          inviteCode: this.conversationsTable.inviteCode,
+          membersCount: sql<number>`
+      (
+        SELECT COUNT(*)
+        FROM ${this.conversation_participants}
+        WHERE ${this.conversation_participants.conversationId} = ${this.conversationsTable.id}
+      )
+    `,
+          myRole: sql<
+            IConversationParticipant["role"]
+          >`( SELECT role FROM ${this.conversation_participants} WHERE ${this.conversation_participants.conversationId} = ${this.conversationsTable.id} AND ${this.conversation_participants.userId} = ${userId} LIMIT 1) `,
+        })
+        .from(this.conversationsTable)
+        .where(
+          and(
+            eq(this.conversationsTable.id, conversationId),
+            eq(this.conversationsTable.type, "group"),
+          ),
+        );
+
+      logger.debug({ conversation }, "Fetched conversation detail:");
+
+      if (!conversation) {
+        return null;
+      }
+
+      const participants = await this.db
+        .select({
+          id: this.conversation_participants.userId,
+          username: this.usersTable.username,
+          displayName: this.usersTable.displayName,
+          avatarUrl: this.usersTable.avatarUrl,
+          role: this.conversation_participants.role,
+        })
+        .from(this.conversation_participants)
+        .innerJoin(
+          this.usersTable,
+          eq(this.usersTable.id, this.conversation_participants.userId),
+        )
+        .where(
+          and(
+            eq(this.conversation_participants.conversationId, conversationId),
+            eq(this.conversation_participants.status, "accepted"),
+          ),
+        );
+
+      return {
+        ...conversation,
+        participants,
+      };
+    } catch (error) {
+      logger.error({ err: error }, "Failed fetching conversation detail");
+      fail(error, "Failed to conversation detail");
+    }
   }
 
   async updateConversationStatus(

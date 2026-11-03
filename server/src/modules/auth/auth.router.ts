@@ -11,14 +11,14 @@ import {
   verifyEmailSchema,
 } from "./auth.validation";
 import AppError from "../../shared/utils/apiError";
+
+import logger from "../../shared/utils/logger";
+import { RateLimiterRes } from "rate-limiter-flexible";
 import {
   loginAttemptLimiter,
   loginRateLimiter,
-  rateLimit,
   registerRateLimiter,
-} from "../../middlewares/rate.limiter";
-import logger from "../../shared/utils/logger";
-import { RateLimiterRes } from "rate-limiter-flexible";
+} from "./auth.rate.limiter";
 
 const router = Router();
 
