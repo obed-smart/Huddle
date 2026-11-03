@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { getSocket } from "@/lib/socket";
+import { useSocket } from "@/features/realtime/socket-provider";
 import { useConversations } from "@/stores/conversations";
 
 /* The server may name the "a message arrived" event any of these. */
@@ -16,11 +16,11 @@ type MessagePayload = {
 
 /** Move a conversation to the top (and bump its unread) when a message lands. */
 export function useConversationRealtime(activeId: string | null) {
+  const socket = useSocket();
   const bump = useConversations((s) => s.bump);
   const incUnread = useConversations((s) => s.incUnread);
 
   useEffect(() => {
-    const socket = getSocket();
     if (!socket) return;
 
     const handler = (payload: MessagePayload) => {
@@ -37,5 +37,5 @@ export function useConversationRealtime(activeId: string | null) {
     return () => {
       for (const event of MESSAGE_EVENTS) socket.off(event, handler);
     };
-  }, [activeId, bump, incUnread]);
+  }, [socket, activeId, bump, incUnread]);
 }

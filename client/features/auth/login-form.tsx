@@ -1,14 +1,26 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { TextField, PasswordField } from "@/features/auth/fields";
+import { VerifyEmailNotice } from "@/features/auth/verify-email-notice";
 import { login, ApiError } from "@/lib/api/auth";
+import { EMAIL_UNVERIFIED_CODE } from "@/lib/api/config";
 import { requiredError } from "@/lib/validation";
 
 type Errors = { identifier?: string; password?: string };
+
+/** The login succeeded on password but the account's email is unverified. */
+function isUnverified(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false;
+  const marker = EMAIL_UNVERIFIED_CODE.toUpperCase();
+  return [err.code, err.message].some(
+    (v) => typeof v === "string" && v.toUpperCase().includes(marker),
+  );
+}
 
 export function LoginForm() {
   const router = useRouter();
@@ -17,6 +29,7 @@ export function LoginForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
 
   const identifierError = () => requiredError(identifier, "Email or username");
   const passwordRequired = () => (password ? undefined : "Password is required.");
@@ -34,11 +47,17 @@ export function LoginForm() {
       await login(identifier.trim(), password);
       router.push("/dashboard");
     } catch (err) {
-      setFormError(
-        err instanceof ApiError ? err.message : "Something went wrong. Try again.",
-      );
+      if (isUnverified(err)) {
+        setVerifyEmail(identifier.includes("@") ? identifier.trim() : "");
+      } else {
+        setFormError(err instanceof ApiError ? err.message : "Something went wrong. Try again.");
+      }
       setSubmitting(false);
     }
+  }
+
+  if (verifyEmail !== null) {
+    return <VerifyEmailNotice email={verifyEmail} onBack={() => setVerifyEmail(null)} />;
   }
 
   return (
@@ -80,6 +99,13 @@ export function LoginForm() {
       <Button type="submit" size="lg" className="mt-1 w-full" disabled={submitting}>
         {submitting ? "Signing in…" : "Sign in"}
       </Button>
+
+      <Link
+        href="/reset-password"
+        className="text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        Forgot password?
+      </Link>
     </form>
   );
 }

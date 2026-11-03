@@ -1,13 +1,8 @@
 import { request } from "./http";
 import { paths } from "./config";
+import type { SearchedUser } from "@/lib/contracts";
 
-export type SearchedUser = {
-  id: string;
-  username: string;
-  displayName?: string | null;
-  avatarUrl?: string | null;
-  bio?: string | null;
-};
+export type { SearchedUser };
 
 /** The server only accepts a username of letters, numbers and underscores (max
     20), so the query is sanitised to that before it is sent. */

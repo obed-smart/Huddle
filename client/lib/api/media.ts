@@ -1,8 +1,7 @@
 import { request } from "./http";
-import type { ServerKind } from "@/lib/media/policy";
+import type { Presign, PresignInput } from "@/lib/contracts";
 
-export type PresignInput = { kind: ServerKind; mime: string; size: number };
-export type Presign = { uploadUrl: string | null; objectKey: string | null; expiresIn: number | null };
+export type { Presign, PresignInput };
 
 /**
  * Ask the server to sign a short-lived PUT URL per file. The server holds the
