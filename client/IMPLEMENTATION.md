@@ -77,39 +77,39 @@ Each resource gets a small typed module beside it (`auth.ts`, `conversations.ts`
 `group.ts`, `media.ts`, `users.ts`, `requests.ts`). Components never call fetch;
 they call a hook, the hook calls one of these.
 
-## Talking to the backend
+## Talking to the backend (the BFF)
 
-The client never talks to the backend directly. The Next server sits in front as
-a reverse proxy, so the browser only ever sees our own origin. This is the BFF
-boundary.
+The client never talks to the backend directly. The Next server stands in front
+as a Backend for Frontend, so the browser only ever sees our own origin. There
+are three doors into the backend, all server side:
 
-- **REST and socket** go to same-origin paths (`/api/v1/...`, `/socket.io/...`).
-  The `next.config.ts` rewrites forward those to `BACKEND_ORIGIN`. `API_BASE` is
-  empty, and the socket connects to our own origin, so the rewrite proxies the
-  `/socket.io` handshake and traffic through to the backend.
+- **REST** goes to same-origin `/api/v1/*`, which the route handler at
+  `app/api/v1/[...path]/route.ts` forwards to `BACKEND_ORIGIN`. It carries the
+  incoming cookie upstream and passes any `Set-Cookie` back, so login and logout
+  work. It is a plain forwarder today, and it is the one place to add request
+  validation, shaping, or a server held secret later, without touching the
+  client.
+- **Socket** goes to same-origin `/socket.io`, proxied by a `next.config.ts`
+  rewrite. A websocket cannot pass through a route handler, so this one stays a
+  rewrite. Socket.IO's polling transport always works through it; the websocket
+  upgrade works when the deployment forwards it, and otherwise Socket.IO stays on
+  polling, which is fine.
 - **First paint** reads happen in server components (`lib/server/data.ts`), which
-  call `BACKEND_ORIGIN` directly on the server and forward the incoming cookie.
+  call `BACKEND_ORIGIN` directly and forward the incoming cookie.
 
 `BACKEND_ORIGIN` is server only (never `NEXT_PUBLIC`), so the backend URL never
 reaches the shipped bundle. Because everything is same origin from the browser's
-side, the httpOnly session cookie stays first party: no CORS, no
-`SameSite=None`, nothing to configure cross origin. When `BACKEND_ORIGIN` is
-unset the rewrites are a no op, which is the right default for a deployment that
-already serves the API on the same host (for example the backend serving the
-built client itself).
-
-### No Route Handler BFF (yet)
-
-The reverse proxy above is the BFF boundary, and it is a plain proxy because the
-only credential is the session cookie, which the browser already carries. There
-is no server held API key or token to inject, so Route Handlers under `app/`
-would be an empty layer. The moment the backend expects a server held secret
-beyond the cookie is the moment to add them, and not before.
+side, the httpOnly session cookie stays first party: no CORS, no `SameSite=None`,
+nothing to configure cross origin. The one backend expectation is that its
+session cookie is host only (no explicit `Domain`), so the browser keeps it under
+our origin as the BFF relays it. When `BACKEND_ORIGIN` is unset the forwarders
+are inert, which suits a deployment that already serves the API on the same host.
 
 ### Env vars
 
-- `BACKEND_ORIGIN` (server only): the backend origin the rewrites and the server
-  component reads forward to, for example `http://localhost:5000`.
+- `BACKEND_ORIGIN` (server only): the backend origin the BFF route handler, the
+  socket rewrite, and the server component reads forward to. For example
+  `http://localhost:5000`.
 - `BACKEND_WS_ORIGIN` (optional): a distinct socket origin for CSP `connect-src`,
   only if the socket is served from somewhere other than our own origin.
 

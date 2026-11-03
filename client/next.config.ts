@@ -2,11 +2,13 @@ import type { NextConfig } from "next";
 import { fileURLToPath } from "node:url";
 
 /**
- * The backend origin stays server-only (never NEXT_PUBLIC): it is read here, on
- * the server, and used only to proxy same-origin `/api/v1` and `/socket.io`
- * requests to the real backend. The browser only ever sees same-origin paths,
- * so no backend URL reaches the shipped bundle. When unset (e.g. the API is
- * already served same-origin by a reverse proxy) the rewrites are a no-op.
+ * The backend origin stays server-only (never NEXT_PUBLIC). The REST API is
+ * forwarded by the BFF route handler (`app/api/v1/[...path]/route.ts`), so the
+ * only thing left to rewrite here is the socket: a websocket cannot pass through
+ * a route handler, so `/socket.io` is proxied at the edge straight to the
+ * backend. The browser only ever sees same-origin paths, so no backend URL
+ * reaches the shipped bundle. When `BACKEND_ORIGIN` is unset the rewrite is a
+ * no-op (the API is assumed to be served on the same host already).
  */
 const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN?.replace(/\/+$/, "");
 
@@ -27,10 +29,7 @@ const nextConfig: NextConfig = {
 
   async rewrites() {
     if (!BACKEND_ORIGIN) return [];
-    return [
-      { source: "/api/v1/:path*", destination: `${BACKEND_ORIGIN}/api/v1/:path*` },
-      { source: "/socket.io/:path*", destination: `${BACKEND_ORIGIN}/socket.io/:path*` },
-    ];
+    return [{ source: "/socket.io/:path*", destination: `${BACKEND_ORIGIN}/socket.io/:path*` }];
   },
 
   async headers() {

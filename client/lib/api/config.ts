@@ -1,10 +1,11 @@
 /**
  * The client always talks to its own origin, never to the backend directly. The
- * Next server is the reverse proxy: the `next.config.ts` rewrites forward
- * same-origin `/api/v1` and `/socket.io` to the server-only `BACKEND_ORIGIN`,
- * and the first paint reads happen in server components. So `API_BASE` is empty
- * (same origin): the backend URL never reaches the browser, and the httpOnly
- * session cookie stays first party, which means no CORS and no SameSite=None.
+ * Next server stands in front as the BFF: `/api/v1/*` is forwarded by the route
+ * handler at `app/api/v1/[...path]/route.ts`, `/socket.io` is proxied by a
+ * rewrite (a websocket cannot go through a route handler), and the first paint
+ * reads happen in server components. So `API_BASE` is empty (same origin): the
+ * backend URL never reaches the browser, and the httpOnly session cookie stays
+ * first party, which means no CORS and no SameSite=None.
  */
 export const API_BASE = "";
 
