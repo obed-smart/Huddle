@@ -1,9 +1,11 @@
 /**
- * The API is same-origin: the deployment serves `/api/v1` and `/socket.io` from
- * the same host as the app — a reverse proxy, or the guarded rewrites in
- * next.config pointing at the server-only `BACKEND_ORIGIN`. No backend URL is
- * ever shipped to the browser (that keeps it out of the bundle and lets the
- * httpOnly session cookie ride along as a first-party cookie).
+ * The client always talks to its own origin, never to the backend directly. The
+ * Next server stands in front as the BFF: `/api/v1/*` is forwarded by the route
+ * handler at `app/api/v1/[...path]/route.ts`, `/socket.io` is proxied by a
+ * rewrite (a websocket cannot go through a route handler), and the first paint
+ * reads happen in server components. So `API_BASE` is empty (same origin): the
+ * backend URL never reaches the browser, and the httpOnly session cookie stays
+ * first party, which means no CORS and no SameSite=None.
  */
 export const API_BASE = "";
 
