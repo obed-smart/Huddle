@@ -117,13 +117,9 @@ export const bodyFieldIpKey =
     logger.debug(`typeof raw: ${typeof raw}, value: ${raw}`);
 
     logger.debug(`length of raw: ${raw?.length}`);
-    if (typeof raw !== "string") {
-      throw new AppError("Invalid request", 400);
-    }
+    if (typeof raw !== "string") return null;
     const id = raw.toLowerCase().trim();
-    if (!id || id.length > maxLength) {
-      throw new AppError("Invalid request", 400);
-    }
+    if (!id || id.length > maxLength) return null;
     return `${id}_${req.ip}`;
   };
 
@@ -186,7 +182,7 @@ export async function loginRateLimiter(
   const ip = ipKey(req);
 
   if (!key || !ip) {
-    return res.status(503).json(ApiResponse.error("Service unavailable"));
+    return res.status(503).json(ApiResponse.error("Invalid request"));
   }
   res.locals.loginKey = key;
 
@@ -216,6 +212,70 @@ export async function loginRateLimiter(
   }
 }
 
+// export async function registerRateLimiter(
+//   req: Request,
+//   res: Response,
+//   next: NextFunction,
+// ) {
+//   const ip = ipKey(req);
+//   const email = emailKey(req);
+
+//   if (!ip || !email) {
+//     return res.status(503).json(ApiResponse.error("Invalid request"));
+//   }
+
+//   try {
+//     const results = await Promise.allSettled([
+//       registerIpLimiter.consume(ip),
+//       registerEmailLimiter.consume(email),
+//     ]);
+
+//     const ipRejected = results[0].status === "rejected";
+//     const emailRejected = results[1].status === "rejected";
+
+//     if (ipRejected || emailRejected) {
+//       await Promise.allSettled([
+//         !ipRejected ? registerIpLimiter.reward(ip) : Promise.resolve(),
+//         !emailRejected ? registerEmailLimiter.reward(email) : Promise.resolve(),
+//       ]);
+//     }
+
+//     const ipReason = ipRejected
+//       ? (results[0] as PromiseRejectedResult).reason
+//       : null;
+//     const emailReason = emailRejected
+//       ? (results[1] as PromiseRejectedResult).reason
+//       : null;
+
+//     if (ipReason instanceof Error || emailReason instanceof Error) {
+//       logger.error(`register rate limiter error: ${ipReason ?? emailReason}`);
+//       return res.status(503).json(ApiResponse.error("Service unavailable"));
+//     }
+
+//     const reason = (ipReason ?? emailReason) as { msBeforeNext: number };
+
+//     res.setHeader("Retry-After", Math.ceil(reason.msBeforeNext / 1000));
+//     res
+//       .status(429)
+//       .json(
+//         ApiResponse.error("Too many requests: try again later"),
+//       );
+
+//     next();
+//   } catch (rejected: any) {
+//     if (rejected instanceof Error) {
+//       logger.error(`rate limiter error: ${rejected}`);
+//       return res.status(503).json(ApiResponse.error("Service unavailable"));
+//     }
+
+//     res.setHeader("Retry-After", Math.ceil(rejected.msBeforeNext / 1000));
+
+//     return res
+//       .status(429)
+//       .json(ApiResponse.error("Too many requests: try again later"));
+//   }
+// }
+
 export async function registerRateLimiter(
   req: Request,
   res: Response,
@@ -225,26 +285,52 @@ export async function registerRateLimiter(
   const email = emailKey(req);
 
   if (!ip || !email) {
-    return res.status(503).json(ApiResponse.error("Service unavailable"));
+    return res.status(400).json(ApiResponse.error("Invalid request"));
   }
 
   try {
-    await Promise.all([
+    const results = await Promise.allSettled([
       registerIpLimiter.consume(ip),
       registerEmailLimiter.consume(email),
     ]);
 
-    next();
-  } catch (rejected: any) {
-    if (rejected instanceof Error) {
-      logger.error(`rate limiter error: ${rejected}`);
-      return res.status(503).json(ApiResponse.error("Service unavailable"));
+    const ipRejected = results[0].status === "rejected";
+    const emailRejected = results[1].status === "rejected";
+
+    if (ipRejected || emailRejected) {
+      await Promise.allSettled([
+        !ipRejected ? registerIpLimiter.reward(ip) : Promise.resolve(),
+        !emailRejected ? registerEmailLimiter.reward(email) : Promise.resolve(),
+      ]);
+
+      const ipReason = ipRejected
+        ? (results[0] as PromiseRejectedResult).reason
+        : null;
+      const emailReason = emailRejected
+        ? (results[1] as PromiseRejectedResult).reason
+        : null;
+
+      if (ipReason instanceof Error || emailReason instanceof Error) {
+        logger.error(`register rate limiter error: ${ipReason ?? emailReason}`);
+        return res.status(503).json(ApiResponse.error("Service unavailable"));
+      }
+
+      const waits = [ipReason, emailReason]
+        .filter(
+          (reason): reason is { msBeforeNext: number } =>
+            reason !== null && !(reason instanceof Error),
+        )
+        .map((reason) => reason.msBeforeNext);
+      res.setHeader("Retry-After", Math.ceil(Math.max(...waits) / 1000));
+
+      return res
+        .status(429)
+        .json(ApiResponse.error("Too many requests: try again later"));
     }
 
-    res.setHeader("Retry-After", Math.ceil(rejected.msBeforeNext / 1000));
-
-    return res
-      .status(429)
-      .json(ApiResponse.error("Too many requests: try again later"));
+    next();
+  } catch (err) {
+    logger.error(`register rate limiter unexpected error: ${err}`);
+    return res.status(503).json(ApiResponse.error("Service unavailable"));
   }
 }
