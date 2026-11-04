@@ -9,6 +9,7 @@ import { ChatComposer } from "./chat-composer";
 import { useChat } from "./use-chat";
 import { useTyping } from "./use-typing";
 import { GroupInfo } from "@/features/group-info/group-info";
+import { DmInfo } from "@/features/dm-info/dm-info";
 
 type Props = { conversation: Conversation; onBack: () => void };
 
@@ -24,7 +25,7 @@ export function ChatView({ conversation, onBack }: Props) {
       <ChatHeader
         conversation={conversation}
         onBack={onBack}
-        onOpenInfo={isGroup ? () => setInfoOpen(true) : undefined}
+        onOpenInfo={() => setInfoOpen(true)}
       />
 
       <MessageList
@@ -39,7 +40,9 @@ export function ChatView({ conversation, onBack }: Props) {
 
       {isGroup ? (
         <GroupInfo conversation={conversation} open={infoOpen} onClose={() => setInfoOpen(false)} />
-      ) : null}
+      ) : (
+        <DmInfo conversation={conversation} open={infoOpen} onClose={() => setInfoOpen(false)} />
+      )}
     </div>
   );
 }
