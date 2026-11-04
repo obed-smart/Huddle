@@ -4,38 +4,13 @@ import { fileURLToPath } from "node:url";
 const isDev = process.env.NODE_ENV === "development";
 
 /**
- * The backend origin stays server-only (never NEXT_PUBLIC). REST is proxied
- * same-origin to the backend (the `/api/v1` rewrite here, or the route handler
- * at `app/api/v1/[...path]`), so no backend URL reaches the shipped bundle and
- * the session cookie stays first party. The socket is the exception: a websocket
- * cannot be proxied cleanly through Next, so it connects straight to the backend
- * (`NEXT_PUBLIC_SOCKET_URL`) and there is no `/socket.io` rewrite. When
- * `BACKEND_ORIGIN` is unset the rewrite is a no-op.
+ * REST is forwarded by the BFF route handler (`app/api/v1/[...path]`, which
+ * reads `BACKEND_ORIGIN` itself), and the socket connects straight to the
+ * backend (`NEXT_PUBLIC_SOCKET_URL`), so nothing is rewritten here. The
+ * Content-Security-Policy is set per request in `proxy.ts` (nonce based); this
+ * file only carries the static security headers that do not need a nonce.
  */
-const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN?.replace(/\/+$/, "");
-
-// Each directive lists the sources the browser may load that resource type from.
-const csp = [
-  "default-src 'self'",
-  // Next injects small inline scripts; dev mode also needs eval for hot reload.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  // fetch/XHR stay same-origin (the REST proxy). The socket connects straight
-  // to the backend over websocket, so any ws(s) origin is allowed.
-  `connect-src 'self' ws: wss:`,
-  // <video>/<audio> playing MediaStreams or recordings use blob: URLs.
-  "media-src 'self' blob:",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  // Modern replacement for X-Frame-Options.
-  "frame-ancestors 'none'",
-].join("; ");
-
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -63,11 +38,6 @@ const nextConfig: NextConfig = {
   },
 
   allowedDevOrigins: ["10.18.66.217"],
-
-  async rewrites() {
-    if (!BACKEND_ORIGIN) return [];
-    return [{ source: "/api/v1/:path*", destination: `${BACKEND_ORIGIN}/api/v1/:path*` }];
-  },
 
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
