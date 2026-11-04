@@ -14,7 +14,7 @@ type Props = { conversation: Conversation; onBack: () => void; onOpenInfo?: () =
 export function ChatHeader({ conversation, onBack, onOpenInfo }: Props) {
   const isGroup = conversation.type === "group";
   const subtitle = isGroup ? `${conversation.membersCount ?? "?"} members` : "Direct message";
-  const canOpenInfo = isGroup && Boolean(onOpenInfo);
+  const canOpenInfo = Boolean(onOpenInfo);
 
   return (
     <header className="glass flex items-center gap-3 border-b px-3 py-3 sm:px-4">
@@ -31,7 +31,7 @@ export function ChatHeader({ conversation, onBack, onOpenInfo }: Props) {
         type="button"
         onClick={canOpenInfo ? onOpenInfo : undefined}
         disabled={!canOpenInfo}
-        aria-label={canOpenInfo ? "Group info" : undefined}
+        aria-label={canOpenInfo ? (isGroup ? "Group info" : "Contact info") : undefined}
         className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left transition-colors enabled:hover:bg-secondary/60 disabled:cursor-default"
       >
         <Avatar src={conversation.avatar} name={conversation.name} className="size-9" />
