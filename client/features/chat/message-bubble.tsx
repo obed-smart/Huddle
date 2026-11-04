@@ -71,11 +71,13 @@ export function MessageBubble({ message, mine, isGroup, showAvatar, showName }: 
           className={cn(message.pending && "opacity-70", message.failed && "opacity-90")}
         >
           {message.attachments.length > 0 ? (
-            <AttachmentGroup className="mb-1">
-              {message.attachments.map((a) => (
-                <ChatAttachment key={a.id} attachment={a} />
-              ))}
-            </AttachmentGroup>
+            <BubbleContent className={cn("p-1.5", hasText && "mb-1")}>
+              <AttachmentGroup>
+                {message.attachments.map((a) => (
+                  <ChatAttachment key={a.id} attachment={a} mine={mine} />
+                ))}
+              </AttachmentGroup>
+            </BubbleContent>
           ) : null}
 
           {message.deleted ? (
