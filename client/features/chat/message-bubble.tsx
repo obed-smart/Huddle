@@ -16,6 +16,7 @@ import { Bubble, BubbleContent, BubbleReactions } from "@/components/ui/bubble";
 import { Marker, MarkerContent } from "@/components/ui/marker";
 import { AttachmentGroup } from "@/components/ui/attachment";
 import { MESSAGE_TYPES, type Message as Msg, type Reaction } from "@/lib/messages/types";
+import { usePeople } from "@/stores/people";
 import { ChatAttachment } from "./attachment-preview";
 
 function clock(value?: string | null): string {
@@ -41,6 +42,11 @@ type Props = {
 
 /** One message row, composed from the ChatCN Message and Bubble primitives. */
 export function MessageBubble({ message, mine, isGroup, showAvatar, showName }: Props) {
+  // A timeline message carries only a senderId; resolve the name and avatar from
+  // the people directory the participants endpoint filled. (Hook stays above the
+  // system-message early return so it runs on every render.)
+  const person = usePeople((s) => (message.sender.id ? s.byId[message.sender.id] : undefined));
+
   if (message.type === MESSAGE_TYPES.SYSTEM) {
     return (
       <Marker variant="separator" className="py-1">
@@ -51,14 +57,20 @@ export function MessageBubble({ message, mine, isGroup, showAvatar, showName }: 
 
   const reactions = reactionsOf(message);
   const hasText = Boolean(message.content) && !message.deleted;
-  const name = message.sender.displayName || message.sender.username || "Someone";
+  const name =
+    message.sender.displayName ||
+    message.sender.username ||
+    person?.displayName ||
+    person?.username ||
+    "Someone";
+  const avatar = message.sender.avatar || person?.avatarUrl || null;
   const canEdit = mine && message.type === MESSAGE_TYPES.TEXT && !message.deleted && !message.pending;
 
   return (
     <Message align={mine ? "end" : "start"}>
       {!mine && isGroup ? (
         <MessageAvatar className={cn(!showAvatar && "invisible")}>
-          <Avatar src={message.sender.avatar} name={name} className="size-8" />
+          <Avatar src={avatar} name={name} className="size-8" />
         </MessageAvatar>
       ) : null}
 

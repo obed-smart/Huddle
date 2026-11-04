@@ -8,6 +8,7 @@ import { MessageList } from "./message-list";
 import { ChatComposer } from "./chat-composer";
 import { useChat } from "./use-chat";
 import { useTyping } from "./use-typing";
+import { useConversationPeople } from "./use-conversation-people";
 import { GroupInfo } from "@/features/group-info/group-info";
 
 type Props = { conversation: Conversation; onBack: () => void };
@@ -18,6 +19,9 @@ export function ChatView({ conversation, onBack }: Props) {
   const { messages, status, send, sendMedia, currentUser } = useChat(conversation.id);
   const { label, ping } = useTyping(conversation.id, isGroup);
   const [infoOpen, setInfoOpen] = useState(false);
+
+  // Learn who is in this conversation, so a message's senderId resolves to a name.
+  useConversationPeople(conversation, currentUser);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-secondary/40">
