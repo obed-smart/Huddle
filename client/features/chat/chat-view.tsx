@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence } from "motion/react";
 
 import type { Conversation } from "@/lib/api/types";
 import { ChatHeader } from "./chat-header";
@@ -14,7 +15,8 @@ import { DmInfo } from "@/features/dm-info/dm-info";
 
 type Props = { conversation: Conversation; onBack: () => void };
 
-/** The inner chat screen: header, transcript, and composer, all live. */
+/** The inner chat screen. On a large screen the info panel is a third column
+    beside the chat (sidebar, chat, info); on a phone it covers the screen. */
 export function ChatView({ conversation, onBack }: Props) {
   const isGroup = conversation.type === "group";
   const { messages, status, send, sendMedia, currentUser } = useChat(conversation.id);
@@ -24,29 +26,33 @@ export function ChatView({ conversation, onBack }: Props) {
   // Learn who is in this conversation, so a message's senderId resolves to a name.
   useConversationPeople(conversation, currentUser);
 
+  const close = () => setInfoOpen(false);
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-secondary/40">
-      <ChatHeader
-        conversation={conversation}
-        onBack={onBack}
-        onOpenInfo={() => setInfoOpen(true)}
-      />
+    <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col bg-secondary/40">
+        <ChatHeader conversation={conversation} onBack={onBack} onOpenInfo={() => setInfoOpen(true)} />
 
-      <MessageList
-        messages={messages}
-        loading={status === "loading"}
-        isGroup={isGroup}
-        currentUser={currentUser}
-        typingLabel={label}
-      />
+        <MessageList
+          messages={messages}
+          loading={status === "loading"}
+          isGroup={isGroup}
+          currentUser={currentUser}
+          typingLabel={label}
+        />
 
-      <ChatComposer onSend={send} onSendMedia={sendMedia} onTyping={() => ping("typing")} />
+        <ChatComposer onSend={send} onSendMedia={sendMedia} onTyping={() => ping("typing")} />
+      </div>
 
-      {isGroup ? (
-        <GroupInfo conversation={conversation} open={infoOpen} onClose={() => setInfoOpen(false)} />
-      ) : (
-        <DmInfo conversation={conversation} open={infoOpen} onClose={() => setInfoOpen(false)} />
-      )}
+      <AnimatePresence>
+        {infoOpen ? (
+          isGroup ? (
+            <GroupInfo key="group-info" conversation={conversation} onClose={close} />
+          ) : (
+            <DmInfo key="dm-info" conversation={conversation} onClose={close} />
+          )
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

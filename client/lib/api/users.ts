@@ -15,6 +15,12 @@ export function searchUsers(username: string) {
   return request<SearchedUser[]>(`${paths.userSearch}?username=${encodeURIComponent(username)}`);
 }
 
+/** A single user's public profile by username, for their bio on a DM's info
+    panel. Returns null when the username is unknown. */
+export function fetchUserByUsername(username: string) {
+  return request<SearchedUser | null>(`/api/v1/user/${encodeURIComponent(username)}`);
+}
+
 /** Ping a user to start a direct conversation (a DM request). */
 export function pingUser(userId: string) {
   return request<unknown>("/api/v1/conversation/ping", {

@@ -6,6 +6,7 @@ export type Person = {
   username?: string | null;
   displayName?: string | null;
   avatarUrl?: string | null;
+  bio?: string | null;
 };
 
 type PeopleState = {

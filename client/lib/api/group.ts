@@ -75,3 +75,26 @@ export function resolveJoinRequest(requestId: string, decision: "approve" | "dec
     { method: "PATCH", body: JSON.stringify({ decision }) },
   );
 }
+
+/** What a `/join/<code>` link resolves to before you join. */
+export type InvitePreview = {
+  id: string;
+  name: string | null;
+  avatar?: string | null;
+  description?: string | null;
+  visibility?: "public" | "private" | null;
+  membersCount?: number | null;
+};
+
+/** Look up the group an invite code points to (for the join screen). */
+export function fetchInvite(code: string) {
+  return request<InvitePreview>(`/api/v1/conversation/invites/${encodeURIComponent(code)}`);
+}
+
+/** Join (public) or request to join (private) via an invite code. A public
+    group returns the membership; a private one returns a "request sent" string. */
+export function joinByInvite(code: string) {
+  return request<unknown>(`/api/v1/conversation/invites/${encodeURIComponent(code)}`, {
+    method: "POST",
+  });
+}
