@@ -7,6 +7,7 @@ import {
   forgetPasswordSchema,
   loginSchema,
   registerSchema,
+  resendVerificationSchema,
   resetPasswordSchema,
   verifyEmailSchema,
 } from "./auth.validation";
@@ -15,10 +16,21 @@ import AppError from "../../shared/utils/apiError";
 import logger from "../../shared/utils/logger";
 import { RateLimiterRes } from "rate-limiter-flexible";
 import {
+  forgotEmailDailyLimiter,
+  forgotEmailIpLimiter,
+  forgotIpLimiter,
   loginAttemptLimiter,
   loginRateLimiter,
+  refreshIpLimiter,
   registerRateLimiter,
+  resendEmailDailyLimiter,
+  resendEmailHourlyLimiter,
+  resendIpLimiter,
+  resetEmailLimiter,
+  resetIpLimiter,
+  verifyIpLimiter,
 } from "./auth.rate.limiter";
+import { emailKey, ipKey, rateLimit } from "../../middlewares/rate.limiter";
 
 const router = Router();
 
@@ -111,22 +123,31 @@ router.get(
   authController.googleCallback,
 );
 
-router.post("/refresh", authController.refresh);
-
+router.post(
+  "/refresh",
+  rateLimit(refreshIpLimiter, ipKey),
+  authController.refresh,
+);
 router.post(
   "/forgot-password",
+  rateLimit(forgotIpLimiter, ipKey),
   validate(forgetPasswordSchema),
+  rateLimit(forgotEmailIpLimiter, emailKey),
+  rateLimit(forgotEmailDailyLimiter, emailKey),
   authController.forgetPassword,
 );
 
 router.post(
   "/reset-password",
+  rateLimit(resetIpLimiter, ipKey),
   validate(resetPasswordSchema),
+  rateLimit(resetEmailLimiter, emailKey),
   authController.resetPassword,
 );
 
 router.post(
   "/verify-email",
+  rateLimit(verifyIpLimiter, ipKey),
   validate(verifyEmailSchema),
   authController.verifyEmail,
 );
@@ -134,6 +155,15 @@ router.post(
 router.post(
   "/resend-verification",
   validate(forgetPasswordSchema),
+  authController.resendVerificationEmail,
+);
+
+router.post(
+  "/resend-verification",
+  rateLimit(resendIpLimiter, ipKey),
+  validate(resendVerificationSchema),
+  rateLimit(resendEmailHourlyLimiter, emailKey),
+  rateLimit(resendEmailDailyLimiter, emailKey),
   authController.resendVerificationEmail,
 );
 

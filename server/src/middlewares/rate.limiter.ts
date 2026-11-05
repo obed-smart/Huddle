@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type Redis from "ioredis";
 import { NextFunction, Request, Response } from "express";
 import {
+  RateLimiterMemory,
   RateLimiterRedis,
   RateLimiterRes,
   RateLimiterUnion,
@@ -104,6 +105,49 @@ export const makeLimiter = (
     blockDuration,
   });
 
+const HARD_LIMIT = 300; // this is the hard limit for requests per minute, after which the user will be blocked
+
+const SOFT_LIMIT = 120; // this is the soft limit for requests per minute, after which the user will be delayed
+
+const MAX_DELAY_MS = 2000; // this is the maximum delay in milliseconds for requests after the soft limit is reached
+
+export const globalLimiter = new RateLimiterRedis({
+  storeClient: limiterRedis,
+  keyPrefix: "rl_global",
+  points: HARD_LIMIT,
+  duration: 60,
+});
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export async function globalRateLimiter(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  if (!req.ip || req.path === "/health") return next();
+
+  try {
+    const state = await globalLimiter.consume(req.ip);
+    const used = HARD_LIMIT - state.remainingPoints;
+
+    if (used > SOFT_LIMIT) {
+      await sleep(Math.min((used - SOFT_LIMIT) * 10, MAX_DELAY_MS));
+    }
+  } catch (rejected: any) {
+    if (rejected instanceof Error) {
+      logger.error({ err: rejected }, "global limiter error");
+      return next();
+    }
+    res.setHeader("Retry-After", Math.ceil(rejected.msBeforeNext / 1000));
+    return res
+      .status(429)
+      .json(ApiResponse.error("Too many requests: try again later"));
+  }
+
+  next();
+}
+
 export const bodyFieldIpKey =
   (field: string, maxLength = 254): KeyFn =>
   (req) => {
@@ -120,20 +164,18 @@ export const bodyFieldIpKey =
     if (typeof raw !== "string") return null;
     const id = raw.toLowerCase().trim();
     if (!id || id.length > maxLength) return null;
-    return `${id}_${req.ip}`;
+    return `${id}:${req.ip}`;
   };
 
 export const ipKey: KeyFn = (req) => req.ip ?? null;
 export const loginKey = bodyFieldIpKey("identifier");
 export const emailKey = bodyFieldIpKey("email");
 
-
-
 export function rateLimit(limiter: RateLimiterRedis, getKey: KeyFn) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const key = getKey(req);
     if (!key) {
-      return res.status(503).json(ApiResponse.error("Service unavailable"));
+      return res.status(503).json(ApiResponse.error("Invalid request"));
     }
 
     try {
@@ -153,4 +195,33 @@ export function rateLimit(limiter: RateLimiterRedis, getKey: KeyFn) {
   };
 }
 
+export function rateLimitFailures(
+  limiter: RateLimiterRedis,
+  getKey: KeyFn,
+  localsName = "failureKey",
+) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const key = getKey(req);
+    if (!key) {
+      return res.status(400).json(ApiResponse.error("Invalid request"));
+    }
 
+    res.locals[localsName] = key;
+
+    try {
+      const state = await limiter.get(key);
+
+      if (state && state.remainingPoints <= 0) {
+        res.setHeader("Retry-After", Math.ceil(state.msBeforeNext / 1000));
+        return res
+          .status(429)
+          .json(ApiResponse.error("Too many attempts: try again later"));
+      }
+    } catch (err) {
+      logger.error({ err }, "rate limiter error");
+      return res.status(503).json(ApiResponse.error("Service unavailable"));
+    }
+
+    next();
+  };
+}

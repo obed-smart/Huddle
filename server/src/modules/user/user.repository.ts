@@ -423,12 +423,21 @@ class UserRepository {
 
   async incrementResetAttempts(userId: string) {
     try {
-      await this.db
+      const [user] = await this.db
         .update(this.usersTable)
         .set({
           passwordResetAttempts: sql`${this.usersTable.passwordResetAttempts} + 1`,
         })
-        .where(eq(this.usersTable.id, userId));
+        .where(eq(this.usersTable.id, userId))
+        .returning({
+          passwordResetAttempts: this.usersTable.passwordResetAttempts,
+        });
+
+      if (!user) {
+        throw new AppError("User not found", 404);
+      }
+
+      return user.passwordResetAttempts;
     } catch (error) {
       fail(error, "Failed to update password attempts");
     }

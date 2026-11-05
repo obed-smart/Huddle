@@ -176,7 +176,7 @@ class UserService {
   }
 
   async incrementResetAttempts(userId: string) {
-    await this.userRepo.incrementResetAttempts(userId);
+   return await this.userRepo.incrementResetAttempts(userId);
   }
 
   async completePasswordReset(userId: string, passwordHash: string) {
