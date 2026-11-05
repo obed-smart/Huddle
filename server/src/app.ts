@@ -13,6 +13,7 @@ import AppError from "./shared/utils/apiError";
 import { ApiResponse } from "./shared/utils/apiResponse";
 import GlobalErrorHandler from "./middlewares/globalErrors.middleware";
 import routes from "./routers/index";
+import { globalRateLimiter } from "./middlewares/rate.limiter";
 
 const app = express();
 const isDev = process.env.NODE_ENV !== "production";
@@ -48,8 +49,9 @@ app.use(
   }),
 );
 
-app.set("trust proxy", true);
+app.set("trust proxy", 1);
 app.use(httpLogger);
+app.use(globalRateLimiter);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../../../test-ui")));

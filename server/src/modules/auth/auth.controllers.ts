@@ -1,13 +1,13 @@
 import { Request, Response } from "express";
 
-import { IUser } from "../../db/schema/schema.user";
 import { ApiResponse } from "../../shared/utils/apiResponse";
 import catchAsync from "../../shared/utils/catchAsyncHandler";
 import AuthService from "./auth.services";
-import authServices from "./auth.services";
+
 import AppError from "../../shared/utils/apiError";
-import { AuthUser } from "../../shared/types";
+
 import env from "../../config/env";
+
 const isProduction = process.env.NODE_ENV === "production";
 
 const cookieOptions = {
@@ -177,9 +177,9 @@ class AuthController {
   });
 
   resendVerificationEmail = catchAsync(async (req, res) => {
-    const { emai } = req.body;
+    const { email } = req.body;
 
-    await this.authService.resendVerificationEmail(emai);
+    await this.authService.resendVerificationEmail(email);
 
     res.status(202).json(
       ApiResponse.success({
