@@ -10,16 +10,17 @@ import type { Attachment } from "@/lib/messages/types";
  * URL, or the server's signed URL), falling back to a freshly-signed URL when
  * the carried one is missing or fails to load (signed URLs expire in minutes).
  *
- * `fresh || carried` means the local object URL shows instantly on send, and
- * the server's signed URL takes over once the echo merges it in.
+ * `enabled` gates the whole thing: received media stays "not downloaded" until
+ * the viewer taps it, so nothing is fetched from storage on load. While it is
+ * false the hook does no work and returns an empty `src`.
  */
-export function useAttachmentUrl(attachment: Attachment) {
+export function useAttachmentUrl(attachment: Attachment, enabled = true) {
   const carried = attachment.url || attachment.remoteUrl || "";
   const [fresh, setFresh] = useState("");
   const tried = useRef(false);
 
   const refresh = useCallback(() => {
-    if (tried.current || attachment.localOnly || !attachment.id) return;
+    if (!enabled || tried.current || attachment.localOnly || !attachment.id) return;
     tried.current = true;
     fetchAttachmentUrl(attachment.id)
       .then((url) => {
@@ -28,11 +29,11 @@ export function useAttachmentUrl(attachment: Attachment) {
       .catch(() => {
         // Leave the broken state; the bubble still shows the file name.
       });
-  }, [attachment.id, attachment.localOnly]);
+  }, [enabled, attachment.id, attachment.localOnly]);
 
-  // Received media whose payload carried no URL needs one before it can load.
+  // Once enabled, media whose payload carried no URL needs one before it loads.
   useEffect(() => {
-    if (carried || attachment.localOnly || !attachment.id) return;
+    if (!enabled || carried || attachment.localOnly || !attachment.id) return;
     let cancelled = false;
     fetchAttachmentUrl(attachment.id)
       .then((url) => {
@@ -42,7 +43,7 @@ export function useAttachmentUrl(attachment: Attachment) {
     return () => {
       cancelled = true;
     };
-  }, [carried, attachment.localOnly, attachment.id]);
+  }, [enabled, carried, attachment.localOnly, attachment.id]);
 
-  return { src: fresh || carried, onError: refresh };
+  return { src: enabled ? fresh || carried : "", onError: refresh };
 }
