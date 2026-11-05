@@ -10,7 +10,7 @@ import { SheetModal } from "@/components/ui/sheet-modal";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/notify";
 import { ApiError } from "@/lib/api/http";
-import { createGroup } from "@/lib/api/groups";
+import { createGroup } from "@/lib/api/group";
 import type { SearchedUser } from "@/lib/api/users";
 import { useUserSearch } from "@/features/search/use-user-search";
 import { useConversations } from "@/stores/conversations";
