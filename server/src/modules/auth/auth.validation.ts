@@ -50,6 +50,8 @@ export const forgetPasswordSchema = z.object({
   email: z.email("Please enter a valid email address"),
 });
 
+export const resendVerificationSchema = forgetPasswordSchema;
+
 export const resetPasswordSchema = forgetPasswordSchema
   .extend({
     otp: z.string().regex(/^\d{6}$/, "Code must be 6 digits"),

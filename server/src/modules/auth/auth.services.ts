@@ -39,13 +39,21 @@ class AuthService {
     private readonly authRepo: authRepository,
   ) {}
 
-  // private generateToken(user: AuthUser & { sessionId: string }) {
+  private async cooldownUser(
+    key: string,
+    seconds: number,
+    task: () => Promise<void>,
+  ): Promise<void> {
+    const allowed = await redisClient.set(key, "1", "EX", seconds, "NX");
+    if (!allowed) return;
 
-  //   return {
-  //     accessToken,
-  //     refreshToken,
-  //   };
-  // }
+    try {
+      await task();
+    } catch (err) {
+      await redisClient.del(key).catch(() => {});
+      throw err;
+    }
+  }
 
   private addDays() {
     const expiresAt = new Date();
@@ -96,40 +104,28 @@ class AuthService {
       );
       this.logger.info("user registered successfully");
     } else if (!status.isEmailVerified) {
-      this.logger.debug("Email not verify");
-
-      const allowed = await redisClient.set(
+      await this.cooldownUser(
         `rl:user:unverified:${status.email.toLowerCase()}`,
-        "1",
-        "EX",
         300,
-        "NX",
+        async () => {
+          const token = await this.generateEmailverificationToken(status.id);
+          const verifyUrl = this.buildVerifyEmailUrl(token);
+          await addVerifyEmailJob(
+            status.email,
+            status.username,
+            verifyUrl,
+            token,
+          );
+        },
       );
-
-      if (!allowed) return;
-
-      const user = status;
-
-      const token = await this.generateEmailverificationToken(user.id);
-      const verifyUrl = this.buildVerifyEmailUrl(token);
-
-      await addVerifyEmailJob(user.email, user.username, verifyUrl, token);
-
-      this.logger.info("New user registered successfully");
     } else {
-      const allowed = await redisClient.set(
-        `rl:user:exists:${status.id}`,
-        "1",
-        "EX",
-        300,
-        "NX",
-      );
-
-      if (!allowed) return;
-
-      const loginUrl = `${env.FRONTEND_URL}`;
-
-      await addAccountExistsJob(status.email, status.username, loginUrl);
+      await this.cooldownUser(`rl:user:exists:${status.id}`, 300, async () => {
+        await addAccountExistsJob(
+          status.email,
+          status.username,
+          `${env.FRONTEND_URL}`,
+        );
+      });
     }
   }
 
@@ -258,26 +254,14 @@ class AuthService {
     const user = await this.userService.findUserByEmail(email);
     if (!user) return null;
 
-    const allowed = await redisClient.set(
-      `rl:forget${user.id}`,
-      "1",
-      "EX",
-      300,
-      "NX",
-    );
-    if (!allowed) return;
+    await this.cooldownUser(`rl:forget:${user.id}`, 300, async () => {
+      const otp = randomInt(0, 1_000_000).toString().padStart(6, "0");
+      const hashed = hashOtp(otp);
+      const expiredAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    const otp = randomInt(0, 1_000_000).toString().padStart(6, "0");
-
-    this.logger.debug({ otp }, "sent otp");
-
-    const hashed = hashOtp(otp);
-
-    const expiredAt = new Date(Date.now() + 10 * 60 * 1000);
-
-    await this.userService.startPasswordReset(user.id, hashed, expiredAt);
-
-    await addPasswordResetEmail(email, otp);
+      await this.userService.startPasswordReset(user.id, hashed, expiredAt);
+      await addPasswordResetEmail(email, otp);
+    });
   }
 
   async resetPassword(email: string, otp: string, password: string) {
@@ -290,18 +274,27 @@ class AuthService {
       throw invalid();
     }
 
-    const expired = user.passwordResetOtpExpiry < new Date();
-    const locked = (user.passwordResetAttempts ?? 0) >= MAX_ATTEMPTS;
-
-    if (expired || locked) {
+    if (user.passwordResetOtpExpiry < new Date()) {
       await this.userService.clearPasswordReset(user.id);
       throw invalid();
     }
 
-    const validOtp = verifyOtp(otp, user.passwordResetOtp);
+    // count this attempt BEFORE checking the OTP; returns the new count
+    const attempts = await this.userService.incrementResetAttempts(user.id);
 
-    if (!validOtp) {
-      await this.userService.incrementResetAttempts(user.id);
+    if (!attempts) {
+      throw new AppError("Failed to increment reset attempts", 500);
+    }
+
+    if (attempts > MAX_ATTEMPTS) {
+      await this.userService.clearPasswordReset(user.id);
+      throw invalid();
+    }
+
+    if (!verifyOtp(otp, user.passwordResetOtp)) {
+      if (attempts >= MAX_ATTEMPTS) {
+        await this.userService.clearPasswordReset(user.id);
+      }
       throw invalid();
     }
 
@@ -312,7 +305,6 @@ class AuthService {
     await addPasswordChangedEmail(email, new Date());
     this.logger.info({ userId: user.id }, "Password reset completed");
   }
-
   private buildVerifyEmailUrl(token: string): string {
     const base = env.FRONTEND_URL.replace(/\+$/, "");
     return `${base}/#/verify-email?token=${encodeURIComponent(token)}`;
@@ -346,31 +338,20 @@ class AuthService {
   async resendVerificationEmail(email: string) {
     try {
       const existing = await this.userService.getEmailVerified(email);
+      if (!existing || existing.isEmailVerified) return;
 
-      if (!existing) return;
+      await this.cooldownUser(`rl:resend:${existing.id}`, 120, async () => {
+        const token = await this.generateEmailverificationToken(existing.id);
 
-      if (existing.isEmailVerified) {
-        return;
-      }
+        const verifyUrl = this.buildVerifyEmailUrl(token);
 
-      const allowed = await redisClient.set(
-        `rl:resend:${existing.id}`,
-        "1",
-        "EX",
-        120,
-        "NX",
-      );
-      if (!allowed) return;
-
-      const token = await this.generateEmailverificationToken(existing.id);
-      const verifyUrl = this.buildVerifyEmailUrl(token);
-
-      await addVerifyEmailJob(
-        existing.email,
-        existing.username,
-        verifyUrl,
-        token,
-      );
+        await addVerifyEmailJob(
+          existing.email,
+          existing.username,
+          verifyUrl,
+          token,
+        );
+      });
     } catch (error) {
       fail(error, "resend verification failed");
     }

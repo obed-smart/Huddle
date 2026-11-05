@@ -26,6 +26,49 @@ const registerEmailLimiter = makeLimiter(
   60 * 60,
 );
 
+export const resendIpLimiter = makeLimiter("rl_resend_ip", 20, 60 * 60);
+
+export const resendEmailHourlyLimiter = makeLimiter(
+  "rl_resend_email_h",
+  5,
+  60 * 60,
+);
+
+export const resendEmailDailyLimiter = makeLimiter(
+  "rl_resend_email_d",
+  10,
+  60 * 60 * 24,
+);
+
+// forgot password
+export const forgotIpLimiter = makeLimiter("rl_forgot_ip", 20, 60 * 60);
+export const forgotEmailIpLimiter = makeLimiter(
+  "rl_forgot_email_ip",
+  5,
+  60 * 60,
+  60 * 60,
+);
+export const forgotEmailDailyLimiter = makeLimiter(
+  "rl_forgot_email_d",
+  10,
+  60 * 60 * 24,
+);
+
+export const verifyIpLimiter = makeLimiter("rl_verify_ip", 20, 60 * 60);
+
+export const verifyAttemptLimiter = makeLimiter(
+  "rl_verify_attempt",
+  5,
+  60 * 60,
+  60 * 60,
+);
+
+export const resetIpLimiter = makeLimiter("rl_reset_ip", 20, 60 * 60);
+
+export const resetEmailLimiter = makeLimiter("rl_reset_email", 5, 60 * 15);
+
+export const refreshIpLimiter = makeLimiter("rl_refresh_ip", 200, 60 * 60);
+
 export async function loginRateLimiter(
   req: Request,
   res: Response,
@@ -35,7 +78,7 @@ export async function loginRateLimiter(
   const ip = ipKey(req);
 
   if (!key || !ip) {
-    return res.status(503).json(ApiResponse.error("Invalid request"));
+    return res.status(400).json(ApiResponse.error("Invalid request"));
   }
   res.locals.loginKey = key;
 
@@ -46,15 +89,16 @@ export async function loginRateLimiter(
     ]);
 
     if (emailState && emailState.remainingPoints <= 0) {
+      await loginIpLimiter.reward(ip).catch(() => {});
+
       res.setHeader("Retry-After", Math.ceil(emailState.msBeforeNext / 1000));
       return res
         .status(429)
         .json(ApiResponse.error("Too many attempts: try again later"));
     }
-
-    next();
   } catch (rejected: any) {
     if (rejected instanceof Error) {
+      logger.error({ err: rejected }, "login rate limiter error");
       return res.status(503).json(ApiResponse.error("Service unavailable"));
     }
 
@@ -63,71 +107,9 @@ export async function loginRateLimiter(
       .status(429)
       .json(ApiResponse.error("Too many requests: try again later"));
   }
+
+  next();
 }
-
-// export async function registerRateLimiter(
-//   req: Request,
-//   res: Response,
-//   next: NextFunction,
-// ) {
-//   const ip = ipKey(req);
-//   const email = emailKey(req);
-
-//   if (!ip || !email) {
-//     return res.status(503).json(ApiResponse.error("Invalid request"));
-//   }
-
-//   try {
-//     const results = await Promise.allSettled([
-//       registerIpLimiter.consume(ip),
-//       registerEmailLimiter.consume(email),
-//     ]);
-
-//     const ipRejected = results[0].status === "rejected";
-//     const emailRejected = results[1].status === "rejected";
-
-//     if (ipRejected || emailRejected) {
-//       await Promise.allSettled([
-//         !ipRejected ? registerIpLimiter.reward(ip) : Promise.resolve(),
-//         !emailRejected ? registerEmailLimiter.reward(email) : Promise.resolve(),
-//       ]);
-//     }
-
-//     const ipReason = ipRejected
-//       ? (results[0] as PromiseRejectedResult).reason
-//       : null;
-//     const emailReason = emailRejected
-//       ? (results[1] as PromiseRejectedResult).reason
-//       : null;
-
-//     if (ipReason instanceof Error || emailReason instanceof Error) {
-//       logger.error(`register rate limiter error: ${ipReason ?? emailReason}`);
-//       return res.status(503).json(ApiResponse.error("Service unavailable"));
-//     }
-
-//     const reason = (ipReason ?? emailReason) as { msBeforeNext: number };
-
-//     res.setHeader("Retry-After", Math.ceil(reason.msBeforeNext / 1000));
-//     res
-//       .status(429)
-//       .json(
-//         ApiResponse.error("Too many requests: try again later"),
-//       );
-
-//     next();
-//   } catch (rejected: any) {
-//     if (rejected instanceof Error) {
-//       logger.error(`rate limiter error: ${rejected}`);
-//       return res.status(503).json(ApiResponse.error("Service unavailable"));
-//     }
-
-//     res.setHeader("Retry-After", Math.ceil(rejected.msBeforeNext / 1000));
-
-//     return res
-//       .status(429)
-//       .json(ApiResponse.error("Too many requests: try again later"));
-//   }
-// }
 
 export async function registerRateLimiter(
   req: Request,

@@ -1,6 +1,6 @@
-# Huddle Backend
+# Huddle
 
-A real-time messaging, voice, and video backend that handles conversations, calls, and conference rooms through a clean REST API and Socket.IO gateway.
+Huddle is a real-time communication backend that powers messaging, voice and video calls, and video conferences. It gives developers a ready-to-use foundation for building chat and calling applications with user accounts, conversation management, and live WebRTC signaling.
 
 ## Overview
 
@@ -12,117 +12,103 @@ Built with real-time messaging, online presence, conversation management, and We
 
 ```mermaid
 flowchart LR
-  WebClient["Web Client"]
-  APIServer["API Server"]
-  WSServer["WebSocket Gateway"]
-  PostgreSQL[("PostgreSQL")]
-  Redis["Redis Cache / Queue"]
-  EmailWorker["Email Worker"]
+    Client["Web / Mobile Client"]
+    API["API Server"]
+    Socket["Socket.io Gateway"]
+    DB[("PostgreSQL")]
+    Cache["Redis"]
+    Queue["BullMQ / Email"]
 
-  WebClient --> APIServer
-  WebClient --> WSServer
-  APIServer --> PostgreSQL
-  APIServer --> Redis
-  WSServer --> PostgreSQL
-  WSServer --> Redis
-  APIServer --> EmailWorker
+    Client --> API
+    Client --> Socket
+    API --> DB
+    API --> Cache
+    API --> Queue
+    Socket --> DB
+    Socket --> Cache
 
-  style WebClient fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff
-  style APIServer fill:#2e1065,stroke:#8b5cf6,stroke-width:2px,color:#fff
-  style WSServer fill:#2e1065,stroke:#8b5cf6,stroke-width:2px,color:#fff
-  style PostgreSQL fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#fff
-  style Redis fill:#4c0519,stroke:#ef4444,stroke-width:2px,color:#fff
-  style EmailWorker fill:#451a03,stroke:#f59e0b,stroke-width:2px,color:#fff
+    style Client fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff
+    style API fill:#2e1065,stroke:#8b5cf6,stroke-width:2px,color:#fff
+    style Socket fill:#2e1065,stroke:#8b5cf6,stroke-width:2px,color:#fff
+    style DB fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#fff
+    style Cache fill:#4c0519,stroke:#ef4444,stroke-width:2px,color:#fff
+    style Queue fill:#451a03,stroke:#f59e0b,stroke-width:2px,color:#fff
 ```
 
 ## Features
 
-- **Real-Time Messaging**: Direct and group chats with text, attachments, replies, mentions, reactions, typing indicators, and read receipts.
-- **Audio and Video Calling**: WebRTC signaling for offer, answer, and ICE exchange, with in-memory call state and persistent call logs.
-- **Conference Rooms**: Scheduled and instant meeting rooms with participant rosters and mesh WebRTC signaling.
-- **Flexible Conversations**: Direct pings, public and private groups, invite links, admin roles, join requests, and member management.
-- **Secure Authentication**: Local email and password login, Google OAuth, email verification, password reset, and HttpOnly cookie-based JWT sessions with refresh token rotation.
-- **Production Touches**: Redis-backed rate limiting, BullMQ email queue, Helmet CSP, request logging, global error handling, and graceful shutdown.
+### Secure Authentication
 
-### Authentication Flow
+Huddle supports local registration with email verification, password reset via OTP, and Google OAuth. Sessions are tracked server-side, refresh tokens are rotated, and suspicious reuse triggers a full logout.
 
 ```mermaid
 sequenceDiagram
-  actor User
-  participant Server
-  participant Database
+    actor User
+    participant API
+    participant DB as Database
 
-  User->>Server: Submit credentials
-  Server->>Database: Verify user
-  Database->>Server: User valid
-  Server->>Server: Create session + tokens
-  Server->>User: Set HttpOnly cookies
+    User->>API: Register or login
+    API->>DB: Validate credentials
+    API->>API: Create session and tokens
+    API->>User: Return access and refresh tokens
 ```
 
-### Call Signaling Flow
+### Real-Time Messaging
+
+Users can send messages, reactions, and mentions inside direct or group conversations. Typing indicators and read receipts keep conversations feeling responsive.
 
 ```mermaid
 sequenceDiagram
-  actor Caller
-  participant Server
-  actor Callee
+    actor Sender
+    participant Server
+    participant DB as Database
+    actor Recipient
 
-  Caller->>Server: Start call
-  Server->>Callee: Incoming call alert
-  Callee->>Server: Accept call
-  Server->>Caller: Call accepted
-  Caller->>Server: Send media offer
-  Server->>Callee: Forward offer
+    Sender->>Server: Send message
+    Server->>Server: Validate membership
+    Server->>DB: Store message
+    Server->>Recipient: Push message
+    Recipient->>Server: Send read receipt
 ```
 
-### Message Delivery Flow
+### Voice and Video Calls
+
+One-on-one and group calls use Socket.io for signaling and WebRTC for media. The server mediates offers, answers, and ICE candidates so peers can connect directly.
 
 ```mermaid
 sequenceDiagram
-  actor Sender
-  participant Server
-  participant Database
-  actor Recipient
+    actor Caller
+    participant Server
+    actor Recipient
 
-  Sender->>Server: Send message
-  Server->>Database: Save and validate mentions
-  Database->>Server: Message stored
-  Server->>Recipient: Deliver in real time
-  Recipient->>Server: Mark as read
-  Server->>Sender: Read receipt update
+    Caller->>Server: Initiate call
+    Server->>Recipient: Incoming call
+    Recipient->>Server: Accept call
+    Caller->>Recipient: Exchange offer and answer
 ```
+
+### Scheduled Video Conferences
+
+Organizers can create scheduled meets inside a conversation. Members receive invitations and can join a shared conference room with the same real-time signaling used for calls.
 
 ## Installation
 
-Clone the repository:
+Clone the repository and install dependencies:
 
 ```bash
 git clone https://github.com/obed-smart/Huddle.git
 cd Huddle
-```
-
-Install dependencies:
-
-```bash
 npm install
 ```
 
-Set up the database. The project uses Drizzle Kit to manage PostgreSQL schemas:
+Create a `.env` file in the project root. See the environment variables section below for the full list.
+
+Run the database migrations:
 
 ```bash
 npm run db:generate
 npm run db:migrate
-npm run db:push
 ```
-
-Copy the rate limiter Lua script to the expected build location:
-
-```bash
-mkdir -p dist/config
-cp src/config/token-bucket.lua dist/config/token-bucket.lua
-```
-
-Create a `.env` file in the project root. See the Environment Variables section below for the required keys.
 
 Start the development server:
 
@@ -130,72 +116,83 @@ Start the development server:
 npm run dev
 ```
 
+The API will be available at `http://localhost:5000` by default, or whatever port you set in your environment.
+
 ## Usage
 
-Run the API in development mode with hot reload:
+After starting the server, check that it is running:
 
 ```bash
-npm run dev
+curl http://localhost:5000/health
 ```
 
-Build and run in production:
+Register a new account:
 
 ```bash
-npm run build
-npm start
+curl -X POST http://localhost:5000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "securePassword123",
+    "username": "johndoe",
+    "firstName": "John",
+    "lastName": "Doe"
+  }'
 ```
 
-Check that the server is healthy:
+Login to receive cookies:
 
 ```bash
-curl http://localhost:8080/health
+curl -X POST http://localhost:5000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -c cookies.txt \
+  -d '{
+    "identifier": "johndoe",
+    "password": "securePassword123"
+  }'
 ```
 
-Connect to the Socket.IO gateway from a client using the same `FRONTEND_URL` origin and include credentials so the access token cookie is sent.
+Connect to the real-time gateway from a client using Socket.io. The connection requires the `accessToken` cookie set during login or refresh.
 
-## Environment Variables
+## Technologies Used
 
-Create a `.env` file and add the following keys:
-
-| Variable | Description | Example |
-| --- | --- | --- |
-| `PORT` | Port the server listens on | `8080` |
-| `NODE_ENV` | Runtime environment | `development` or `production` |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/huddle` |
-| `FRONTEND_URL` | Allowed frontend origin for CORS and redirects | `http://localhost:3000` |
-| `JWT_ACCESS_SECRET` | Secret for signing access tokens | `a-long-random-string` |
-| `REFRESH_TOKEN_LIFESPAN_DAYS` | How many days refresh tokens remain valid | `7` |
-| `EMAIL_VERIFICATION_LIFESPAN` | Email verification link lifetime in hours | `24` |
-| `OTP_SECRET` | Secret used to hash password reset codes | `another-long-random-string` |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID | |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | |
-| `REDIS_URL` | Redis connection string for rate limiting and presence | `redis://localhost:6379` |
-| `BULLMQ_REDIS_URL` | Redis connection for the email queue | `redis://localhost:6379` |
-| `SMTP_HOST` | SMTP server for outbound email | |
-| `SMTP_PORT` | SMTP port | `587` |
-| `SMTP_USER` | SMTP username | |
-| `SMTP_PASS` | SMTP password | |
-| `R2_ENDPOINT` | Cloudflare R2 or S3-compatible endpoint for attachments | |
-| `R2_ACCESS_KEY_ID` | R2 access key | |
-| `R2_SECRET_ACCESS_KEY` | R2 secret key | |
-| `R2_BUCKET_NAME` | R2 bucket name | |
+| Technology | Description |
+|---|---|
+| [TypeScript](https://www.typescriptlang.org/) | Typed JavaScript for safer, maintainable code |
+| [Express](https://expressjs.com/) | Web framework for routing and middleware |
+| [Drizzle ORM](https://orm.drizzle.team/) | Type-safe database access and migrations |
+| [PostgreSQL](https://www.postgresql.org/) | Primary relational database |
+| [Redis](https://redis.io/) | Caching, session tracking, and rate limiting |
+| [Socket.io](https://socket.io/) | Real-time bidirectional event transport |
+| [BullMQ](https://bullmq.io/) | Background job processing for emails |
+| [Passport](https://www.passportjs.org/) | Authentication strategies including Google OAuth |
+| [Zod](https://zod.dev/) | Runtime request validation |
+| [Pino](https://getpino.io/) | Structured logging |
 
 ## API Documentation
 
-All REST endpoints are prefixed with `/api/v1`.
-
-### Auth Routes
-
-#### POST /api/v1/auth/register
-
-Registers a new user and sends a verification email.
-
-**Request**:
+All API responses share this envelope:
 
 ```json
 {
+  "success": true,
+  "data": {},
+  "message": null
+}
+```
+
+Protected endpoints require the access token cookie. Most POST and PATCH bodies expect JSON.
+
+### Authentication
+
+#### POST /api/v1/auth/register
+**Description**: Create a new account with email, username, and password.
+
+**Request**:
+```json
+{
   "email": "user@example.com",
-  "password": "securepassword123",
+  "password": "securePassword123",
   "username": "johndoe",
   "firstName": "John",
   "lastName": "Doe"
@@ -203,117 +200,108 @@ Registers a new user and sends a verification email.
 ```
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": "If this email can be used, we've sent you a message."
+  "data": "If this email can be used, we've sent you a message.",
+  "message": null
 }
 ```
 
 **Errors**:
-
-- 400: Validation errors
-- 409: Username or email conflict
+- 400: Validation error
+- 409: Email or username already taken
 
 #### POST /api/v1/auth/login
-
-Authenticates a user with email or username and password, then sets HttpOnly cookies.
+**Description**: Authenticate with email or username and password.
 
 **Request**:
-
 ```json
 {
-  "identifier": "user@example.com",
-  "password": "securepassword123"
+  "identifier": "johndoe",
+  "password": "securePassword123"
 }
 ```
 
 **Response**:
-
 ```json
 {
   "success": true,
   "data": {
-    "id": "uuid-string",
+    "id": "uuid",
     "email": "user@example.com",
     "username": "johndoe",
     "avataUrl": null
-  }
+  },
+  "message": null
 }
 ```
 
 **Errors**:
-
+- 400: Validation error
 - 401: Invalid credentials
-- 429: Too many login attempts
+- 429: Too many attempts
 
 #### POST /api/v1/auth/logout
+**Description**: Log out the current session.
 
-Revokes the current session and clears cookies.
-
-**Request**: Empty body.
-
-**Response**: `204 No Content`
-
-**Errors**:
-
-- 401: Unauthorized
-
-#### POST /api/v1/auth/logoutAll
-
-Revokes all active sessions for the current user.
-
-**Request**: Empty body.
-
-**Response**: `204 No Content`
-
-**Errors**:
-
-- 401: Unauthorized
-
-#### GET /api/v1/auth/google
-
-Initiates Google OAuth login.
-
-**Response**: Redirects to Google's consent screen.
-
-#### GET /api/v1/auth/google/callback
-
-Completes Google OAuth and redirects to the frontend dashboard.
-
-**Response**: Redirect to `${FRONTEND_URL}/#/dashboard`.
-
-**Errors**:
-
-- 401: Google authentication failed
-
-#### POST /api/v1/auth/refresh
-
-Issues a new access token using the refresh token cookie.
-
-**Request**: Empty body.
+**Authentication**: Required
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": null
+  "data": null,
+  "message": null
 }
 ```
 
 **Errors**:
+- 401: Unauthorized
 
+#### POST /api/v1/auth/logoutAll
+**Description**: Log out all sessions for the current user.
+
+**Authentication**: Required
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": null,
+  "message": null
+}
+```
+
+**Errors**:
+- 401: Unauthorized
+
+#### GET /api/v1/auth/google
+**Description**: Start Google OAuth flow.
+
+#### GET /api/v1/auth/google/callback
+**Description**: Callback for Google OAuth. On success, sets cookies and redirects to the frontend dashboard.
+
+#### POST /api/v1/auth/refresh
+**Description**: Rotate the access and refresh tokens using the refresh token cookie.
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": null,
+  "message": null
+}
+```
+
+**Errors**:
 - 400: Refresh token not found
-- 401: Invalid or reused refresh token
+- 401: Invalid or reused token
 
 #### POST /api/v1/auth/forgot-password
-
-Sends a password reset OTP to the user's email.
+**Description**: Request a password reset OTP.
 
 **Request**:
-
 ```json
 {
   "email": "user@example.com"
@@ -321,48 +309,47 @@ Sends a password reset OTP to the user's email.
 ```
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": "If an account exists, we've sent a code to that email."
-}
-```
-
-#### POST /api/v1/auth/reset-password
-
-Resets the password using the OTP.
-
-**Request**:
-
-```json
-{
-  "email": "user@example.com",
-  "otp": "123456",
-  "password": "newpassword123",
-  "passwordCompare": "newpassword123"
-}
-```
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "data": "password Reset successfully"
+  "data": "If an account exists, we've sent a code to that email.",
+  "message": null
 }
 ```
 
 **Errors**:
+- 400: Validation error
 
-- 400: Invalid or expired code
-
-#### POST /api/v1/auth/verify-email
-
-Verifies a user's email using the token from the verification link.
+#### POST /api/v1/auth/reset-password
+**Description**: Reset the password using the OTP sent by email.
 
 **Request**:
+```json
+{
+  "email": "user@example.com",
+  "otp": "123456",
+  "password": "newSecurePassword123",
+  "passwordCompare": "newSecurePassword123"
+}
+```
 
+**Response**:
+```json
+{
+  "success": true,
+  "data": "password Reset successfully",
+  "message": null
+}
+```
+
+**Errors**:
+- 400: Invalid or expired code
+- 401: Too many attempts
+
+#### POST /api/v1/auth/verify-email
+**Description**: Verify an email address using the token from the verification link.
+
+**Request**:
 ```json
 {
   "token": "64-character-hex-token"
@@ -370,22 +357,21 @@ Verifies a user's email using the token from the verification link.
 ```
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": {
-    "message": "email verification successfull"
-  }
+  "data": { "message": "email verification successfull" },
+  "message": null
 }
 ```
 
-#### POST /api/v1/auth/resend-verification
+**Errors**:
+- 400: Invalid or expired token
 
-Resends the verification email.
+#### POST /api/v1/auth/resend-verification
+**Description**: Resend the verification email.
 
 **Request**:
-
 ```json
 {
   "email": "user@example.com"
@@ -393,147 +379,168 @@ Resends the verification email.
 ```
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": {
-    "message": "If this email can be used, we've sent you a message."
-  }
+  "data": { "message": "If this email can be used, we've sent you a message." },
+  "message": null
 }
 ```
 
-### User Routes
-
-All user routes require authentication.
+### Users
 
 #### GET /api/v1/user/me
+**Description**: Get the current authenticated user's profile.
 
-Returns the current user's profile.
+**Authentication**: Required
 
 **Response**:
-
 ```json
 {
   "success": true,
   "data": {
-    "id": "uuid-string",
+    "id": "uuid",
     "email": "user@example.com",
     "username": "johndoe",
     "displayName": "John Doe",
     "avatarUrl": null,
     "bio": null,
     "globalRole": "user",
-    "isEmailVerified": false
-  }
-}
-```
-
-#### GET /api/v1/user/search
-
-Searches users by username.
-
-**Request**: `?username=searchterm`
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "uuid-string",
-      "username": "searchterm",
-      "displayName": "Search User",
-      "avatarUrl": "url",
-      "bio": "Hello"
-    }
-  ]
-}
-```
-
-#### GET /api/v1/user/:username
-
-Returns a public profile for the given username.
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "uuid-string",
-    "username": "targetuser",
-    "displayName": "Target User",
-    "avatarUrl": "url",
-    "bio": "Bio content"
-  }
+    "isEmailVerified": true
+  },
+  "message": null
 }
 ```
 
 **Errors**:
+- 401: Unauthorized
 
-- 404: User not found
+#### GET /api/v1/user/search?username=john
+**Description**: Search users by username.
 
-#### GET /api/v1/user/me/pending-invites
-
-Returns pending group invitations for the current user.
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "data": {
-    "result": 1,
-    "invites": [
-      {
-        "id": "invite-uuid",
-        "kind": "invite",
-        "conversationId": "convo-uuid",
-        "fromUser": "inviter-uuid",
-        "conversationName": "Cool Group",
-        "conversationAvatar": null,
-        "createdAt": "2023-01-01T00:00:00.000Z"
-      }
-    ]
-  }
-}
-```
-
-### Conversation Routes
-
-All conversation routes require authentication.
-
-#### GET /api/v1/conversation
-
-Lists all conversations the current user participates in.
+**Authentication**: Required
 
 **Response**:
-
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": "convo-uuid",
-      "type": "direct",
-      "name": "Jane Doe",
-      "avatar": "url",
-      "otherUserId": "jane-uuid",
-      "membersCount": null,
-      "updatedAt": "2023-01-01T00:00:00.000Z"
+      "id": "uuid",
+      "username": "johndoe",
+      "displayName": "John Doe",
+      "avatarUrl": null,
+      "bio": null
     }
-  ]
+  ],
+  "message": null
 }
 ```
 
-#### POST /api/v1/conversation/ping
+#### GET /api/v1/user/:username
+**Description**: Get a public profile by username.
 
-Starts a direct conversation request with another user.
+**Authentication**: Required
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "username": "johndoe",
+    "displayName": "John Doe",
+    "avatarUrl": null,
+    "bio": null
+  },
+  "message": null
+}
+```
+
+**Errors**:
+- 401: Unauthorized
+- 404: User not found
+
+#### GET /api/v1/user/me/pending-invites
+**Description**: List pending group invites for the current user.
+
+**Authentication**: Required
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "kind": "invite",
+      "conversationId": "uuid",
+      "fromUser": "uuid",
+      "conversationName": "Team Huddle",
+      "conversationAvatar": null,
+      "createdAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "message": null
+}
+```
+
+### Conversations
+
+All conversation endpoints require authentication.
+
+#### GET /api/v1/conversation
+**Description**: List all conversations for the current user.
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "type": "direct",
+      "name": "Jane Doe",
+      "avatar": null,
+      "otherUserId": "uuid",
+      "membersCount": null,
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "message": null
+}
+```
+
+#### GET /api/v1/conversation/:conversationId
+**Description**: Get detailed information about a group conversation, including participants.
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "Team Huddle",
+    "description": "Daily standup group",
+    "avatarUrl": null,
+    "visibility": "private",
+    "inviteCode": null,
+    "membersCount": 5,
+    "myRole": "admin",
+    "participants": []
+  },
+  "message": null
+}
+```
+
+**Errors**:
+- 400: Invalid conversation ID
+- 404: Conversation not found
+
+#### POST /api/v1/conversation/ping
+**Description**: Start or request a direct conversation with another user.
 
 **Request**:
-
 ```json
 {
   "id": "target-user-uuid"
@@ -541,93 +548,68 @@ Starts a direct conversation request with another user.
 ```
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": {
-    "id": "convo-uuid",
-    "type": "direct",
-    "visibility": "private",
-    "pingStatus": "pending"
-  }
+  "data": { "conversation object" },
+  "message": null
 }
 ```
 
-**Errors**:
-
-- 400: Cannot start a conversation with yourself
-
 #### POST /api/v1/conversation/pings/:id/accept
-
-Accepts an incoming direct conversation request.
+**Description**: Accept a pending direct conversation request.
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": {
-    "message": "Ping accepted"
-  }
+  "data": { "message": "Ping accepted" },
+  "message": null
 }
 ```
 
 #### POST /api/v1/conversation/pings/:id/decline
-
-Declines an incoming direct conversation request.
+**Description**: Decline a pending direct conversation request.
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": {
-    "message": "Ping declined"
-  }
+  "data": { "message": "Ping declined" },
+  "message": null
 }
 ```
 
 #### POST /api/v1/conversation/groups
-
-Creates a new group conversation.
+**Description**: Create a new group conversation.
 
 **Request**:
-
 ```json
 {
-  "name": "Project Team",
-  "description": "Discussion for the new project",
+  "name": "Team Huddle",
+  "description": "Daily standup group",
   "visibility": "private",
-  "participantIds": ["user-uuid-1", "user-uuid-2"]
+  "participantIds": ["uuid-1", "uuid-2"]
 }
 ```
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": {
-    "id": "convo-uuid",
-    "type": "group",
-    "name": "Project Team",
-    "visibility": "private"
-  }
+  "data": { "conversation object" },
+  "message": null
 }
 ```
 
 **Errors**:
-
-- 400: Less than two valid participants
+- 400: Validation error
 - 403: Cannot invite yourself
 
 #### PATCH /api/v1/conversation/invites/:requestId
-
-Accepts or declines a group invitation. Called by the invitee.
+**Description**: Accept or decline a group invitation as the invitee.
 
 **Request**:
-
 ```json
 {
   "decision": "accept"
@@ -635,53 +617,22 @@ Accepts or declines a group invitation. Called by the invitee.
 ```
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": {
-    "status": "accepted",
-    "conversationId": "convo-uuid"
-  }
+  "data": { "status": "accepted", "conversationId": "uuid" },
+  "message": null
 }
 ```
 
 **Errors**:
-
 - 403: Not your invite
-- 409: Request already resolved
-
-#### PATCH /api/v1/conversation/:conversationId
-
-Updates group details. Requires admin permissions.
-
-**Request**:
-
-```json
-{
-  "name": "Updated Team Name",
-  "description": "Updated description"
-}
-```
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "data": {
-    "message": "Conversation updated successfully",
-    "updatedConversation": {}
-  }
-}
-```
+- 409: Already resolved
 
 #### PATCH /api/v1/conversation/join-requests/:requestId
-
-Approves or declines a user's request to join a private group. Requires admin permissions.
+**Description**: Approve or decline a pending group join request as an admin.
 
 **Request**:
-
 ```json
 {
   "decision": "approve"
@@ -689,140 +640,153 @@ Approves or declines a user's request to join a private group. Requires admin pe
 ```
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": {
-    "status": "accepted",
-    "conversationId": "convo-uuid"
-  }
+  "data": { "status": "accepted", "conversationId": "uuid" },
+  "message": null
 }
 ```
 
-#### PATCH /api/v1/conversation/:conversationId/invite-code
+**Errors**:
+- 403: Not authorized
 
-Generates a new invite code for a group. Requires admin permissions.
+#### PATCH /api/v1/conversation/:conversationId
+**Description**: Update a group conversation's name, description, avatar, or visibility.
+
+**Authentication**: Required, group admin only
+
+**Request**:
+```json
+{
+  "name": "New Name",
+  "description": "Updated description"
+}
+```
 
 **Response**:
-
 ```json
 {
   "success": true,
   "data": {
-    "inviteCode": "generatedcode",
-    "invitelink": "https://frontend.com/invite/generatedcode"
-  }
+    "message": "Conversation updated successfully",
+    "updatedConversation": { }
+  },
+  "message": null
+}
+```
+
+**Errors**:
+- 403: Not authorized
+- 409: Another admin is currently modifying this conversation
+
+#### PATCH /api/v1/conversation/:conversationId/invite-code
+**Description**: Generate or regenerate a group invite code.
+
+**Authentication**: Required, group admin only
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "inviteCode": "abc123",
+    "invitelink": "http://localhost:3000/invite/abc123"
+  },
+  "message": null
 }
 ```
 
 #### GET /api/v1/conversation/invites/:inviteCode
-
-Returns public details for a conversation invite.
+**Description**: Preview a conversation by its invite code.
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": {
-    "id": "convo-uuid",
-    "name": "Public Group",
-    "membersCount": 5
-  }
+  "data": { "conversation preview" },
+  "message": null
 }
 ```
 
-#### POST /api/v1/conversation/invites/:inviteCode
+**Errors**:
+- 404: Conversation not found
 
-Joins a group via invite code. Private groups create an admin approval request.
+#### POST /api/v1/conversation/invites/:inviteCode
+**Description**: Join a group using an invite code. For private groups, a join request may be created instead.
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": "Request sent successfully and waiting for admin approval"
+  "data": { "participant record" },
+  "message": null
 }
 ```
 
 #### POST /api/v1/conversation/invites
-
-Invites a specific user to a group. Requires admin permissions.
+**Description**: Invite a user to a group as an admin.
 
 **Request**:
-
 ```json
 {
-  "conversationId": "convo-uuid",
-  "userId": "target-user-uuid"
+  "conversationId": "uuid",
+  "userId": "uuid"
 }
 ```
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": {
-    "message": "User invited successfully"
-  }
+  "data": { "message": "User invited successfully" },
+  "message": null
 }
 ```
 
-#### GET /api/v1/conversation/:conversationId/requests
+**Errors**:
+- 403: Not authorized
+- 400: User is already a member
 
-Lists pending join requests for a group. Requires admin permissions.
+#### GET /api/v1/conversation/:conversationId/requests
+**Description**: List pending join requests for a group.
+
+**Authentication**: Required, group admin only
 
 **Response**:
-
 ```json
 {
   "success": true,
   "data": {
     "result": 1,
-    "requests": [
-      {
-        "id": "request-uuid",
-        "kind": "request",
-        "userId": "user-uuid",
-        "username": "johndoe"
-      }
-    ]
-  }
+    "requests": []
+  },
+  "message": null
 }
 ```
 
 #### GET /api/v1/conversation/:conversationId/messages
+**Description**: Get the message timeline for a conversation.
 
-Returns the message timeline for a conversation.
-
-**Request**: `?limit=50&before=2023-01-01T00:00:00.000Z`
+**Query Parameters**:
+- `limit`: number of items
+- `before`: ISO date cursor
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "type": "message",
-      "createdAt": "2023-01-01T00:00:00.000Z",
-      "data": {
-        "id": "msg-uuid",
-        "body": "Hello world"
-      }
-    }
-  ]
+  "data": [],
+  "message": null
 }
 ```
 
 #### PATCH /api/v1/conversation/:conversationId/participants/:userId/role
+**Description**: Promote or demote a member to admin or member.
 
-Promotes or demotes a member to admin. Requires admin permissions.
+**Authentication**: Required, group admin only
 
 **Request**:
-
 ```json
 {
   "role": "admin"
@@ -830,278 +794,181 @@ Promotes or demotes a member to admin. Requires admin permissions.
 ```
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": "New Admin added successfully"
+  "data": "New Admin added successfully",
+  "message": null
 }
 ```
 
 #### DELETE /api/v1/conversation/:conversationId/participants/me
-
-Leaves a conversation.
+**Description**: Leave a group conversation.
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": "User left the group successfully"
+  "data": "User left the group successfully",
+  "message": null
 }
 ```
 
 #### DELETE /api/v1/conversation/:conversationId/participants/:userId
+**Description**: Remove a member from a group.
 
-Removes a member from a conversation. Requires admin permissions.
+**Authentication**: Required, group admin only
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": {
-    "message": "Member removed successfully"
-  }
+  "data": { "message": "Member removed successfully" },
+  "message": null
 }
 ```
 
 #### DELETE /api/v1/conversation/:conversationId
+**Description**: Delete a group conversation.
 
-Deletes a conversation entirely. Only the creator can perform this action.
+**Authentication**: Required, conversation creator only
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": {
-    "message": "Conversation deleted successfully"
-  }
+  "data": { "message": "Conversation deleted successfully" },
+  "message": null
 }
 ```
 
-### Message Routes
-
-All message routes require authentication.
-
-#### POST /api/v1/message
-
-Creates a new text message.
-
-**Request**:
-
-```json
-{
-  "conversationId": "convo-uuid",
-  "content": "Hello team!"
-}
-```
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "msg-uuid",
-    "conversationId": "convo-uuid",
-    "senderId": "user-uuid",
-    "body": "Hello team!",
-    "createdAt": "2023-01-01T00:00:00.000Z"
-  }
-}
-```
-
-#### GET /api/v1/message/conversation/:conversationId
-
-Fetches messages for a conversation.
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "msg-uuid",
-      "body": "Hello team!",
-      "createdAt": "2023-01-01T00:00:00.000Z"
-    }
-  ]
-}
-```
-
-#### GET /api/v1/message/:messageId
-
-Fetches a single message.
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "msg-uuid",
-    "body": "Hello team!"
-  }
-}
-```
-
-#### PUT /api/v1/message/:messageId
-
-Edits a message. Only the sender can edit it.
-
-**Request**:
-
-```json
-{
-  "content": "Edited message content"
-}
-```
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "msg-uuid",
-    "body": "Edited message content",
-    "editedAt": "2023-01-01T00:05:00.000Z"
-  }
-}
-```
-
-#### DELETE /api/v1/message/:messageId
-
-Deletes a message.
-
-**Response**: `204 No Content`
-
-### Call Routes
-
-All call routes require authentication.
+### Calls
 
 #### GET /api/v1/call
+**Description**: Get paginated call history for the current user.
 
-Returns the current user's paginated call history.
-
-**Request**: `?cursor=base64cursor`
+**Authentication**: Required
 
 **Response**:
-
 ```json
 {
   "success": true,
   "data": {
     "callLOg": [],
-    "nextCursor": "base64cursor-or-null"
-  }
+    "nextCursor": null
+  },
+  "message": null
 }
 ```
 
 #### GET /api/v1/call/active
+**Description**: Get active calls the user is authorized to join.
 
-Returns active calls the user is eligible to join.
+**Authentication**: Required
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "callId": "call-uuid",
-      "conversationId": "convo-uuid",
-      "callMediaType": "video",
-      "conversationType": "group",
-      "directTypeLenght": "group",
-      "name": "Team Call"
-    }
-  ]
+  "data": [],
+  "message": null
 }
 ```
 
-### Meet Routes
-
-All meet routes require authentication.
+### Meets
 
 #### POST /api/v1/meet
+**Description**: Create a new meet inside a conversation.
 
-Creates a new conference room in a conversation.
+**Authentication**: Required
 
 **Request**:
-
 ```json
 {
-  "conversationId": "convo-uuid",
-  "title": "Weekly Standup",
-  "scheduledFor": "2023-01-01T10:00:00.000Z"
+  "conversationId": "uuid",
+  "title": "Team Standup",
+  "scheduledFor": "2025-12-31T10:00:00.000Z"
 }
 ```
 
 **Response**:
-
 ```json
 {
   "success": true,
   "data": {
-    "meetId": "meet-uuid",
-    "conversationId": "convo-uuid",
-    "title": "Weekly Standup",
-    "scheduledFor": "2023-01-01T10:00:00.000Z"
-  }
+    "meetId": "uuid",
+    "conversationId": "uuid",
+    "title": "Team Standup",
+    "scheduledFor": "2025-12-31T10:00:00.000Z"
+  },
+  "message": null
 }
 ```
 
-#### GET /api/v1/meet/active
+**Errors**:
+- 400: Validation error
+- 409: Active instant meet already exists
 
-Returns active conference rooms the user can join.
+#### GET /api/v1/meet/active
+**Description**: Get active meets for the current user.
+
+**Authentication**: Required
 
 **Response**:
-
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "meetId": "meet-uuid",
-      "conversationId": "convo-uuid",
-      "title": "Weekly Standup",
-      "scheduledFor": "2023-01-01T10:00:00.000Z"
-    }
-  ]
+  "data": [],
+  "message": null
 }
 ```
 
-### Socket.IO Events
+### Environment Variables
 
-The gateway requires the access token cookie and joins rooms automatically. Key events include:
+Create a `.env` file with the following variables:
 
-- `message:send` / `message:new`: send and receive messages
-- `typing:start` / `typing:update`: typing and recording indicators
-- `message:read` / `read:update`: read receipts
-- `reactions:add` / `reactions:remove` / `reactions:update`: message reactions
-- `conversation:join` / `conversation:leave`: join or leave a conversation room
-- `call:initiate` / `call:incoming` / `call:accept` / `call:offer` / `call:answer` / `call:ice-candidate`: WebRTC call signaling
-- `meet:join` / `meet:offer` / `meet:answer` / `meet:ice-candidate`: conference room signaling
+```bash
+# Server
+PORT=5000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
 
-## Technologies Used
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/huddle
 
-| Category | Technologies |
-| --- | --- |
-| Languages | [TypeScript](https://www.typescriptlang.org/), [Node.js](https://nodejs.org/) |
-| Backend | [Express](https://expressjs.com/), [Socket.io](https://socket.io/) |
-| Database | [PostgreSQL](https://www.postgresql.org/), [Drizzle](https://orm.drizzle.team/), [Redis](https://redis.io/) |
-| Auth & Validation | [Passport](https://www.passportjs.org/), [Zod](https://zod.dev/) |
-| Queue | [BullMQ](https://bullmq.io/) |
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# JWT
+JWT_ACCESS_SECRET=your_access_secret
+REFRESH_TOKEN_LIFESPAN_DAYS=7
+EMAIL_VERIFICATION_LIFESPAN=24
+
+# OTP
+OTP_SECRET=your_otp_secret
+
+# Email (SMTP)
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=you@example.com
+SMTP_PASS=your_smtp_password
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# Object Storage (R2 / S3)
+STORAGE_ENDPOINT=...
+STORAGE_BUCKET=...
+STORAGE_ACCESS_KEY=...
+STORAGE_SECRET_KEY=...
+```
 
 ## Contributing
 
-Pull requests are welcome. If you want to add a feature or fix a bug, fork the repo, create a branch, and open a PR. Please keep code formatted consistently and add tests for new behavior when possible.
+Contributions are welcome. To get started, fork the repository, create a branch for your changes, and open a pull request. Please keep the code style consistent with the existing modules and add tests where possible.
 
-## Author Info
+## Author
 
 - LinkedIn: https://linkedin.com/in/obed-smart
 - X (Twitter): https://x.com/eberechukwuobed
@@ -1109,14 +976,10 @@ Pull requests are welcome. If you want to add a feature or fix a bug, fork the r
 ## Badges
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
-[![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socketdotio&logoColor=white)](https://socket.io/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Drizzle](https://img.shields.io/badge/Drizzle-C5F74F?style=for-the-badge&logo=drizzle&logoColor=black)](https://orm.drizzle.team/)
+[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
-[![BullMQ](https://img.shields.io/badge/BullMQ-8B0000?style=for-the-badge&logo=bullmq&logoColor=white)](https://bullmq.io/)
-[![Passport](https://img.shields.io/badge/Passport-34E27A?style=for-the-badge&logo=passport&logoColor=white)](https://www.passportjs.org/)
-[![Zod](https://img.shields.io/badge/Zod-3068B7?style=for-the-badge&logo=zod&logoColor=white)](https://zod.dev/)
+[![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socket.io&logoColor=white)](https://socket.io/)
 
 [![Readme was generated by Dokugen](https://img.shields.io/badge/Readme%20was%20generated%20by-Dokugen-brightgreen)](https://dokugen.samueltuoyo.com)
