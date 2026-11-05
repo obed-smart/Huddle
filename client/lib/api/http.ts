@@ -17,10 +17,13 @@ export class ApiError extends Error {
  * The backend wraps every response as `{ success, data, message, code }`.
  * `request` returns the unwrapped `data`, or throws an `ApiError`.
  */
+/** The backend sends `message` either as a plain string or, on an error, nested
+    as `{ status, message }` (its error envelope wraps it). Both shapes here. */
+type ServerMessage = string | { status?: string; message?: string };
 type Envelope<T> = {
   success?: boolean;
   data?: T;
-  message?: string;
+  message?: ServerMessage;
   code?: string;
   error?: unknown;
 };
@@ -85,17 +88,38 @@ export async function request<T = unknown>(
 
   const body = (await response.json().catch(() => ({}))) as Envelope<T>;
   if (!response.ok || body.success === false) {
-    throw new ApiError(describeFailure(body, response.status), response.status, body.code ?? null);
+    const raw = serverMessage(body);
+    const code = body.code ?? (raw && isMachineCode(raw) ? raw : null);
+    throw new ApiError(describeFailure(raw, response.status), response.status, code);
   }
   return (body.data ?? (body as unknown)) as T;
 }
 
-/** Turn a failed envelope into one user-facing sentence, without leaking any
-    server internals. Prefers the backend's own message, falls back to the status. */
-function describeFailure(body: Envelope<unknown>, status: number): string {
-  for (const candidate of [body?.message, body?.error]) {
-    if (typeof candidate === "string" && candidate.trim()) return candidate;
+/** The backend's human string, out of whichever shape carried it: a plain
+    `message`, the nested `{ status, message }` it wraps errors in, or `error`. */
+function serverMessage(body: Envelope<unknown>): string | null {
+  const m = body?.message;
+  if (typeof m === "string" && m.trim()) return m.trim();
+  if (m && typeof m === "object" && typeof m.message === "string" && m.message.trim()) {
+    return m.message.trim();
   }
+  if (typeof body?.error === "string" && body.error.trim()) return body.error.trim();
+  return null;
+}
+
+/** A SCREAMING_SNAKE token the backend uses as a machine signal (e.g.
+    EMAIL_UNVERIFIED_CODE), not a sentence meant for a person to read. */
+function isMachineCode(text: string): boolean {
+  return /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)+$/.test(text);
+}
+
+/** One user-facing sentence, never a server internal or a raw machine code.
+    A 5xx stays generic so nothing leaks; a 4xx shows the backend's own reason. */
+function describeFailure(raw: string | null, status: number): string {
   if (status >= 500) return `The server errored (${status}). Try again shortly.`;
+  if (raw && !isMachineCode(raw)) {
+    const s = raw.charAt(0).toUpperCase() + raw.slice(1);
+    return /[.!?]$/.test(s) ? s : `${s}.`;
+  }
   return `Request failed (${status}).`;
 }
