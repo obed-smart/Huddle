@@ -35,12 +35,8 @@ export function ChatAttachment({ attachment, mine }: { attachment: Att; mine: bo
 
   if (attachment.type === MESSAGE_TYPES.IMAGE) {
     return (
-      <>
-        <button
-          type="button"
-          onClick={() => src && setLightbox(true)}
-          className="group relative block max-w-[16rem] overflow-hidden rounded-lg bg-foreground/5"
-        >
+      <div className="group relative inline-block max-w-[16rem] overflow-hidden rounded-lg bg-foreground/5">
+        <button type="button" onClick={() => src && setLightbox(true)} className="block w-full">
           {src ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -55,23 +51,35 @@ export function ChatAttachment({ attachment, mine }: { attachment: Att; mine: bo
             <div className="grid h-44 w-60 place-items-center text-muted-foreground">
               {src ? <Loader2 className="size-6 animate-spin" /> : <ImageIcon className="size-7" />}
             </div>
-          ) : (
-            <span className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
-              <DownloadButton src={src} name={attachment.name} dark />
-            </span>
-          )}
+          ) : null}
         </button>
+        {imgReady && src ? (
+          <span className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
+            <DownloadButton src={src} name={attachment.name} dark />
+          </span>
+        ) : null}
         {src ? (
           <MediaLightbox open={lightbox} onClose={() => setLightbox(false)} src={src} name={attachment.name} kind="image" />
         ) : null}
-      </>
+      </div>
     );
   }
 
   if (attachment.type === MESSAGE_TYPES.VIDEO) {
     return (
       <>
-        <button type="button" onClick={() => src && setLightbox(true)} className="block w-full text-left">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => src && setLightbox(true)}
+          onKeyDown={(e) => {
+            if (src && (e.key === "Enter" || e.key === " ")) {
+              e.preventDefault();
+              setLightbox(true);
+            }
+          }}
+          className="block w-fit cursor-pointer text-left"
+        >
           <Card
             icon={<Play className="size-5" />}
             title={attachment.name}
@@ -79,7 +87,7 @@ export function ChatAttachment({ attachment, mine }: { attachment: Att; mine: bo
             mine={mine}
             action={src ? <DownloadButton src={src} name={attachment.name} dark={mine} /> : null}
           />
-        </button>
+        </div>
         {src ? (
           <MediaLightbox open={lightbox} onClose={() => setLightbox(false)} src={src} name={attachment.name} kind="video" />
         ) : null}
