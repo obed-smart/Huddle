@@ -52,10 +52,30 @@ async function forward(request: NextRequest, path: string[]) {
   const response = new NextResponse(await upstream.arrayBuffer(), { status: upstream.status });
   const contentType = upstream.headers.get("content-type");
   if (contentType) response.headers.set("content-type", contentType);
+  const secure = isSecure(request);
   for (const cookie of upstream.headers.getSetCookie()) {
-    response.headers.append("set-cookie", cookie);
+    response.headers.append("set-cookie", normalizeCookie(cookie, secure));
   }
   return response;
+}
+
+/** Whether the page this BFF serves was loaded over https. Behind a tunnel or
+    reverse proxy the real scheme is in x-forwarded-proto, not the local URL. */
+function isSecure(request: NextRequest): boolean {
+  const proto = request.headers.get("x-forwarded-proto");
+  if (proto) return proto.split(",")[0].trim() === "https";
+  return request.nextUrl.protocol === "https:";
+}
+
+/** The backend sets its session cookies for a cross-site https deployment
+    (SameSite=None; Secure). Through this BFF the cookie is first party to our
+    own origin, so on a plain-http dev origin that is not localhost (a LAN IP)
+    the browser drops a Secure cookie and the login does not stick. On http we
+    therefore drop Secure and use SameSite=Lax (first party, and a browser
+    rejects SameSite=None without Secure). On https the cookie is left as sent. */
+function normalizeCookie(cookie: string, secure: boolean): string {
+  if (secure) return cookie;
+  return cookie.replace(/;\s*Secure/gi, "").replace(/;\s*SameSite=None/gi, "; SameSite=Lax");
 }
 
 type Context = { params: Promise<{ path: string[] }> };
