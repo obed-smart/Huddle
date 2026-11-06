@@ -42,7 +42,12 @@ function ImageAlbum({ images, mine }: { images: Att[]; mine: boolean }) {
 
   return (
     <>
-      <div className={cn("grid w-64 gap-0.5 overflow-hidden rounded-lg", images.length > 2 ? "grid-rows-2" : "")}>
+      <div
+        className={cn(
+          "grid w-64 grid-cols-2 gap-0.5 overflow-hidden rounded-lg",
+          images.length > 2 ? "grid-rows-2" : "",
+        )}
+      >
         {tiles.map((img, i) => (
           <AlbumTile
             key={img.id}
@@ -85,6 +90,9 @@ function AlbumTile({
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
+          ref={(el) => {
+            if (el?.complete && el.naturalWidth > 0) setReady(true);
+          }}
           src={src}
           alt={image.name}
           onLoad={() => setReady(true)}
