@@ -18,6 +18,19 @@ export function formatSize(bytes: number): string {
   return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
+/** A clip length as m:ss, e.g. "0:22". Empty when unknown. */
+export function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** Whether an attachment is a PDF, by mime or by name. */
+export function isPdf(mimeType: string, name: string): boolean {
+  return mimeType === "application/pdf" || name.toLowerCase().endsWith(".pdf");
+}
+
 /** Save the file to the device. Kept from triggering the parent. */
 export function DownloadButton({ src, name, dark }: { src: string; name: string; dark: boolean }) {
   return (

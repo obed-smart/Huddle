@@ -56,6 +56,9 @@ export function MessageBubble({ message, mine, isGroup, showAvatar, showName }: 
 
   const reactions = reactionsOf(message);
   const hasText = Boolean(message.content) && !message.deleted;
+  const visual =
+    message.attachments.length > 0 &&
+    message.attachments.every((a) => a.type === MESSAGE_TYPES.IMAGE || a.type === MESSAGE_TYPES.VIDEO);
   const name =
     message.sender.displayName ||
     message.sender.username ||
@@ -76,33 +79,60 @@ export function MessageBubble({ message, mine, isGroup, showAvatar, showName }: 
       <MessageContent>
         {showName && !mine ? <MessageHeader>{name}</MessageHeader> : null}
 
-        <Bubble
-          variant={mine ? "default" : "muted"}
-          align={mine ? "end" : "start"}
-          className={cn(message.pending && "opacity-70", message.failed && "opacity-90")}
-        >
-          {message.attachments.length > 0 ? (
-            <BubbleContent className={cn("p-0.5", hasText && "mb-1")}>
-              <MessageAttachments attachments={message.attachments} mine={mine} />
-            </BubbleContent>
-          ) : null}
+        {message.attachments.length > 0 && !message.deleted ? (
+          visual ? (
+            // Images and video are borderless: the media is the bubble.
+            <Bubble variant="ghost" align={mine ? "end" : "start"} className={cn(message.pending && "opacity-70")}>
+              <BubbleContent>
+                <MessageAttachments attachments={message.attachments} mine={mine} />
+              </BubbleContent>
+            </Bubble>
+          ) : (
+            // Voice notes and files sit in a card bubble.
+            <Bubble
+              variant={mine ? "default" : "muted"}
+              align={mine ? "end" : "start"}
+              className={cn(message.pending && "opacity-70")}
+            >
+              <BubbleContent className="p-1.5">
+                <MessageAttachments attachments={message.attachments} mine={mine} />
+              </BubbleContent>
+            </Bubble>
+          )
+        ) : null}
 
-          {message.deleted ? (
+        {message.deleted ? (
+          <Bubble variant={mine ? "default" : "muted"} align={mine ? "end" : "start"}>
             <BubbleContent className="italic opacity-70">Message deleted</BubbleContent>
-          ) : hasText ? (
+          </Bubble>
+        ) : hasText ? (
+          <Bubble
+            variant={mine ? "default" : "muted"}
+            align={mine ? "end" : "start"}
+            className={cn(message.pending && "opacity-70", message.failed && "opacity-90")}
+          >
             <BubbleContent className="whitespace-pre-wrap">{message.content}</BubbleContent>
-          ) : null}
+            {reactions.length > 0 ? (
+              <BubbleReactions side="bottom" align={mine ? "end" : "start"}>
+                {reactions.map((r) => (
+                  <span key={r.emoji} className="text-xs">
+                    {r.emoji} {r.count}
+                  </span>
+                ))}
+              </BubbleReactions>
+            ) : null}
+          </Bubble>
+        ) : null}
 
-          {reactions.length > 0 ? (
-            <BubbleReactions side="bottom" align={mine ? "end" : "start"}>
-              {reactions.map((r) => (
-                <span key={r.emoji} className="text-xs">
-                  {r.emoji} {r.count}
-                </span>
-              ))}
-            </BubbleReactions>
-          ) : null}
-        </Bubble>
+        {reactions.length > 0 && !hasText && !message.deleted ? (
+          <div className={cn("flex gap-1 px-1 text-xs", mine && "justify-end")}>
+            {reactions.map((r) => (
+              <span key={r.emoji}>
+                {r.emoji} {r.count}
+              </span>
+            ))}
+          </div>
+        ) : null}
 
         <MessageFooter className="gap-1">
           {message.edited ? <span>edited</span> : null}
