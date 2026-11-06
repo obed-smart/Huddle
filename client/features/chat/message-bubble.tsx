@@ -14,10 +14,9 @@ import {
 } from "@/components/ui/message";
 import { Bubble, BubbleContent, BubbleReactions } from "@/components/ui/bubble";
 import { Marker, MarkerContent } from "@/components/ui/marker";
-import { AttachmentGroup } from "@/components/ui/attachment";
 import { MESSAGE_TYPES, type Message as Msg, type Reaction } from "@/lib/messages/types";
 import { usePeople } from "@/stores/people";
-import { ChatAttachment } from "./attachment-preview";
+import { MessageAttachments } from "./message-attachments";
 
 function clock(value?: string | null): string {
   if (!value) return "";
@@ -83,12 +82,8 @@ export function MessageBubble({ message, mine, isGroup, showAvatar, showName }: 
           className={cn(message.pending && "opacity-70", message.failed && "opacity-90")}
         >
           {message.attachments.length > 0 ? (
-            <BubbleContent className={cn("p-1.5", hasText && "mb-1")}>
-              <AttachmentGroup>
-                {message.attachments.map((a) => (
-                  <ChatAttachment key={a.id} attachment={a} mine={mine} />
-                ))}
-              </AttachmentGroup>
+            <BubbleContent className={cn("p-0.5", hasText && "mb-1")}>
+              <MessageAttachments attachments={message.attachments} mine={mine} />
             </BubbleContent>
           ) : null}
 

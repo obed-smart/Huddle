@@ -1,5 +1,5 @@
 import { request, ApiError } from "./http";
-import { API_BASE, paths } from "./config";
+import { API_BASE, SOCKET_URL, paths } from "./config";
 import type { AuthUser } from "./types";
 
 export type RegisterInput = {
@@ -69,11 +69,13 @@ export function resetPassword(input: {
   });
 }
 
-/** Where "Continue with Google" points. It is a full-page navigation (a GET the
-    backend redirects to Google), not a fetch, because an OAuth redirect cannot
-    ride an XHR. It lives here with the rest of auth, not in config. */
+/** Where "Continue with Google" points. OAuth is a chain of full-page redirects
+    (to Google and back), so it cannot go through the BFF proxy, which forwards
+    with fetch and drops the redirect. It must hit the backend directly, like the
+    socket, so it uses the public backend origin and falls back to same origin
+    when the backend is served there. */
 export function googleLoginUrl() {
-  return `${API_BASE}${paths.google}`;
+  return `${SOCKET_URL || API_BASE}${paths.google}`;
 }
 
 export { ApiError };

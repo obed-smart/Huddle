@@ -4,6 +4,7 @@ import { useRef, useState, type SyntheticEvent } from "react";
 import { Play, Pause, Mic } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { startPlayback, endPlayback } from "@/lib/media/playback";
 
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
@@ -79,11 +80,18 @@ export function VoiceNote({
         ref={audio}
         src={src}
         preload="metadata"
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => {
+        onPlay={(e) => {
+          setPlaying(true);
+          startPlayback(e.currentTarget);
+        }}
+        onPause={(e) => {
+          setPlaying(false);
+          endPlayback(e.currentTarget);
+        }}
+        onEnded={(e) => {
           setPlaying(false);
           setCurrent(0);
+          endPlayback(e.currentTarget);
         }}
         onLoadedMetadata={onMeta}
         onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime)}
