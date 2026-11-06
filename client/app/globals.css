@@ -178,3 +178,15 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Panes are wheel and touch scrolled. A visible scrollbar draws a chunky gutter
+   right where a pane meets its neighbor (the transcript against the info panel),
+   so a divider stops looking like the one clean line beside the sidebar. Hide
+   the bar everywhere; scrolling still works, and a divider is just its border. */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

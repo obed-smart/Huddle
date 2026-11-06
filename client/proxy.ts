@@ -32,11 +32,31 @@ function socketWs(): string[] {
   }
 }
 
+/** Object storage the browser talks to directly with a signed URL: it PUTs an
+    upload and GETs media back. R2's S3 endpoint is
+    <bucket>.<account>.r2.cloudflarestorage.com; a custom media domain (an R2
+    public domain or your own) can be added with NEXT_PUBLIC_MEDIA_ORIGIN. These
+    are fetch/XHR targets, so they must be in connect-src or the browser blocks
+    the upload before it leaves the page. */
+function mediaHosts(): string[] {
+  const hosts = ["https://*.r2.cloudflarestorage.com"];
+  const custom = process.env.NEXT_PUBLIC_MEDIA_ORIGIN?.trim();
+  if (custom) hosts.push(custom);
+  return hosts;
+}
+
 function buildCsp(nonce: string, host: string | null, dev: boolean): string {
-  // Our own origin (REST and the SSR reads are same origin), our own ws, and the
-  // backend the socket connects straight to over websocket.
+  // Our own origin (REST and the SSR reads are same origin), our own ws, the
+  // backend the socket connects straight to over websocket, and object storage
+  // the browser uploads to and downloads media from directly.
   const wsSelf = host ? `ws://${host} wss://${host}` : "";
-  const connect = ["'self'", wsSelf, ...socketWs(), process.env.BACKEND_WS_ORIGIN?.trim()]
+  const connect = [
+    "'self'",
+    wsSelf,
+    ...socketWs(),
+    ...mediaHosts(),
+    process.env.BACKEND_WS_ORIGIN?.trim(),
+  ]
     .filter(Boolean)
     .join(" ");
 
