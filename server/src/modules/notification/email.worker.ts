@@ -1,5 +1,5 @@
 import { Worker } from "bullmq";
-import bullmqConnection from "../../config/bullmq.connection";
+import bullmqConnection from "../../config/redis/bullmq.connection";
 import { ISendEmailPayload, sendMail } from "../../config/email";
 import logger from "../../shared/utils/logger";
 

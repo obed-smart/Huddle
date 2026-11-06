@@ -1,7 +1,7 @@
 import { Redis } from "ioredis";
 import dotenv from "dotenv";
-import logger from "../shared/utils/logger";
-import env from "./env";
+import logger from "../../shared/utils/logger";
+import env from "../env";
 
 dotenv.config();
 

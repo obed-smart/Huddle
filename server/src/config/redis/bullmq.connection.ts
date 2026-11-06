@@ -1,8 +1,8 @@
 import { Redis } from "ioredis";
 
 import dotenv from "dotenv";
-import logger from "../shared/utils/logger";
-import env from "./env";
+import logger from "../../shared/utils/logger";
+import env from "../env";
 
 dotenv.config();
 
@@ -12,8 +12,8 @@ export const bullmqConnection =
         maxRetriesPerRequest: null,
       })
     : new Redis(env.REDIS_LOCAL, {
-      maxRetriesPerRequest: null,
-    });
+        maxRetriesPerRequest: null,
+      });
 
 bullmqConnection.on("connect", () => {
   logger.info("BullMQ Redis connected");

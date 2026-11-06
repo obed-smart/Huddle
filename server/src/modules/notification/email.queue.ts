@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import bullmqConnection from "../../config/bullmq.connection";
+import bullmqConnection from "../../config/redis/bullmq.connection";
 import { ISendEmailPayload } from "../../config/email";
 import { AuthUser } from "../../shared/types";
 import { buildWelcomeEmail } from "./templates/wellcome-email";
@@ -21,7 +21,7 @@ const emailQueue = new Queue<ISendEmailPayload>("email", {
       delay: 2000,
     },
     removeOnComplete: { count: 100, age: 900 },
-    removeOnFail: { age: 7 * 24 * 3600 , count: 100},
+    removeOnFail: { age: 7 * 24 * 3600, count: 100 },
   },
 });
 
