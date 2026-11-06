@@ -1,0 +1,1 @@
+ALTER TABLE "call_participants" ADD COLUMN "rtc_session_id" text;

@@ -1,6 +1,7 @@
 import Redis from "ioredis";
-import logger from "../shared/utils/logger";
-import env from "./env";
+import logger from "../../shared/utils/logger";
+import env from "../env";
+
 
 const limiterRedis = new Redis(
   env.NODE_ENV === "production" ? env.REDIS_PROD : env.REDIS_LOCAL,

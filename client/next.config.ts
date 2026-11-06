@@ -37,7 +37,7 @@ const nextConfig: NextConfig = {
     root: fileURLToPath(new URL(".", import.meta.url)),
   },
 
-  allowedDevOrigins: ["10.18.66.217"],
+  allowedDevOrigins: ["10.149.250.217"],
 
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

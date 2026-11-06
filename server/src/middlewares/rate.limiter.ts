@@ -9,11 +9,11 @@ import {
   RateLimiterUnion,
 } from "rate-limiter-flexible";
 
-import redisClient from "../config/redis.config";
 import { ApiResponse } from "../shared/utils/apiResponse";
 import logger from "../shared/utils/logger";
-import limiterRedis from "../config/redis.limiter";
 import AppError from "../shared/utils/apiError";
+import redisClient from "../config/redis/redis.config";
+import limiterRedis from "../config/redis.limiter";
 
 export interface BucketConfig {
   maxTokens: number;

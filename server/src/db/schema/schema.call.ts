@@ -69,6 +69,7 @@ export const callParticipant = pgTable(
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
     outcome: text("outcome").$type<callOutCome>().notNull().default("pending"),
+    rtcSessionId: text("rtc_session_id"),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     callStartedAt: timestamp("call_started_at", { withTimezone: true }),
     leftAt: timestamp("left_at", { withTimezone: true }),

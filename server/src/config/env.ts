@@ -68,6 +68,31 @@ const envSchema = z.object({
     emptyToUndefined,
     z.coerce.number().int().positive().default(24),
   ),
+
+  CLOUDFLARE_BASE_URL: z.preprocess(
+    emptyToUndefined,
+    z.url("CLOUDFLARE_BASE_URL must be a valid URL"),
+  ),
+
+  CLOUDFLARE_TURN_TOKEN_ID: z.preprocess(
+    emptyToUndefined,
+    z.string("CLOUDFLARE_TURN_TOKEN_ID is required"),
+  ),
+
+  CLOUDFLARE_TURN_API_TOKEN: z.preprocess(
+    emptyToUndefined,
+    z.string("CLOUDFLARE_TURN_API_TOKEN is required"),
+  ),
+
+  CLOUDFLARE_RTC_APP_ID: z.preprocess(
+    emptyToUndefined,
+    z.string("CLOUDFLARE_RTC_APP_ID is required"),
+  ),
+
+  CLOUDFLARE_RTC_APP_SECRET: z.preprocess(
+    emptyToUndefined,
+    z.string("CLOUDFLARE_RTC_APP_SECRET is required"),
+  ),
 });
 
 const parsed = envSchema.safeParse(process.env);

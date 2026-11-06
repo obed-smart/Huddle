@@ -30,7 +30,7 @@ import {
   addWellcomeEmail,
 } from "../notification/email.queue";
 import { Profile } from "passport-google-oauth20";
-import redisClient from "../../config/redis.config";
+import redisClient from "../../config/redis/redis.config";
 
 class AuthService {
   constructor(

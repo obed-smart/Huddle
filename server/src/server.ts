@@ -7,9 +7,10 @@ import { testDatabaseConnection } from "./db";
 import logger from "./shared/utils/logger";
 import { createSocketServer } from "./sockets";
 import { emailWorker } from "./modules/notification/email.worker";
-import redisClient from "./config/redis.config";
+
 import { registerRateLimiterBucket } from "./middlewares/rate.limiter";
-import bullmqConnection from "./config/bullmq.connection";
+import redisClient from "./config/redis/redis.config";
+import bullmqConnection from "./config/redis/bullmq.connection";
 
 const startServer = async () => {
   try {

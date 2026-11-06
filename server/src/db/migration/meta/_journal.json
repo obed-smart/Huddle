@@ -148,6 +148,13 @@
       "when": 1792621090557,
       "tag": "0020_silly_bloodaxe",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793962477325,
+      "tag": "0021_sudden_iron_monger",
+      "breakpoints": true
     }
   ]
 }
