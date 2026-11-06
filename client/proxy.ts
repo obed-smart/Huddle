@@ -76,6 +76,8 @@ function buildCsp(nonce: string, host: string | null, dev: boolean): string {
     scriptSrc,
     styleSrc,
     "style-src-attr 'unsafe-inline'",
+    // The PDF viewer frames a signed media URL (or a blob of it).
+    `frame-src ${["'self'", "blob:", ...mediaHosts()].join(" ")}`,
     "img-src 'self' data: blob: https:",
     "media-src 'self' blob: https:",
     "font-src 'self' data:",

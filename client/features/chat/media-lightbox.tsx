@@ -13,11 +13,12 @@ type Props = {
   onClose: () => void;
   src: string;
   name: string;
-  kind: "image" | "video";
+  kind: "image" | "video" | "pdf";
 };
 
-/** A full-screen in-app viewer for an image or a video. The scrim and the close
-    button dismiss it; the download button saves the file. Nothing opens a tab. */
+/** A full-screen in-app viewer for an image, a video, or a PDF. The scrim and
+    the close button dismiss it; the download button saves the file. Nothing
+    opens a tab. */
 export function MediaLightbox({ open, onClose, src, name, kind }: Props) {
   const reduce = useReducedMotion();
 
@@ -76,6 +77,12 @@ export function MediaLightbox({ open, onClose, src, name, kind }: Props) {
                 src={src}
                 alt={name}
                 className="max-h-[88vh] max-w-[92vw] rounded-lg object-contain"
+              />
+            ) : kind === "pdf" ? (
+              <iframe
+                src={src}
+                title={name}
+                className="h-[88vh] w-[92vw] max-w-5xl rounded-lg border-0 bg-white"
               />
             ) : (
               <video
