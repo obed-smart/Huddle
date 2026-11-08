@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
+import { ensureWebrtcAdapter } from "@/lib/webrtc/adapter";
 import { useConversations } from "@/stores/conversations";
 import { ConversationPanel } from "@/features/conversations/conversation-panel";
 import { NavRail } from "./nav-rail";
@@ -18,6 +19,11 @@ export function DashboardView() {
   const items = useConversations((s) => s.items);
   const clearUnread = useConversations((s) => s.clearUnread);
   const selected = items.find((c) => c.id === selectedId) ?? null;
+
+  // Warm the WebRTC shims once in the authed app, ahead of any call.
+  useEffect(() => {
+    void ensureWebrtcAdapter();
+  }, []);
 
   useConversationRealtime(selectedId);
   useRequestRealtime();
