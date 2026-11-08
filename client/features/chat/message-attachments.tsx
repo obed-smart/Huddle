@@ -6,7 +6,7 @@ import { ImageIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MESSAGE_TYPES, type Attachment as Att } from "@/lib/messages/types";
 import { useAttachmentUrl } from "./use-attachment-url";
-import { MediaLightbox } from "./media-lightbox";
+import { MediaGallery } from "./media-gallery";
 import { ChatAttachment } from "./attachment-preview";
 import { LoadButton } from "./attachment-ui";
 
@@ -32,7 +32,7 @@ export function MessageAttachments({ attachments, mine }: { attachments: Att[]; 
     more. Received albums load as one unit behind a single download control. */
 function ImageAlbum({ images, mine }: { images: Att[]; mine: boolean }) {
   const [loaded, setLoaded] = useState(mine || images.every((i) => i.localOnly));
-  const [open, setOpen] = useState<Att | null>(null);
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   if (!loaded) return <AlbumGate count={images.length} onLoad={() => setLoaded(true)} />;
 
@@ -52,21 +52,18 @@ function ImageAlbum({ images, mine }: { images: Att[]; mine: boolean }) {
           <AlbumTile
             key={img.id}
             image={img}
-            onOpen={() => setOpen(img)}
+            onOpen={() => setOpenIndex(i)}
             extra={i === tiles.length - 1 ? extra : 0}
             className={cn("col-span-1", three && i === 0 ? "row-span-2" : "aspect-square")}
           />
         ))}
       </div>
-      {open ? (
-        <MediaLightbox
-          open
-          onClose={() => setOpen(null)}
-          src={open.url || open.remoteUrl || ""}
-          name={open.name}
-          kind="image"
-        />
-      ) : null}
+      <MediaGallery
+        items={images}
+        start={openIndex ?? 0}
+        open={openIndex !== null}
+        onClose={() => setOpenIndex(null)}
+      />
     </>
   );
 }

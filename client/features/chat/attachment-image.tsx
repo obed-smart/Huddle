@@ -6,7 +6,7 @@ import { ImageIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Attachment as Att } from "@/lib/messages/types";
 import { useAttachmentUrl } from "./use-attachment-url";
-import { MediaLightbox } from "./media-lightbox";
+import { MediaGallery } from "./media-gallery";
 import { DownloadButton, LoadButton, formatSize } from "./attachment-ui";
 
 /** An image in the transcript. Received images arrive not downloaded (a tile
@@ -16,7 +16,7 @@ export function ImageAttachment({ attachment, mine }: { attachment: Att; mine: b
   const ready = mine || attachment.localOnly;
   const [loaded, setLoaded] = useState(ready);
   const { src, onError } = useAttachmentUrl(attachment, loaded);
-  const [lightbox, setLightbox] = useState(false);
+  const [viewer, setViewer] = useState(false);
   const [imgReady, setImgReady] = useState(false);
 
   if (!loaded) {
@@ -32,7 +32,7 @@ export function ImageAttachment({ attachment, mine }: { attachment: Att; mine: b
 
   return (
     <div className="group relative inline-block max-w-[16rem] overflow-hidden rounded-xl bg-foreground/5">
-      <button type="button" onClick={() => src && setLightbox(true)} className="block w-full">
+      <button type="button" onClick={() => src && setViewer(true)} className="block w-full">
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -58,7 +58,7 @@ export function ImageAttachment({ attachment, mine }: { attachment: Att; mine: b
         </span>
       ) : null}
       {src ? (
-        <MediaLightbox open={lightbox} onClose={() => setLightbox(false)} src={src} name={attachment.name} kind="image" />
+        <MediaGallery items={[attachment]} start={0} open={viewer} onClose={() => setViewer(false)} />
       ) : null}
     </div>
   );
