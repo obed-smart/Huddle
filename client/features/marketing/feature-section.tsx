@@ -12,11 +12,11 @@ function Tile({ feature, className, children }: { feature: Feature; className?: 
   return (
     <div
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-[1.4rem] border border-border/70 bg-card p-6 transition-colors duration-300 hover:border-primary/35",
+        "group relative flex flex-col overflow-hidden rounded-[1.4rem] border border-border/70 bg-card p-6 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/35",
         className,
       )}
     >
-      <span className="grid size-11 place-items-center rounded-xl bg-accent text-accent-foreground transition-colors duration-300 group-hover:bg-primary group-hover:text-primary-foreground">
+      <span className="grid size-11 place-items-center rounded-xl bg-accent text-accent-foreground transition-colors duration-200 ease-out group-hover:bg-primary group-hover:text-primary-foreground">
         <Icon className="size-5" />
       </span>
       <h3 className="mt-4 font-display text-lg font-semibold tracking-tight">{title}</h3>

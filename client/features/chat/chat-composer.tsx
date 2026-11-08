@@ -92,7 +92,7 @@ export function ChatComposer({ onSend, onSendMedia, onTyping, disabled }: Props)
 
   const hasContent = Boolean(value.trim()) || staged.length > 0;
   const roundBtn =
-    "grid size-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-all active:scale-95";
+    "grid size-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-transform active:scale-95";
 
   return (
     <form

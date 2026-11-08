@@ -70,7 +70,7 @@ export function ConversationPanel({ selectedId, onSelect, className }: Props) {
 
         <div
           className={cn(
-            "overflow-hidden transition-all duration-200 ease-out",
+            "overflow-hidden transition-[max-height,margin,opacity] duration-200 ease-out",
             searchHidden ? "mt-0 max-h-0 opacity-0" : "mt-3 max-h-14 opacity-100",
           )}
         >
