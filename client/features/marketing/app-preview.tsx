@@ -11,8 +11,8 @@ const lines: Line[] = [
 /** A quiet chat-window mockup for the hero. Pure markup, one color. */
 export function AppPreview() {
   return (
-    <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-lg">
-      <header className="flex items-center gap-3 border-b border-border px-4 py-3">
+    <div className="w-full max-w-md overflow-hidden rounded-[1.6rem] border border-border/70 bg-card shadow-[0_34px_80px_-32px_oklch(0.52_0.17_280_/_0.45)] ring-1 ring-foreground/[0.04]">
+      <header className="flex items-center gap-3 border-b border-border/70 bg-gradient-to-b from-foreground/[0.015] to-transparent px-4 py-3">
         <span className="grid size-9 place-items-center rounded-full bg-accent text-sm font-semibold text-accent-foreground">
           DH
         </span>
