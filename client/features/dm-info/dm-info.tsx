@@ -60,7 +60,13 @@ export function DmInfo({ conversation, onClose }: Props) {
           ) : null}
         </div>
 
-        <CallActions />
+        <CallActions
+          peer={
+            otherId
+              ? { id: otherId, name: conversation.name, avatar: conversation.avatar }
+              : null
+          }
+        />
 
         <div className="px-2 py-2">
           <button

@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { SocketProvider } from "@/features/realtime/socket-provider";
+import { CallRoot } from "@/features/call/call-root";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -49,6 +50,7 @@ export default async function RootLayout({
           nonce={nonce}
         >
           <SocketProvider>{children}</SocketProvider>
+          <CallRoot />
           <Toaster />
         </ThemeProvider>
       </body>
