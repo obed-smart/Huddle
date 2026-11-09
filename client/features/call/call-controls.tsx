@@ -1,6 +1,6 @@
 "use client";
 
-import { Mic, MicOff, Volume2, VolumeX, UserPlus, Video, Phone, PhoneOff } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, Video, Phone, PhoneOff } from "lucide-react";
 
 import { toast } from "@/lib/notify";
 import type { CallPhase } from "./call-types";
@@ -37,6 +37,10 @@ export function CallControls({
     );
   }
 
+  // The mode switch is only available once connected: while the call is still
+  // ringing it stays muted (disabled), the same rule the video UI will follow.
+  const canSwitch = phase === "active";
+
   return (
     <div className="flex flex-col items-center gap-7">
       <div className="flex items-center justify-center gap-4">
@@ -52,13 +56,9 @@ export function CallControls({
           onClick={onToggleSpeaker}
         />
         <CallControlButton
-          icon={<UserPlus />}
-          srLabel="Add person"
-          onClick={() => toast("Inviting people is coming soon.")}
-        />
-        <CallControlButton
           icon={<Video />}
           srLabel="Switch to video"
+          disabled={!canSwitch}
           onClick={() => toast("Switching to video is coming soon.")}
         />
       </div>
