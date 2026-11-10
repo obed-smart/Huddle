@@ -32,7 +32,7 @@ export function createSocketServer(server: HttpServer) {
         "socket connected with user data",
       );
 
-      socket.use(globalSocketRateLimit(userId));
+      socket.use(globalSocketRateLimit(socket, userId));
 
       socket.join(`user:${userId}`);
       socket.join(`session:${sessionId}`);

@@ -908,8 +908,8 @@ class ConversationService {
     return await this.conversationRepo.findConversation(userId);
   }
 
-  async canIniviteUserOnCall(callerId: string, tergetedUserId: string) {
-    return await this.conversationRepo.canIniviteUserOnCall(
+  async canInviteUserOnCall(callerId: string, tergetedUserId: string) {
+    return await this.conversationRepo.canInviteUserOnCall(
       callerId,
       tergetedUserId,
     );

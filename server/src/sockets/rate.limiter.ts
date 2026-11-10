@@ -5,8 +5,8 @@ import logger from "../shared/utils/logger";
 type SocketMiddleware = Parameters<Socket["use"]>[0];
 
 export const MESSAGE_LIMIT: BucketConfig = {
-  maxTokens: 8,
-  refillPerSecond: 1.5,
+  maxTokens: 10,
+  refillPerSecond: 2,
   keyTtlMs: 60_000,
 };
 
@@ -31,7 +31,10 @@ export function secondsUntilOneToken(
   return Math.ceil(deficit / cfg.refillPerSecond);
 }
 
-export function globalSocketRateLimit(userId: string): SocketMiddleware {
+export function globalSocketRateLimit(
+  socket: Socket,
+  userId: string,
+): SocketMiddleware {
   return async ([event, ...args], next) => {
     try {
       const { allowed, remaining } = await checkLimit(
@@ -40,24 +43,28 @@ export function globalSocketRateLimit(userId: string): SocketMiddleware {
       );
 
       if (!allowed) {
-        const err = new Error(
-          "You're sending events too quickly. Please slow down.",
-        ) as Error & { data?: unknown };
-
-        err.data = {
+        const payload = {
           code: "RATE_LIMITED",
           scope: "global",
           event,
+          message: "You're sending events too quickly. Please slow down.",
           retryAfter: secondsUntilOneToken(remaining, GLOBAL_SOCKET_LIMIT),
         };
-        return next(err);
+
+        // if the client sent an ack callback, answer through it
+        const ack = args[args.length - 1];
+        if (typeof ack === "function") {
+          ack({ ok: false, error: payload });
+        } else {
+          socket.emit("rate_limited", payload);
+        }
+        return;
       }
 
       next();
     } catch (e) {
-      // Redis down → fail OPEN for the global net (don't break chat over a limiter blip)
       logger.error({ e, userId }, "global rate limiter unavailable");
-      next();
+      next(); // fail open
     }
   };
 }

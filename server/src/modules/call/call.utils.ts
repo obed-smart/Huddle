@@ -13,3 +13,27 @@ export function decodeCursor(base64String: string): callCursor | undefined {
     throw new AppError("manipulated/malformed cursor string", 400);
   }
 }
+
+
+
+const sessionQueues = new Map<string, Promise<unknown>>();
+ 
+export function withSessionLock<T>(
+  rtcSessionId: string,
+  task: () => Promise<T>,
+): Promise<T> {
+  const previous = sessionQueues.get(rtcSessionId) ?? Promise.resolve();
+  const next = previous.catch(() => {}).then(task);
+ 
+  sessionQueues.set(rtcSessionId, next);
+ 
+  next
+    .finally(() => {
+      if (sessionQueues.get(rtcSessionId) === next) {
+        sessionQueues.delete(rtcSessionId);
+      }
+    })
+    .catch(() => {});
+ 
+  return next;
+}
