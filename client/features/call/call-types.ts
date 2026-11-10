@@ -23,6 +23,10 @@ export type CallPeer = {
 
 /** The whole live state of the one call the UI can show at a time. */
 export type CallSnapshot = {
+  /** The backend call id. Null for a brief moment while initiate is in flight. */
+  callId: string | null;
+  /** The conversation the call belongs to (needed by leave and accept). */
+  conversationId: string;
   peer: CallPeer;
   media: CallMedia;
   phase: CallPhase;

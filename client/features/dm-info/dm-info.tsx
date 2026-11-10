@@ -61,6 +61,7 @@ export function DmInfo({ conversation, onClose }: Props) {
         </div>
 
         <CallActions
+          conversationId={conversation.id}
           peer={
             otherId
               ? { id: otherId, name: conversation.name, avatar: conversation.avatar }

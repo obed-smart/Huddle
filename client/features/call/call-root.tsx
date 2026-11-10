@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
@@ -9,6 +10,13 @@ import { CallBanner } from "./call-banner";
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
+const noopSubscribe = () => () => {};
+/** False through SSR and the first hydration render, true once on the client.
+    Keeps the body portal from mismatching the server HTML, no effect needed. */
+function useIsClient() {
+  return useSyncExternalStore(noopSubscribe, () => true, () => false);
+}
+
 /** The one call overlay for the whole app. Mounted once at the root so a call
     outlives route changes: the full screen when open, a floating pill when
     minimized. Enter is a calm scale and fade; exit is quicker, per our motion
@@ -16,8 +24,9 @@ const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 export function CallRoot() {
   const call = useCall((s) => s.call);
   const reduce = useReducedMotion();
+  const isClient = useIsClient();
 
-  if (typeof document === "undefined") return null;
+  if (!isClient) return null;
 
   const showScreen = !!call && !call.minimized && call.media === "audio";
   const showBanner = !!call && call.minimized;

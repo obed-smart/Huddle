@@ -4,21 +4,21 @@ import { Phone, Video, Users } from "lucide-react";
 
 import { toast } from "@/lib/notify";
 import { InfoAction } from "@/features/group-info/info-action";
-import { useCall } from "@/features/call/call-store";
+import { callSession } from "@/features/call/call-session";
 import type { CallPeer } from "@/features/call/call-types";
 
 type Props = {
+  /** The conversation the call belongs to. */
+  conversationId: string;
   /** The person to call. When absent (a group, for now), voice is still a stub. */
   peer?: CallPeer | null;
 };
 
 /** Voice, video, and meet, shown inside an info panel. Voice places a real
     audio call when we know who to ring; video and meet land next. */
-export function CallActions({ peer }: Props) {
-  const place = useCall((s) => s.place);
-
+export function CallActions({ conversationId, peer }: Props) {
   const onVoice = peer
-    ? () => place(peer, "audio")
+    ? () => callSession.initiate({ conversationId, peer, media: "audio" })
     : () => toast("Calling is coming soon.");
 
   return (

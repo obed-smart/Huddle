@@ -5,6 +5,7 @@ import { ChevronDown, ShieldCheck, UserPlus } from "lucide-react";
 
 import { toast } from "@/lib/notify";
 import { useCall } from "./call-store";
+import { callSession } from "./call-session";
 import { CallAvatar } from "./call-avatar";
 import { CallControls } from "./call-controls";
 import { CallStatus } from "./call-status";
@@ -17,10 +18,6 @@ const BACKDROP =
 /** The full audio-call experience: portrait, name, live status, and controls. */
 export function AudioCallScreen() {
   const call = useCall((s) => s.call);
-  const accept = useCall((s) => s.accept);
-  const hangUp = useCall((s) => s.hangUp);
-  const toggleMute = useCall((s) => s.toggleMute);
-  const toggleSpeaker = useCall((s) => s.toggleSpeaker);
   const setMinimized = useCall((s) => s.setMinimized);
   const phase = call?.phase;
 
@@ -89,10 +86,10 @@ export function AudioCallScreen() {
         phase={call.phase}
         muted={muted}
         speaker={speaker}
-        onToggleMute={toggleMute}
-        onToggleSpeaker={toggleSpeaker}
-        onAccept={accept}
-        onHangUp={hangUp}
+        onToggleMute={() => callSession.setMuted(!muted)}
+        onToggleSpeaker={() => callSession.setSpeaker(!speaker)}
+        onAccept={() => callSession.accept()}
+        onHangUp={() => callSession.hangUp()}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import { PhoneOff } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useCall } from "./call-store";
+import { callSession } from "./call-session";
 import { useCallDuration } from "./use-call-duration";
 
 /** The collapsed call, a floating pill. The body reopens the full screen; the
@@ -11,7 +12,6 @@ import { useCallDuration } from "./use-call-duration";
 export function CallBanner() {
   const call = useCall((s) => s.call);
   const expand = useCall((s) => s.setMinimized);
-  const hangUp = useCall((s) => s.hangUp);
   const duration = useCallDuration(call?.startedAt ?? null);
 
   if (!call) return null;
@@ -42,7 +42,7 @@ export function CallBanner() {
       </button>
       <button
         type="button"
-        onClick={hangUp}
+        onClick={() => callSession.hangUp()}
         aria-label="End call"
         className="grid size-9 place-items-center rounded-full bg-destructive text-destructive-foreground outline-none transition-transform duration-150 ease-out hover:bg-destructive/90 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70 [&_svg]:size-4.5"
       >
