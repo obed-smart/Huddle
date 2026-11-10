@@ -4,8 +4,6 @@ import env from "../env";
 import logger from "../../shared/utils/logger";
 
 
-import env from "./env";
-import logger from "../shared/utils/logger";
 
 
 logger.debug("Initializing Cloudflare R2 client...");
