@@ -1097,7 +1097,7 @@ class ConversationsRepository {
     }
   }
 
-  async canIniviteUserOnCall(callerId: string, tergetedUserId: string) {
+  async canInviteUserOnCall(callerId: string, tergetedUserId: string) {
     try {
       const conversation = await this.db
         .select({

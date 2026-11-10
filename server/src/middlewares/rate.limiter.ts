@@ -13,7 +13,7 @@ import { ApiResponse } from "../shared/utils/apiResponse";
 import logger from "../shared/utils/logger";
 import AppError from "../shared/utils/apiError";
 import redisClient from "../config/redis/redis.config";
-import limiterRedis from "../config/redis.limiter";
+import limiterRedis from "../config/redis/redis.limiter";
 
 export interface BucketConfig {
   maxTokens: number;
@@ -24,7 +24,7 @@ export interface BucketConfig {
 type KeyFn = (req: Request) => string | null;
 
 const luascript = readFileSync(
-  join(__dirname, "../config/token-bucket.lua"),
+  join(__dirname, "../config/redis/token-bucket.lua"),
   "utf-8",
 );
 
@@ -168,10 +168,16 @@ export const bodyFieldIpKey =
   };
 
 export const ipKey: KeyFn = (req) => req.ip ?? null;
+export const userKey: KeyFn = (req) => req.user?.id ?? null;
+
 export const loginKey = bodyFieldIpKey("identifier");
 export const emailKey = bodyFieldIpKey("email");
 
-export function rateLimit(limiter: RateLimiterRedis, getKey: KeyFn) {
+export function rateLimit(
+  limiter: RateLimiterRedis,
+  getKey: KeyFn,
+  opts: { failOpen?: boolean } = {},
+) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const key = getKey(req);
     if (!key) {
@@ -180,10 +186,10 @@ export function rateLimit(limiter: RateLimiterRedis, getKey: KeyFn) {
 
     try {
       await limiter.consume(key);
-      next();
     } catch (rejected: any) {
       if (rejected instanceof Error) {
-        logger.error(`rate limiter error: ${rejected}`);
+        logger.error({ err: rejected }, "rate limiter error");
+        if (opts.failOpen) return next();
         return res.status(503).json(ApiResponse.error("Service unavailable"));
       }
 
@@ -192,6 +198,8 @@ export function rateLimit(limiter: RateLimiterRedis, getKey: KeyFn) {
         .status(429)
         .json(ApiResponse.error("Too many requests: try again later"));
     }
+
+    next();
   };
 }
 

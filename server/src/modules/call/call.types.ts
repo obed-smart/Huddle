@@ -1,7 +1,16 @@
 import { IConversation } from "../../db/schema";
 import { callOutCome, calltype } from "../../db/schema/type";
+import { ActiveCallSummary } from "./call.validation";
 
-export type ParticipantState =
+export type TrackKind = "mic" | "cam" | "screen";
+
+export const MEDIA_KIND: Record<TrackKind, "audio" | "video"> = {
+  mic: "audio",
+  cam: "video",
+  screen: "video",
+};
+
+export type State =
   | "initiating"
   | "ringing"
   | "accepted"
@@ -10,6 +19,37 @@ export type ParticipantState =
   | "rejected"
   | "left"
   | "joined";
+
+export type PublishedTrack = {
+  trackName: string;
+  kind: "audio" | "video";
+  mid?: string;
+  publishedAt: number;
+};
+
+export type ParticipantState = {
+  rtcSessionId: string;
+  sessionId: string;
+  status: State;
+  audioOn: boolean;
+  videoOn: boolean;
+  joinedAt: number;
+  username: string;
+  avatarUrl: string;
+  tracks: Partial<Record<TrackKind, PublishedTrack>>;
+};
+
+export type ParticipantInput = Omit<ParticipantState, "tracks"> & {
+  userId: string;
+};
+
+// used when updating the tracks
+export type ParticipantPatch = Partial<Omit<ParticipantState, "tracks">>;
+
+// used whe subscribing
+export type ParticipantView = Omit<ParticipantState, "sessionId" | "rtcSessionId"> & {
+  userId: string;
+};
 
 export type Call = {
   callId: string;
@@ -20,16 +60,7 @@ export type Call = {
   conversationType: IConversation["type"];
   authorizedUsers: Set<string>;
   invitedUsers: Set<string>;
-  participants: Map<
-    string,
-    {
-      state: ParticipantState;
-      name: string;
-      sessionId: string;
-      avatarUrl: string;
-      joinedAt: number;
-    }
-  >;
+  participants: Map<string, ParticipantState>;
   startedAt: Date;
 
   /**
@@ -46,12 +77,7 @@ export type CreateCallInput = {
   type: calltype;
   name: string;
   authorizedUserIds: string[];
-  participant: {
-    id: string;
-    displayName: string;
-    sid: string;
-    avatarUrl: string;
-  };
+  participant: ParticipantInput;
   startedAt: Date;
 };
 export type callCursor = { startedAt: Date; callId: string };
@@ -101,3 +127,42 @@ export type CallLogEntry = {
     avatarUrl: string | null;
   }[];
 };
+
+export interface CallStore {
+  createCall(input: CreateCallInput): Promise<Call>;
+  getCall(callId: string): Promise<Call | undefined>;
+  endCall(callId: string): Promise<Call>;
+
+  isAuthorized(callId: string, userId: string): Promise<boolean>;
+  isParticipant(callId: string, userId: string): Promise<boolean>;
+  addAuthorizedUser(callId: string, userId: string): Promise<boolean>;
+  addInvitedUser(callId: string, userId: string): Promise<void>;
+
+  addParticipant(callId: string, p: ParticipantInput): Promise<boolean>;
+  removeParticipant(
+    callId: string,
+    userId: string,
+  ): Promise<ParticipantState | null>;
+  updateParticipant(
+    callId: string,
+    userId: string,
+    patch: ParticipantPatch,
+  ): Promise<boolean>;
+
+  getParticipants(callId: string): Promise<ParticipantView[]>;
+
+  setTrack(
+    callId: string,
+    userId: string,
+    kind: TrackKind,
+    track: PublishedTrack,
+  ): Promise<boolean>;
+  removeTrack(
+    callId: string,
+    userId: string,
+    kind: TrackKind,
+  ): Promise<PublishedTrack | null>;
+
+  callIdForSession(sessionId: string): Promise<string | undefined>;
+  getActiveCallsForUser(userId: string): Promise<ActiveCallSummary[]>;
+}

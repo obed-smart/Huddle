@@ -5,7 +5,7 @@ import {
   HeadObjectCommand,
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
-import { R2 } from "../../config/object.storage";
+
 
 import AppError from "../../shared/utils/apiError";
 import MediaRepository from "./media.repository";
@@ -14,6 +14,7 @@ import logger from "../../shared/utils/logger";
 import { MEDIA_POLICY } from "./media.policy";
 import { conversationService } from "../conversations/conversations.modules";
 import { UploadFileInput } from "./media.validation";
+import { R2 } from "../../config/cloudflare/object.storage";
 
 const PRESIGNED_TTL_SECONDS = 60 * 5;
 

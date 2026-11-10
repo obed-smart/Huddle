@@ -35,12 +35,13 @@ export function messageEvent(io: Server, socket: Socket) {
       const { id: userId, sid: sessionId } = socket.data.user;
 
       const { allowed, remaining } = await checkLimit(
-        `rateLimite:message:${sessionId}`,
+        `rl:message:${sessionId}`,
         MESSAGE_LIMIT,
       );
 
       if (!allowed) {
-        callback?.({});
+        callback?.({ ok: false, error: "Too many requests: try again later" });
+        return;
       }
 
       const {

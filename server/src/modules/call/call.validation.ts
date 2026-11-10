@@ -2,7 +2,7 @@ import z from "zod";
 
 export const initiateCallEventSchema = z.object({
   conversationId: z.uuid(),
-  callMediaType: z.enum(["video", "audio"]),
+  callMediaType: z.enum(["video", "audio", "meet"]),
 });
 
 export const acceptCallEventSchema = z.object({
@@ -48,7 +48,7 @@ export const callIceSchema = icePayloadSchema.extend({
 });
 
 export const inviteCallSchema = z.object({
-  callId: z.uuid().nullable(),
+  callId: z.uuid(),
   conversationId: z.uuid(),
   callMediaType: z.enum(["video", "audio"]),
   to: z.uuid(),
@@ -62,6 +62,67 @@ export const activeCallSummarySchema = z.object({
   directTypeLenght: z.union([z.string(), z.number()]),
   name: z.string().nullable(),
 });
+
+// CLOUDFLARE REALTIME SFU
+
+export const trackKindSchema = z.enum(["mic", "cam", "screen"]);
+
+const sdpSchema = z.string().min(1).max(65_536);
+
+// export const publishDescriptionSchema = z.object({
+//   type: z.literal("offer"),
+//   sdp: sdpSchema,
+// });
+
+// export const answerDescriptionSchema = z.object({
+//   type: z.literal("answer"),
+//   sdp: sdpSchema,
+// });
+
+export const publishSchema = z.object({
+  callId: z.string().min(1),
+  description: z.object({
+    type: z.literal("offer"),
+    sdp: sdpSchema,
+  }),
+  tracks: z
+    .array(
+      z.object({
+        mid: z.string().min(1).max(32),
+        kind: trackKindSchema,
+      }),
+    )
+    .min(1)
+    .max(3)
+    .refine(
+      (tracks) => new Set(tracks.map((t) => t.kind)).size === tracks.length,
+      { message: "Duplicate track kind" },
+    ),
+});
+
+export const subscribeSchema = z.object({
+  callId: z.string().min(1),
+  targets: z
+    .array(
+      z.object({
+        userId: z.string().min(1),
+        // omit to subscribe to everything that user is publishing
+        kinds: z.array(trackKindSchema).min(1).max(3),
+      }),
+    )
+    .min(1)
+    .max(50),
+});
+
+export const renegotiateSchema = z.object({
+  callId: z.string().min(1),
+  description: z.object({
+    type: z.literal("answer"),
+    sdp: sdpSchema,
+  }),
+});
+
+
 
 export const connectCallSchema = rejectCallEventSchema;
 export const rejoinSchema = rejectCallEventSchema;

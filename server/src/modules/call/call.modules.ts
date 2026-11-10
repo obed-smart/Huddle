@@ -1,7 +1,13 @@
 import { db } from "../../db";
-import { callParticipant, callTable, conversationsTable, usersTable } from "../../db/schema";
+import {
+  callParticipant,
+  callTable,
+  conversationsTable,
+  usersTable,
+} from "../../db/schema";
 import CallControllers from "./call.controllers";
 import CallRepository from "./call.repository";
+import InMemoryCallRegistry from "./call.registery";
 import CallService from "./call.services";
 import { callEvent } from "./call.event";
 
@@ -10,10 +16,11 @@ const callRepository = new CallRepository(
   callTable,
   callParticipant,
   usersTable,
-  conversationsTable
+  conversationsTable,
 );
 
 const callService = new CallService(callRepository);
 const callController = new CallControllers(callService);
+const callRegistry = new InMemoryCallRegistry();
 
-export { callService, callController, callEvent };
+export { callService, callController, callEvent, callRegistry };
