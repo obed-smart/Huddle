@@ -13,7 +13,11 @@ import { ApiResponse } from "../shared/utils/apiResponse";
 import logger from "../shared/utils/logger";
 import AppError from "../shared/utils/apiError";
 import redisClient from "../config/redis/redis.config";
+
 import limiterRedis from "../config/redis/redis.limiter";
+
+import limiterRedis from "../config/redis.limiter";
+
 
 export interface BucketConfig {
   maxTokens: number;

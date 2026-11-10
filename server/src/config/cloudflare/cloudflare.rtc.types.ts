@@ -4,6 +4,7 @@ export type SessionDescription = {
   sdp: string;
 };
 
+
 export type LocalTrackRequest = {
   location: "local";
   trackName: string;
@@ -19,10 +20,20 @@ export type RemoteTrackRequest = {
 
 export type TrackRequest = LocalTrackRequest | RemoteTrackRequest;
 
+
+export type TrackRequest = {
+  location: "local" | "remote";
+  trackName: string;
+  mid?: string;
+  sessionId?: string;
+};
+
+
 export type AddTracksBody = {
   sessionDescription?: SessionDescription;
   tracks: TrackRequest[];
 };
+
 
 export type TrackResult = {
   trackName: string;
@@ -36,6 +47,17 @@ export type AddTracksResponse = {
   sessionDescription?: SessionDescription;
   requiresImmediateRenegotiation?: boolean;
   tracks?: TrackResult[];
+
+export type AddTracksResponse = {
+  sessionDescription?: SessionDescription;
+  requiresImmediateRenegotiation?: boolean;
+  tracks?: Array<{
+    trackName: string;
+    mid?: string;
+    errorCode?: string;
+    errorDescription?: string;
+  }>;
+
   errorCode?: string;
   errorDescription?: string;
 };
