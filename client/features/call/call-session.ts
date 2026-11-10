@@ -71,12 +71,12 @@ class CallSession {
     }
   }
 
-  async accept() {
+  async accept(rejoin = false) {
     const call = this.call();
     if (!call?.callId) return;
     void ensureWebrtcAdapter();
     try {
-      const ack = await this.request<AcceptAck>(E.accept, { callId: call.callId, conversationId: call.conversationId });
+      const ack = await this.request<AcceptAck>(E.accept, { callId: call.callId, conversationId: call.conversationId, rejoin });
       if (!ack?.success) return this.hangUp();
       this.iceServers = ack.iceServers ?? this.iceServers;
       await this.media.start();

@@ -1,5 +1,5 @@
 import { CALL_EVENTS as E } from "./signaling/events";
-import type { PublishAck, SubscribeAck, SubscribeTarget } from "./signaling/types";
+import type { CallStatus, PublishAck, SubscribeAck, SubscribeTarget } from "./signaling/types";
 import type { CallSnapshot } from "./call-types";
 import { makeAnswer, makeOffer, trackKind } from "./call-rtc";
 import { RemoteAudio } from "./call-audio";
@@ -127,9 +127,19 @@ export class CallMedia {
       this.audio.attach(`${who.userId}:${who.kind}`, new MediaStream([event.track]));
     };
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState !== "connected") return;
       const call = this.deps.getCall();
-      this.deps.patch({ phase: "active", startedAt: call?.startedAt ?? Date.now() });
+      if (!call?.callId) return;
+      const state = pc.connectionState;
+      if (state === "connected") {
+        this.deps.patch({ phase: "active", startedAt: call.startedAt ?? Date.now() });
+        this.report(call.callId, call.conversationId, "connected");
+      } else if (state === "disconnected" || state === "failed") {
+        this.report(call.callId, call.conversationId, "reconnecting");
+      }
     };
+  }
+
+  private report(callId: string, conversationId: string, status: CallStatus) {
+    this.deps.request(E.status, { callId, conversationId, status }).catch(() => {});
   }
 }

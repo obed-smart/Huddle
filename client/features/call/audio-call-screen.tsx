@@ -21,10 +21,10 @@ export function AudioCallScreen() {
   const setMinimized = useCall((s) => s.setMinimized);
   const phase = call?.phase;
 
-  // Escape tucks the call into the pill. Never on an incoming call, where the
-  // choice to answer or decline has to be deliberate.
+  // Escape tucks the call into the pill. An inbound ring is a toast, not this
+  // screen, so this only ever runs for a call we placed or are in.
   useEffect(() => {
-    if (!phase || phase === "incoming") return;
+    if (!phase) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setMinimized(true);
     }
@@ -34,7 +34,7 @@ export function AudioCallScreen() {
 
   if (!call) return null;
   const { peer, muted, speaker } = call;
-  const ringing = call.phase === "outgoing" || call.phase === "incoming" || call.phase === "connecting";
+  const ringing = call.phase === "outgoing" || call.phase === "connecting";
 
   return (
     <div
@@ -60,18 +60,14 @@ export function AudioCallScreen() {
           <ShieldCheck className="size-3.5" />
           Audio call
         </span>
-        {call.phase === "incoming" ? (
-          <span className="size-10" aria-hidden />
-        ) : (
-          <button
-            type="button"
-            onClick={() => toast("Inviting people is coming soon.")}
-            aria-label="Add person"
-            className="grid size-10 place-items-center rounded-full text-white/80 outline-none transition-transform duration-150 ease-out hover:text-white active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70"
-          >
-            <UserPlus className="size-5.5" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => toast("Inviting people is coming soon.")}
+          aria-label="Add person"
+          className="grid size-10 place-items-center rounded-full text-white/80 outline-none transition-transform duration-150 ease-out hover:text-white active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70"
+        >
+          <UserPlus className="size-5.5" />
+        </button>
       </header>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
@@ -88,7 +84,6 @@ export function AudioCallScreen() {
         speaker={speaker}
         onToggleMute={() => callSession.setMuted(!muted)}
         onToggleSpeaker={() => callSession.setSpeaker(!speaker)}
-        onAccept={() => callSession.accept()}
         onHangUp={() => callSession.hangUp()}
       />
     </div>
