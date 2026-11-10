@@ -18,7 +18,13 @@ export type InitiateAck = {
   serverTime?: number;
 };
 
-export type AcceptReq = { callId: string; conversationId: string };
+export type AcceptReq = {
+  callId: string;
+  conversationId: string;
+  /** True when answering an existing call after a network drop (not a fresh
+      answer). The backend recovers the session instead of starting one. */
+  rejoin: boolean;
+};
 export type AcceptAck = { success: boolean; callId: string; iceServers: RTCIceServer[] };
 
 export type PublishReq = {
@@ -49,6 +55,10 @@ export type SubscribeAck = {
 };
 
 export type RenegotiateReq = { callId: string; description: RtcDescription };
+/** Derived from the browser connection state and reported so the backend can
+    react: connected, or reconnecting after a drop. */
+export type CallStatus = "connected" | "reconnecting";
+export type StatusReq = { callId: string; conversationId: string; status: CallStatus };
 export type MediaStateReq = { callId: string; audioOn: boolean; videoOn: boolean };
 export type LeaveReq = { callId: string; conversationId: string };
 
