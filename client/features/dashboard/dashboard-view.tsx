@@ -11,6 +11,7 @@ import { BottomNav } from "./bottom-nav";
 import { EmptyConversation } from "./empty-conversation";
 import { ChatView } from "@/features/chat/chat-view";
 import { useConversationRealtime } from "./use-conversation-realtime";
+import { useChatHistory } from "./use-chat-history";
 import { useRequestRealtime } from "@/features/requests/use-request-realtime";
 
 /** The whole app shell: nav + conversation list + open-conversation pane. */
@@ -27,9 +28,10 @@ export function DashboardView() {
 
   useConversationRealtime(selectedId);
   useRequestRealtime();
+  const { open, close } = useChatHistory(selectedId, setSelectedId);
 
   function onSelect(id: string) {
-    setSelectedId(id);
+    open(id);
     clearUnread(id);
   }
 
@@ -56,7 +58,7 @@ export function DashboardView() {
           <ChatView
             key={selected.id}
             conversation={selected}
-            onBack={() => setSelectedId(null)}
+            onBack={close}
           />
         ) : (
           <EmptyConversation />
