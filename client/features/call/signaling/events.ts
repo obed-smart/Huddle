@@ -7,6 +7,7 @@ export const CALL_EVENTS = {
   publish: "call:publish",
   subscribe: "call:subscribe",
   renegotiate: "call:renegotiate",
+  status: "call:status",
   mediaState: "call:media-state",
   leave: "call:leave",
 

@@ -7,6 +7,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCall } from "./call-store";
 import { AudioCallScreen } from "./audio-call-screen";
 import { CallBanner } from "./call-banner";
+import { IncomingToast } from "./incoming-toast";
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
@@ -28,8 +29,12 @@ export function CallRoot() {
 
   if (!isClient) return null;
 
-  const showScreen = !!call && !call.minimized && call.media === "audio";
-  const showBanner = !!call && call.minimized;
+  // An inbound ring is a toast (keep reading until you answer). The caller's
+  // own calling screen and the connected call are full screen. Minimized is the
+  // pill. These never overlap, so the top slot shows the toast or the pill.
+  const incoming = call?.phase === "incoming";
+  const showScreen = !!call && !incoming && !call.minimized && call.media === "audio";
+  const topCard = incoming ? "incoming" : call?.minimized ? "banner" : null;
 
   return createPortal(
     <>
@@ -49,20 +54,20 @@ export function CallRoot() {
       </AnimatePresence>
 
       <div
-        className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex justify-center"
+        className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex justify-center px-4"
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
       >
-        <AnimatePresence>
-          {showBanner ? (
+        <AnimatePresence mode="wait">
+          {topCard ? (
             <motion.div
-              key="call-banner"
+              key={topCard}
               className="pointer-events-auto"
               initial={reduce ? { opacity: 0 } : { opacity: 0, y: -16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={reduce ? { opacity: 0 } : { opacity: 0, y: -16, transition: { duration: 0.16 } }}
               transition={{ duration: 0.22, ease: EASE_OUT }}
             >
-              <CallBanner />
+              {topCard === "incoming" ? <IncomingToast /> : <CallBanner />}
             </motion.div>
           ) : null}
         </AnimatePresence>
