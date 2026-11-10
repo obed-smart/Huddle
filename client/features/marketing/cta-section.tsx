@@ -9,13 +9,17 @@ export function CtaSection() {
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
       <Reveal>
-        <div className="relative overflow-hidden rounded-3xl bg-primary px-6 py-16 text-center text-primary-foreground sm:px-12">
+        <div className="relative overflow-hidden rounded-[2rem] bg-primary px-6 py-16 text-center text-primary-foreground sm:px-12 sm:py-20">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:radial-gradient(currentColor_1px,transparent_1px)] [background-size:22px_22px]"
+          />
           <div
             aria-hidden
             className="pointer-events-none absolute -top-24 left-1/2 h-64 w-96 -translate-x-1/2 rounded-full bg-primary-foreground/15 blur-3xl"
           />
           <div className="relative flex flex-col items-center gap-5">
-            <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="font-display text-3xl font-bold tracking-[-0.02em] sm:text-[2.6rem]">
               Ready to jump in?
             </h2>
             <p className="max-w-md text-sm text-primary-foreground/80 sm:text-base">

@@ -5,6 +5,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { SocketProvider } from "@/features/realtime/socket-provider";
+import { CallController } from "@/features/call/call-controller";
+import { CallRoot } from "@/features/call/call-root";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -48,7 +50,11 @@ export default async function RootLayout({
           disableTransitionOnChange
           nonce={nonce}
         >
-          <SocketProvider>{children}</SocketProvider>
+          <SocketProvider>
+            <CallController />
+            {children}
+          </SocketProvider>
+          <CallRoot />
           <Toaster />
         </ThemeProvider>
       </body>
