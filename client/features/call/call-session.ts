@@ -86,7 +86,6 @@ class CallSession {
       const ack = await this.request<AcceptAck>(E.accept, {
         callId: call.callId,
         conversationId: call.conversationId,
-        callMediaType: call.media,
         rejoin,
       });
       if (!ack?.success) return this.hangUp();
