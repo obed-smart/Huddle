@@ -12,7 +12,11 @@ export function createSocketServer(server: HttpServer) {
   logger.debug("SOCKET.IO");
   const io = new Server(server, {
     cors: {
-      origin: [process.env.FRONTEND_URL!, "https://oauth.pstmn.io"],
+      origin: [
+        process.env.FRONTEND_URL!,
+        "https://oauth.pstmn.io",
+        "https://turning-contests-novel-digital.trycloudflare.com",
+      ],
       credentials: true,
     },
     connectionStateRecovery: {

@@ -66,6 +66,7 @@ class MessageRepository {
       throw new AppError("Failed creating message", 500);
     }
   }
+  
 
  async createMessageWithAttachment(
   data: INewMessage,

@@ -1,7 +1,22 @@
 import type { NextConfig } from "next";
 import { fileURLToPath } from "node:url";
+import { networkInterfaces } from "node:os";
 
 const isDev = process.env.NODE_ENV === "development";
+
+function lanIps(): string[] {
+  return Object.values(networkInterfaces())
+    .flat()
+    .filter((i) => i && i.family === "IPv4" && !i.internal)
+    .map((i) => i!.address);
+}
+
+// Optional: tunnel hostnames etc., comma separated, e.g. in .env.local
+// DEV_ORIGINS=my-tunnel.trycloudflare.com
+const extraOrigins = (process.env.DEV_ORIGINS ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 /**
  * REST is forwarded by the BFF route handler (`app/api/v1/[...path]`, which
@@ -37,7 +52,7 @@ const nextConfig: NextConfig = {
     root: fileURLToPath(new URL(".", import.meta.url)),
   },
 
-  allowedDevOrigins: ["10.149.250.217"],
+  allowedDevOrigins: isDev ? [...lanIps(), ...extraOrigins] : [],
 
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

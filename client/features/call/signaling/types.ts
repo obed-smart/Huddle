@@ -10,6 +10,7 @@ export type RtcDescription = { type: "offer" | "answer"; sdp: string };
 /* ---- client to backend (requests + acks) ---- */
 
 export type InitiateReq = { conversationId: string; callMediaType: CallMediaType };
+
 export type InitiateAck = {
   success: boolean;
   callId: string;
