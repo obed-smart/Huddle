@@ -17,17 +17,15 @@ export function ChatHeader({ conversation, onBack, onOpenInfo }: Props) {
   const subtitle = isGroup ? `${conversation.membersCount ?? "?"} members` : "Direct message";
   const canOpenInfo = Boolean(onOpenInfo);
 
-  // A direct chat places a real audio call; group and video land next.
+  // Audio calls for a direct chat or a group. For a group the peer is the group
+  // itself (its name and avatar); the backend rings every member. Video is next.
   const otherId = conversation.otherUserId ?? null;
-  const onVoice =
-    conversation.type === "direct" && otherId
-      ? () =>
-          callSession.initiate({
-            conversationId: conversation.id,
-            peer: { id: otherId, name: conversation.name, avatar: conversation.avatar },
-            media: "audio",
-          })
-      : () => toast("Calling is coming soon.");
+  const onVoice = () =>
+    callSession.initiate({
+      conversationId: conversation.id,
+      peer: { id: otherId ?? conversation.id, name: conversation.name, avatar: conversation.avatar },
+      media: "audio",
+    });
 
   return (
     <header className="glass flex items-center gap-3 border-b px-3 py-3 sm:px-4">

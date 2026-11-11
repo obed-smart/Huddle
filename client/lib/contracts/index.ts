@@ -53,6 +53,29 @@ export type Conversation = {
 };
 
 /* ============================================================
+   CALL LOG
+   Source: GET /api/v1/call (the server interprets each row: direction, the
+   display label including "& N others", the repeat count, and the avatar).
+   ============================================================ */
+export type CallLogEntry = {
+  conversationId: string;
+  conversationType: "direct" | "group";
+  /** The display name the server built, including any "& N others". */
+  label: string;
+  avatarUrl?: string | null;
+  direction: "incoming" | "outgoing";
+  /** The call media, used for the redial icon and what redial places. */
+  type: "audio" | "video";
+  /** How many times this call repeated, shown as "(N)" when above one. */
+  count: number;
+  callStartedAt: string;
+  /** Null on a finished call means nobody connected (an unanswered outgoing). */
+  durationSeconds: number | null;
+  outcome: "joined" | "missed" | "declined";
+  otherParticipants: { userId: string; username: string; avatarUrl?: string | null }[];
+};
+
+/* ============================================================
    MESSAGE
    Source: the message timeline + socket payloads, normalized to one shape.
    `message_type` enum on the server.

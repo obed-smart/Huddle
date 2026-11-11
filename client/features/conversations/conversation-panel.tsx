@@ -6,11 +6,16 @@ import { Search, PenSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { toast } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/features/dashboard/notification-bell";
 import { UserSearchSheet } from "@/features/search/user-search-sheet";
 import { GroupCreateSheet } from "@/features/groups/group-create-sheet";
+import { CallLogList } from "@/features/calls/call-log-list";
+import { callSession } from "@/features/call/call-session";
 import { useConversations } from "@/stores/conversations";
+import { useSection } from "@/stores/section";
+import type { CallLogEntry } from "@/lib/api/types";
 import { ConversationList } from "./conversation-list";
 import { ConversationTabs, type ConversationFilter } from "./conversation-tabs";
 
@@ -20,12 +25,15 @@ type Props = {
   className?: string;
 };
 
-/** The left column: header + search + tabs + the conversation list. */
+/** The left column. Chats shows search, filters, and the conversation list;
+    Calls shows the call history. The nav switches between them. */
 export function ConversationPanel({ selectedId, onSelect, className }: Props) {
   const load = useConversations((s) => s.load);
   const status = useConversations((s) => s.status);
   const unread = useConversations((s) => s.unread);
   const unreadCount = Object.values(unread).filter((n) => n > 0).length;
+  const section = useSection((s) => s.section);
+  const setSection = useSection((s) => s.setSection);
 
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [query, setQuery] = useState("");
@@ -38,8 +46,7 @@ export function ConversationPanel({ selectedId, onSelect, className }: Props) {
     if (status === "idle") load();
   }, [status, load]);
 
-  // The search tucks away as you scroll down the list and comes back at the
-  // top or on a scroll up, as part of the header rather than a popover.
+  // The search tucks away as you scroll down the list and comes back at the top.
   function onScroll(e: UIEvent<HTMLDivElement>) {
     const top = e.currentTarget.scrollTop;
     const prev = lastScroll.current;
@@ -49,62 +56,72 @@ export function ConversationPanel({ selectedId, onSelect, className }: Props) {
     lastScroll.current = top;
   }
 
+  // From the call log: open the chat, and for redial also place the call.
+  function openChat(id: string) {
+    setSection("chats");
+    onSelect(id);
+  }
+  function redial(entry: CallLogEntry) {
+    openChat(entry.conversationId);
+    if (entry.type === "video") return toast("Video calls are coming soon.");
+    const other = entry.otherParticipants[0];
+    callSession.initiate({
+      conversationId: entry.conversationId,
+      peer: { id: other?.userId ?? entry.conversationId, name: entry.label, avatar: entry.avatarUrl ?? null },
+      media: "audio",
+    });
+  }
+
+  const calls = section === "calls";
+
   return (
     <div className={cn("flex min-h-0 flex-col bg-background", className)}>
       <header className="glass sticky top-0 z-10 flex flex-col border-b px-4 py-3">
         <div className="flex items-center justify-between gap-1">
-          <h1 className="font-display text-xl font-bold tracking-tight">Chats</h1>
+          <h1 className="font-display text-xl font-bold tracking-tight">{calls ? "Calls" : "Chats"}</h1>
           <div className="flex items-center gap-1">
             <ThemeToggle className="md:hidden" />
             <NotificationBell />
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="New chat"
-              onClick={() => setNewChatOpen(true)}
+            {!calls ? (
+              <Button variant="ghost" size="icon" aria-label="New chat" onClick={() => setNewChatOpen(true)}>
+                <PenSquare />
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
+        {!calls ? (
+          <>
+            <div
+              className={cn(
+                "overflow-hidden transition-[max-height,margin,opacity] duration-200 ease-out",
+                searchHidden ? "mt-0 max-h-0 opacity-0" : "mt-3 max-h-14 opacity-100",
+              )}
             >
-              <PenSquare />
-            </Button>
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            "overflow-hidden transition-[max-height,margin,opacity] duration-200 ease-out",
-            searchHidden ? "mt-0 max-h-0 opacity-0" : "mt-3 max-h-14 opacity-100",
-          )}
-        >
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search"
-              aria-label="Search conversations"
-              className="pl-9"
-            />
-          </div>
-        </div>
-
-        <div className="mt-3">
-          <ConversationTabs
-            value={filter}
-            onChange={setFilter}
-            unreadCount={unreadCount}
-          />
-        </div>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search"
+                  aria-label="Search conversations"
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <div className="mt-3">
+              <ConversationTabs value={filter} onChange={setFilter} unreadCount={unreadCount} />
+            </div>
+          </>
+        ) : null}
       </header>
 
-      <div
-        onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto pb-20 md:pb-0"
-      >
-        <ConversationList
-          filter={filter}
-          query={query}
-          selectedId={selectedId}
-          onSelect={onSelect}
-        />
+      <div onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto pb-20 md:pb-0">
+        {calls ? (
+          <CallLogList onOpen={openChat} onRedial={redial} />
+        ) : (
+          <ConversationList filter={filter} query={query} selectedId={selectedId} onSelect={onSelect} />
+        )}
       </div>
 
       <UserSearchSheet
