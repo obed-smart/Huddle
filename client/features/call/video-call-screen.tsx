@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { ChevronDown, Mic, MicOff, Video, VideoOff, Volume2, VolumeX, Repeat, PhoneOff, UserPlus, SwitchCamera } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, Mic, MicOff, Video, VideoOff, SwitchCamera, PhoneOff, UserPlus } from "lucide-react";
 
 import { toast } from "@/lib/notify";
 import { Avatar } from "@/components/ui/avatar";
@@ -11,33 +11,56 @@ import { callSession } from "./call-session";
 import { CallControlButton } from "./call-control-button";
 import { CallStatus } from "./call-status";
 import { VideoTile } from "./video-tile";
+import { CallPip } from "./call-pip";
 
 const chip =
-  "grid size-10 place-items-center rounded-full bg-black/30 text-white/90 backdrop-blur-sm outline-none transition-transform duration-150 ease-out active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70";
+  "grid size-10 place-items-center rounded-full bg-black/35 text-white/90 backdrop-blur-sm outline-none transition-transform duration-150 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70";
 
-/** A one to one video call: the other person fills the screen, your camera sits
-    in a corner, the controls float over the video. Before the remote video
-    arrives you see your own camera (or your portrait if the camera is off). */
+/** A one to one video call. The remote fills the screen and our own camera sits
+    in a corner you can drag; tap the corner to swap them, tap the middle to hide
+    the controls. While it connects, or when the other camera is off, we fall
+    back to our own feed or their portrait, never a blank frame. */
 export function VideoCallScreen() {
   const call = useCall((s) => s.call);
   const setMinimized = useCall((s) => s.setMinimized);
   const local = useCallStreams((s) => s.local);
   const remotes = useCallStreams((s) => s.remotes);
-  const phase = call?.phase;
+  const [swapped, setSwapped] = useState(false);
+  const [bare, setBare] = useState(false);
 
   useEffect(() => {
-    if (!phase) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setMinimized(true);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [phase, setMinimized]);
+  }, [setMinimized]);
 
   if (!call) return null;
-  const { peer, muted, camOn, speaker } = call;
-  const remoteCam = remotes.find((r) => r.kind === "cam")?.stream ?? null;
+  const { peer, muted, camOn } = call;
   const active = call.phase === "active";
+  const remoteCam = remotes.find((r) => r.kind === "cam")?.stream ?? null;
+  const self = camOn && local ? local : null;
+  const bothVideo = active && !!remoteCam && !!self;
+
+  let mainStream: MediaStream | null;
+  let mainMirror = false;
+  let pip: { stream: MediaStream; mirror: boolean } | null = null;
+  if (!active) {
+    mainStream = self; // while it rings, show our own camera
+    mainMirror = true;
+  } else if (bothVideo) {
+    mainStream = swapped ? self : remoteCam;
+    mainMirror = swapped;
+    pip = { stream: (swapped ? remoteCam : self) as MediaStream, mirror: !swapped };
+  } else if (remoteCam) {
+    mainStream = remoteCam;
+  } else {
+    mainStream = null; // their camera is off: show their portrait, self in the pip
+    if (self) pip = { stream: self, mirror: true };
+  }
+
+  const chrome = `transition-opacity ${bare ? "pointer-events-none opacity-0" : "opacity-100"}`;
 
   return (
     <div
@@ -46,22 +69,26 @@ export function VideoCallScreen() {
       aria-label={`Video call with ${peer.name}`}
       className="relative size-full overflow-hidden bg-[#0b0b14] text-white"
     >
-      <div className="absolute inset-0">
-        {remoteCam ? (
-          <VideoTile stream={remoteCam} />
+      <button
+        type="button"
+        onClick={() => setBare((b) => !b)}
+        aria-label={bare ? "Show controls" : "Hide controls"}
+        className="absolute inset-0 block size-full"
+      >
+        {mainStream ? (
+          <VideoTile stream={mainStream} muted mirror={mainMirror} />
         ) : (
-          // No remote video (their camera is off, or not on yet): show them like
-          // an audio call, their portrait, never a blank frame or our own camera.
           <div className="grid size-full place-items-center">
             <Avatar src={peer.avatar} name={peer.name} className="size-28 text-3xl" />
           </div>
         )}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/50 to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/60 to-transparent" />
-      </div>
+      </button>
+
+      <div className={`pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/50 to-transparent ${chrome}`} />
+      <div className={`pointer-events-none absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/60 to-transparent ${chrome}`} />
 
       <header
-        className="absolute inset-x-0 top-0 flex items-start justify-between px-4"
+        className={`absolute inset-x-0 top-0 flex items-start justify-between px-4 ${chrome}`}
         style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))" }}
       >
         <button type="button" onClick={() => setMinimized(true)} aria-label="Minimize call" className={chip}>
@@ -69,41 +96,31 @@ export function VideoCallScreen() {
         </button>
         <div className="flex flex-col items-center pt-1 text-center">
           <span className="font-display text-base font-semibold">{peer.name}</span>
-          <CallStatus phase={call.phase} startedAt={call.startedAt} />
+          <CallStatus phase={call.phase} startedAt={call.startedAt} media={call.media} />
         </div>
         {active ? (
-          <div className="flex flex-col items-end gap-3">
-            <button type="button" onClick={() => toast("Inviting people is coming soon.")} aria-label="Add person" className={chip}>
-              <UserPlus className="size-5.5" />
-            </button>
-            {camOn ? (
-              <button type="button" onClick={() => callSession.flipCamera()} aria-label="Switch camera" className={chip}>
-                <SwitchCamera className="size-5.5" />
-              </button>
-            ) : null}
-          </div>
+          <button type="button" onClick={() => toast("Inviting people is coming soon.")} aria-label="Add person" className={chip}>
+            <UserPlus className="size-5.5" />
+          </button>
         ) : (
           <span className="size-10" aria-hidden />
         )}
       </header>
 
-      {camOn && local ? (
-        <div className="absolute right-4 top-36 h-40 w-28 overflow-hidden rounded-2xl border border-white/15 bg-black/50 shadow-xl">
-          <VideoTile stream={local} muted mirror />
-        </div>
+      {pip ? (
+        <CallPip onTap={() => setSwapped((s) => !s)}>
+          <VideoTile stream={pip.stream} muted mirror={pip.mirror} />
+        </CallPip>
       ) : null}
 
       <div
-        className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-6 px-6 pb-10"
+        className={`absolute inset-x-0 bottom-0 flex items-center justify-center gap-3 px-6 pb-10 sm:gap-4 ${chrome}`}
         style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))" }}
       >
-        <div className="flex items-center justify-center gap-4">
-          <CallControlButton icon={muted ? <MicOff /> : <Mic />} srLabel={muted ? "Unmute" : "Mute"} active={muted} onClick={() => callSession.setMuted(!muted)} />
-          <CallControlButton icon={camOn ? <Video /> : <VideoOff />} srLabel={camOn ? "Turn camera off" : "Turn camera on"} active={!camOn} onClick={() => callSession.setCamera(!camOn)} />
-          <CallControlButton icon={<Repeat />} srLabel="Switch to audio" onClick={() => toast("Switching is coming soon.")} />
-          <CallControlButton icon={speaker ? <Volume2 /> : <VolumeX />} srLabel="Speaker" onClick={() => callSession.setSpeaker(!speaker)} />
-        </div>
-        <CallControlButton variant="end" icon={<PhoneOff />} label="End" onClick={() => callSession.hangUp()} />
+        <CallControlButton icon={<SwitchCamera />} srLabel="Flip camera" disabled={!camOn} onClick={() => callSession.flipCamera()} />
+        <CallControlButton icon={camOn ? <Video /> : <VideoOff />} srLabel={camOn ? "Turn camera off" : "Turn camera on"} active={!camOn} onClick={() => callSession.setCamera(!camOn)} />
+        <CallControlButton icon={muted ? <MicOff /> : <Mic />} srLabel={muted ? "Unmute" : "Mute"} active={muted} onClick={() => callSession.setMuted(!muted)} />
+        <CallControlButton variant="end" icon={<PhoneOff />} srLabel="End call" onClick={() => callSession.hangUp()} />
       </div>
     </div>
   );

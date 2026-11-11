@@ -12,25 +12,34 @@ import type { MediaDeps } from "./call-media";
 export type VideoCtx = {
   pc: () => RTCPeerConnection | null;
   stream: () => MediaStream | null;
+  setStream: (s: MediaStream | null) => void;
   deps: MediaDeps;
   run: <T>(op: () => Promise<T>) => Promise<T>;
 };
 
-/** The outgoing camera: turning an audio call into a video one, and flipping
-    between the front and rear camera. The audio plane and the remote pulls stay
-    in CallMedia; this only ever touches our own video. */
+/** The outgoing camera: the ring-time preview, flipping front and rear, turning
+    an audio call into a video one, and turning the camera off. The audio plane
+    and the remote pulls stay in CallMedia; this only touches our own video. */
 export class LocalVideo {
-  private facing: "user" | "environment" = "user";
-
   constructor(private ctx: VideoCtx) {}
-
-  reset() {
-    this.facing = "user";
-  }
 
   /** Whether we are already publishing a camera track. */
   hasVideo() {
     return (this.ctx.stream()?.getVideoTracks().length ?? 0) > 0;
+  }
+
+  /** Open the camera before the call connects, so a video call shows our own
+      feed while it rings. The media plane reuses this stream when it starts. */
+  async preview() {
+    if (this.ctx.stream() || this.ctx.deps.getCall()?.media !== "video") return;
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { facingMode: "user" } });
+      this.ctx.setStream(stream);
+      useCallStreams.getState().setLocal(stream);
+    } catch {
+      /* no camera or permission: the call still connects, just no preview */
+    }
   }
 
   /** Turn our camera fully off: stop the track and tell the backend (media-state)
@@ -56,25 +65,24 @@ export class LocalVideo {
     }
   }
 
-  /** Front to rear and back: replace the track on the live sender, which needs
-      no renegotiation, so the call keeps running. */
+  /** Front to rear and back: stop the old track FIRST, because most phones
+      refuse both cameras at once, then open the other one and replace it on the
+      live sender (no renegotiation). If the other camera fails, reopen the first
+      so we are never left with a dead tile. */
   async flip() {
-    const pc = this.ctx.pc();
     const stream = this.ctx.stream();
-    const sender = pc?.getSenders().find((s) => s.track?.kind === "video");
-    if (!pc || !stream || !sender) return;
-    const facing = this.facing === "user" ? "environment" : "user";
-    const next = await this.camera(facing);
-    if (!next) return;
-    next.enabled = this.ctx.deps.getCall()?.camOn ?? true;
-    await sender.replaceTrack(next);
-    const old = stream.getVideoTracks()[0];
-    if (old) {
-      stream.removeTrack(old);
-      old.stop();
-    }
-    stream.addTrack(next);
-    this.facing = facing;
+    const old = stream?.getVideoTracks()[0];
+    const sender = this.ctx.pc()?.getSenders().find((s) => s.track?.kind === "video");
+    if (!stream || !old || !sender) return;
+    const current = old.getSettings().facingMode === "environment" ? "environment" : "user";
+    const wasOn = old.enabled;
+    old.stop();
+    stream.removeTrack(old);
+    const track = (await this.camera(current === "user" ? "environment" : "user")) ?? (await this.camera(current));
+    if (!track) return;
+    track.enabled = wasOn;
+    await sender.replaceTrack(track);
+    stream.addTrack(track);
     useCallStreams.getState().setLocal(new MediaStream(stream.getTracks()));
   }
 
@@ -112,7 +120,7 @@ export class LocalVideo {
       return null;
     }
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: facing ? { facingMode: facing } : true });
+      const s = await navigator.mediaDevices.getUserMedia({ video: facing ? { facingMode: { ideal: facing } } : true });
       return s.getVideoTracks()[0] ?? null;
     } catch {
       toast("Could not open the camera.");

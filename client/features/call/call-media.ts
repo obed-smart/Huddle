@@ -37,6 +37,7 @@ export class CallMedia {
     this.video = new LocalVideo({
       pc: () => this.pc,
       stream: () => this.localStream,
+      setStream: (s) => (this.localStream = s),
       deps,
       run: (op) => this.runExclusive(op),
     });
@@ -58,10 +59,10 @@ export class CallMedia {
     }
     this.deps.patch({ phase: "connecting" });
     try {
-      this.localStream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: call.media === "video",
-      });
+      // Reuse the ring-time preview stream when there is one.
+      if (!this.localStream) {
+        this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: call.media === "video" });
+      }
       useCallStreams.getState().setLocal(this.localStream);
       const pc = new RTCPeerConnection({ iceServers: this.deps.getIce() });
       this.pc = pc;
@@ -133,7 +134,6 @@ export class CallMedia {
     this.pulled.clear();
     this.pending = [];
     this.published = false;
-    this.video.reset();
     this.chain = Promise.resolve();
   }
 

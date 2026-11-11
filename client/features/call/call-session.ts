@@ -67,6 +67,7 @@ class CallSession {
     void ensureWebrtcAdapter();
     this.media.reset();
     this.set(this.fresh(null, conversationId, peer, media, "outgoing"));
+    void this.media.localVideo.preview();
     try {
       const ack = await this.request<InitiateAck>(E.initiate, { conversationId, callMediaType: media });
       if (!ack?.success) return this.close();
