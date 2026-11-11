@@ -1,6 +1,6 @@
 "use client";
 
-import { Mic, MicOff, Volume2, VolumeX, Video, PhoneOff } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, Video, Phone, PhoneOff } from "lucide-react";
 
 import { toast } from "@/lib/notify";
 import type { CallPhase } from "./call-types";
@@ -12,20 +12,31 @@ type Props = {
   speaker: boolean;
   onToggleMute: () => void;
   onToggleSpeaker: () => void;
+  onAccept: () => void;
   onHangUp: () => void;
 };
 
-/** The bottom cluster for a placed or connected call: the live controls over a
-    single end button. An inbound ring uses the toast, not this. Inviting others
-    and switching to video are stubs for now; the real flows land next. */
+/** The bottom cluster. An inbound ring expanded to the full screen offers
+    decline and accept; every other phase shows the live controls over a single
+    end button. Inviting others and switching to video are stubs for now. */
 export function CallControls({
   phase,
   muted,
   speaker,
   onToggleMute,
   onToggleSpeaker,
+  onAccept,
   onHangUp,
 }: Props) {
+  if (phase === "incoming") {
+    return (
+      <div className="flex items-end justify-center gap-20">
+        <CallControlButton variant="end" icon={<PhoneOff />} label="Decline" onClick={onHangUp} />
+        <CallControlButton variant="accept" icon={<Phone />} label="Accept" onClick={onAccept} />
+      </div>
+    );
+  }
+
   // The mode switch is only available once connected: while the call is still
   // ringing it stays muted (disabled), the same rule the video UI will follow.
   const canSwitch = phase === "active";

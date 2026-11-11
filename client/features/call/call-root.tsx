@@ -29,12 +29,13 @@ export function CallRoot() {
 
   if (!isClient) return null;
 
-  // An inbound ring is a toast (keep reading until you answer). The caller's
-  // own calling screen and the connected call are full screen. Minimized is the
-  // pill. These never overlap, so the top slot shows the toast or the pill.
+  // Collapsed, a call is a top card: the incoming toast, or the ongoing pill.
+  // Expanded, it is the full screen (an incoming ring expands to a big screen
+  // with accept and decline, the connected call shows status and controls).
   const incoming = call?.phase === "incoming";
-  const showScreen = !!call && !incoming && !call.minimized && call.media === "audio";
-  const topCard = incoming ? "incoming" : call?.minimized ? "banner" : null;
+  const minimized = !!call?.minimized;
+  const showScreen = !!call && !minimized && call.media === "audio";
+  const topCard = call && minimized ? (incoming ? "incoming" : "banner") : null;
 
   return createPortal(
     <>

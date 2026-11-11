@@ -50,7 +50,7 @@ export function MessageList({ messages, loading, isGroup, currentUser, typingLab
     <MessageScrollerProvider autoScroll>
       <MessageScroller className="flex-1">
         <MessageScrollerViewport className="px-3 py-4 sm:px-4">
-          <MessageScrollerContent className="gap-3">
+          <MessageScrollerContent className="justify-end gap-3">
             {messages.map((message, i) => {
               const mine = isMine(message, currentUser);
               const prev = messages[i - 1];
