@@ -5,7 +5,8 @@ import { ensureWebrtcAdapter } from "@/lib/webrtc/adapter";
 import { useCall } from "./call-store";
 import { CALL_EVENTS as E } from "./signaling/events";
 import type {
-  AcceptAck, EndedEvt, IncomingEvt, InitiateAck, NewAcceptEvt, NewPublishEvt,
+  AcceptAck, EndedEvt, HandledEvt, IncomingEvt, InitiateAck,
+  MediaStateEvt, NewAcceptEvt, NewPublishEvt, RejectedEvt,
 } from "./signaling/types";
 import type { CallMedia as Media, CallPeer, CallSnapshot } from "./call-types";
 import { CallMedia } from "./call-media";
@@ -40,7 +41,10 @@ class CallSession {
     this.listen(E.incoming, (d) => this.onIncoming(d as IncomingEvt));
     this.listen(E.newAccept, (d) => this.onNewAccept(d as NewAcceptEvt));
     this.listen(E.newPublish, (d) => this.onNewPublish(d as NewPublishEvt));
-    this.listen(E.ended, (d) => this.onEnded(d as EndedEvt));
+    this.listen(E.ended, (d) => this.endIfMine((d as EndedEvt).callId));
+    this.listen(E.rejected, (d) => this.endIfMine((d as RejectedEvt).callId, "Call declined."));
+    this.listen(E.handled, (d) => this.endIfMine((d as HandledEvt).callId));
+    this.listen(E.newMediaState, (d) => this.onMediaState(d as MediaStateEvt));
   }
 
   detach() {
@@ -59,20 +63,18 @@ class CallSession {
     return this.socket.timeout(ACK_TIMEOUT).emitWithAck(event, payload) as Promise<T>;
   }
 
-  // ---- intents, called by the UI ----
-
   async initiate({ conversationId, peer, media }: { conversationId: string; peer: CallPeer; media: Media }) {
     void ensureWebrtcAdapter();
     this.media.reset();
     this.set(this.fresh(null, conversationId, peer, media, "outgoing"));
     try {
       const ack = await this.request<InitiateAck>(E.initiate, { conversationId, callMediaType: media });
-      if (!ack?.success) return this.fail();
+      if (!ack?.success) return this.close();
       this.iceServers = ack.iceServers ?? [];
       this.patch({ callId: ack.callId });
       this.armRing();
     } catch {
-      this.fail();
+      this.close();
     }
   }
 
@@ -80,7 +82,6 @@ class CallSession {
     const call = this.call();
     if (!call?.callId) return;
     void ensureWebrtcAdapter();
-    // Expand to the full screen so the connecting state is visible.
     this.patch({ minimized: false });
     try {
       const ack = await this.request<AcceptAck>(E.accept, {
@@ -99,26 +100,34 @@ class CallSession {
   hangUp() {
     const call = this.call();
     if (call?.callId) {
-      this.request(E.leave, { callId: call.callId, conversationId: call.conversationId }).catch(() => {});
+      const event = call.phase === "incoming" ? E.reject : E.leave;
+      this.request(event, { callId: call.callId, conversationId: call.conversationId }).catch(() => {});
     }
     this.close();
   }
 
   setMuted(muted: boolean) {
-    const call = this.call();
-    if (!call) return;
     this.media.setMicEnabled(!muted);
     this.patch({ muted });
-    if (call.callId) {
-      this.request(E.mediaState, { callId: call.callId, audioOn: !muted, videoOn: call.media === "video" }).catch(() => {});
-    }
+  }
+
+  setCamera(camOn: boolean) {
+    if (!camOn) { void this.media.localVideo.stop(); return this.patch({ camOn: false }); }
+    if (!this.media.localVideo.hasVideo()) return void this.media.localVideo.upgrade();
+    this.media.setCamEnabled(true);
+    this.patch({ camOn: true });
+  }
+
+  flipCamera() {
+    void this.media.localVideo.flip();
+  }
+  upgradeToVideo() {
+    void this.media.localVideo.upgrade();
   }
 
   setSpeaker(speaker: boolean) {
     this.patch({ speaker });
   }
-
-  // ---- signaling handlers ----
 
   private onIncoming(d: IncomingEvt) {
     void ensureWebrtcAdapter();
@@ -129,29 +138,34 @@ class CallSession {
     this.armRing();
   }
 
+  // The callee answered: now we (the caller) bring up our own media.
   private onNewAccept(d: NewAcceptEvt) {
     const call = this.call();
     if (!call || call.callId !== d.callId) return;
-    // The callee answered: now we (the caller) bring up our own media.
     void this.media.start();
   }
 
   private onNewPublish(d: NewPublishEvt) {
     const call = this.call();
     if (!call || call.callId !== d.callId) return;
-    this.media.queuePublisher(d.userId, d.tracks.map((t) => t.kind));
+    const kinds = d.tracks.map((t) => t.kind);
+    this.media.queuePublisher(d.userId, kinds);
+    // The other side added a camera: become a video call; our camera stays off.
+    if (kinds.includes("cam") && call.media !== "video") this.patch({ media: "video", camOn: false });
   }
 
-  private onEnded(d: EndedEvt) {
-    const call = this.call();
-    if (!call || call.callId !== d.callId) return;
+  private onMediaState(d: MediaStateEvt) {
+    if (this.call()?.callId === d.callId) this.media.dropRemote(d.userId, d.kind);
+  }
+
+  private endIfMine(callId: string, message?: string) {
+    if (this.call()?.callId !== callId) return;
+    if (message) toast(message);
     this.close();
   }
 
-  // ---- helpers ----
-
   private fresh(callId: string | null, conversationId: string, peer: CallPeer, media: Media, phase: CallSnapshot["phase"]): CallSnapshot {
-    return { callId, conversationId, peer, media, phase, muted: false, speaker: true, minimized: false, startedAt: null };
+    return { callId, conversationId, peer, media, phase, muted: false, camOn: true, speaker: true, minimized: false, startedAt: null };
   }
 
   /** Ring for a while, then give up on an unanswered call on either side. */
@@ -159,12 +173,9 @@ class CallSession {
     this.clearRing();
     this.ringTimer = setTimeout(() => {
       const phase = this.call()?.phase;
-      if (phase === "outgoing" || phase === "connecting") {
-        toast("No answer.");
-        this.hangUp();
-      } else if (phase === "incoming") {
-        this.hangUp();
-      }
+      if (phase !== "outgoing" && phase !== "connecting" && phase !== "incoming") return;
+      if (phase !== "incoming") toast("No answer.");
+      this.hangUp();
     }, RING_TIMEOUT);
   }
 
@@ -177,10 +188,6 @@ class CallSession {
     this.clearRing();
     this.media.reset();
     this.set(null);
-  }
-
-  private fail() {
-    this.close();
   }
 
   private call() { return useCall.getState().call; }

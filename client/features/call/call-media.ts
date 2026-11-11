@@ -4,6 +4,8 @@ import type { CallStatus, PublishAck, SubscribeAck, SubscribeTarget } from "./si
 import type { CallSnapshot } from "./call-types";
 import { makeAnswer, makeOffer, trackKind } from "./call-rtc";
 import { RemoteAudio } from "./call-audio";
+import { useCallStreams } from "./call-streams";
+import { LocalVideo } from "./call-local-video";
 
 /** What the media plane needs from the session: the live call, ICE servers, the
     backend channel, a way to patch UI state, and a bail-out. */
@@ -29,8 +31,16 @@ export class CallMedia {
   private published = false;
   private chain: Promise<void> = Promise.resolve();
   private audio = new RemoteAudio();
+  private video: LocalVideo;
 
-  constructor(private deps: MediaDeps) {}
+  constructor(private deps: MediaDeps) {
+    this.video = new LocalVideo({
+      pc: () => this.pc,
+      stream: () => this.localStream,
+      deps,
+      run: (op) => this.runExclusive(op),
+    });
+  }
 
   active() {
     return this.pc !== null;
@@ -52,6 +62,7 @@ export class CallMedia {
         audio: true,
         video: call.media === "video",
       });
+      useCallStreams.getState().setLocal(this.localStream);
       const pc = new RTCPeerConnection({ iceServers: this.deps.getIce() });
       this.pc = pc;
       this.installHandlers(pc);
@@ -80,6 +91,13 @@ export class CallMedia {
     }
   }
 
+  /** A peer stopped a track: forget it (so it can be pulled again) and clear it. */
+  dropRemote(userId: string, kind: string) {
+    this.pulled.delete(`${userId}:${kind}`);
+    for (const [mid, w] of this.midToPublisher) if (w.userId === userId && w.kind === kind) this.midToPublisher.delete(mid);
+    useCallStreams.getState().removeRemote(userId, kind);
+  }
+
   /** A newcomer published. Pull them now, or hold them until we have published. */
   queuePublisher(userId: string, kinds: string[]) {
     const target: SubscribeTarget = { userId, kinds: kinds as SubscribeTarget["kinds"] };
@@ -89,6 +107,15 @@ export class CallMedia {
 
   setMicEnabled(enabled: boolean) {
     this.localStream?.getAudioTracks().forEach((t) => (t.enabled = enabled));
+  }
+
+  setCamEnabled(enabled: boolean) {
+    this.localStream?.getVideoTracks().forEach((t) => (t.enabled = enabled));
+  }
+
+  /** The outgoing camera: flip, upgrade an audio call, turn the camera off. */
+  get localVideo() {
+    return this.video;
   }
 
   reset() {
@@ -101,15 +128,24 @@ export class CallMedia {
       this.pc = null;
     }
     this.audio.clear();
+    useCallStreams.getState().clear();
     this.midToPublisher.clear();
     this.pulled.clear();
     this.pending = [];
     this.published = false;
+    this.video.reset();
     this.chain = Promise.resolve();
   }
 
   private enqueue(op: () => Promise<void>) {
     this.chain = this.chain.then(op).catch(() => {});
+  }
+
+  /** Run one SDP exchange on the queue, so an upgrade never overlaps a subscribe. */
+  private runExclusive<T>(op: () => Promise<T>): Promise<T> {
+    const run = this.chain.then(op);
+    this.chain = run.then(() => {}, () => {});
+    return run;
   }
 
   private async subscribe(targets: SubscribeTarget[]) {
@@ -136,8 +172,13 @@ export class CallMedia {
   private installHandlers(pc: RTCPeerConnection) {
     pc.ontrack = (event) => {
       const who = this.midToPublisher.get(event.transceiver.mid ?? "");
-      if (!who || event.track.kind !== "audio") return;
-      this.audio.attach(`${who.userId}:${who.kind}`, new MediaStream([event.track]));
+      if (!who) return;
+      const stream = new MediaStream([event.track]);
+      if (event.track.kind === "audio") {
+        this.audio.attach(`${who.userId}:${who.kind}`, stream);
+      } else {
+        useCallStreams.getState().upsertRemote({ userId: who.userId, kind: who.kind, stream });
+      }
     };
     pc.onconnectionstatechange = () => {
       const call = this.deps.getCall();

@@ -208,3 +208,17 @@
   width: 0;
   height: 0;
 }
+
+/* The attachment sheet slides up from the bottom on a phone. Reduced motion
+   turns the animation off via the block above. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.animate-sheet-up {
+  animation: sheet-up 0.2s ease-out;
+}

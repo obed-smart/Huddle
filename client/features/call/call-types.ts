@@ -31,6 +31,8 @@ export type CallSnapshot = {
   media: CallMedia;
   phase: CallPhase;
   muted: boolean;
+  /** Whether our camera is on (video calls only). */
+  camOn: boolean;
   speaker: boolean;
   /** Collapsed to the floating banner so the rest of the app is usable. */
   minimized: boolean;

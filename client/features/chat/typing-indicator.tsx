@@ -1,13 +1,17 @@
-/** Three soft dots plus the "typing…" label, shown at the foot of the list. */
+/** The "someone is typing" cue: three soft dots bouncing inside an incoming
+    style bubble. No words, just the bubble. The label is kept for screen
+    readers only, so a group still announces who is typing. */
 export function TypingIndicator({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2 px-1 py-1 text-xs text-muted-foreground">
-      <span className="flex items-center gap-1" aria-hidden>
+    <div className="flex" role="status" aria-label={label}>
+      <span
+        className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-secondary px-3.5 py-3"
+        aria-hidden
+      >
         <Dot delay="0ms" />
         <Dot delay="150ms" />
         <Dot delay="300ms" />
       </span>
-      <span>{label}</span>
     </div>
   );
 }
@@ -15,7 +19,7 @@ export function TypingIndicator({ label }: { label: string }) {
 function Dot({ delay }: { delay: string }) {
   return (
     <span
-      className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60 motion-reduce:animate-none"
+      className="size-2 animate-bounce rounded-full bg-muted-foreground/60 motion-reduce:animate-none"
       style={{ animationDelay: delay, animationDuration: "1s" }}
     />
   );

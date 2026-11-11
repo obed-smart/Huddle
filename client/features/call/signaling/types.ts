@@ -60,8 +60,10 @@ export type RenegotiateReq = { callId: string; description: RtcDescription };
     react: connected, or reconnecting after a drop. */
 export type CallStatus = "connected" | "reconnecting";
 export type StatusReq = { callId: string; conversationId: string; status: CallStatus };
-export type MediaStateReq = { callId: string; audioOn: boolean; videoOn: boolean };
 export type LeaveReq = { callId: string; conversationId: string };
+/** Reject reuses the leave shape. Media-state names one of our tracks (userId +
+    kind, like a subscribe target) so the backend can close it at the SFU. */
+export type MediaStateReq = { callId: string; conversationId: string; userId: string; kind: TrackKind };
 
 /* ---- backend to client (listen payloads) ---- */
 
@@ -74,6 +76,10 @@ export type IncomingEvt = {
   fromId: string;
 };
 export type NewAcceptEvt = { callId: string; from: string };
+export type RejectedEvt = { callId: string; from: string };
+export type HandledEvt = { callId: string; conversationId: string; reason: string };
+/** A peer stopped a track (same shape as a subscribe target): drop it. */
+export type MediaStateEvt = { callId: string; userId: string; kind: TrackKind };
 export type NewPublishEvt = { callId: string; userId: string; tracks: { kind: TrackKind }[] };
 export type ParticipantLeftEvt = { callId: string; from: string; participants: unknown[] };
 export type EndedEvt = { callId: string; reason: string };

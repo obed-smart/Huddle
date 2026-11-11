@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { useCall } from "./call-store";
 import { AudioCallScreen } from "./audio-call-screen";
+import { VideoCallScreen } from "./video-call-screen";
 import { CallBanner } from "./call-banner";
 import { IncomingToast } from "./incoming-toast";
 
@@ -30,11 +31,13 @@ export function CallRoot() {
   if (!isClient) return null;
 
   // Collapsed, a call is a top card: the incoming toast, or the ongoing pill.
-  // Expanded, it is the full screen (an incoming ring expands to a big screen
-  // with accept and decline, the connected call shows status and controls).
+  // Expanded, it is the full screen. An incoming ring always uses the avatar
+  // screen (no video until answered); a placed or connected video call uses the
+  // video screen, audio the audio screen.
   const incoming = call?.phase === "incoming";
   const minimized = !!call?.minimized;
-  const showScreen = !!call && !minimized && call.media === "audio";
+  const showScreen = !!call && !minimized;
+  const useVideo = !!call && !incoming && call.media === "video";
   const topCard = call && minimized ? (incoming ? "incoming" : "banner") : null;
 
   return createPortal(
@@ -49,7 +52,7 @@ export function CallRoot() {
             exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.98, transition: { duration: 0.18 } }}
             transition={{ duration: 0.26, ease: EASE_OUT }}
           >
-            <AudioCallScreen />
+            {useVideo ? <VideoCallScreen /> : <AudioCallScreen />}
           </motion.div>
         ) : null}
       </AnimatePresence>
