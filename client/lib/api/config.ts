@@ -35,6 +35,8 @@ export const paths = {
   userSearch: "/api/v1/user/search",
   // conversations
   conversations: "/api/v1/conversation",
+  // calls
+  calls: "/api/v1/call",
 } as const;
 
 /** The code the login route returns when the password is right but the email

@@ -1,19 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/notify";
 import { LogoMark } from "@/features/marketing/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useSection } from "@/stores/section";
 import { UserButton } from "./user-button";
 import { navItems, type NavItem } from "./nav-items";
 
 /** Desktop vertical nav rail. */
 export function NavRail({ className }: { className?: string }) {
-  const pathname = usePathname();
-
   return (
     <nav
       className={cn(
@@ -26,11 +24,7 @@ export function NavRail({ className }: { className?: string }) {
       </Link>
 
       {navItems.map((item) => (
-        <RailItem
-          key={item.key}
-          item={item}
-          active={item.enabled && pathname === item.href}
-        />
+        <RailItem key={item.key} item={item} />
       ))}
 
       <div className="mt-auto flex flex-col items-center gap-1">
@@ -41,15 +35,20 @@ export function NavRail({ className }: { className?: string }) {
   );
 }
 
-function RailItem({ item, active }: { item: NavItem; active: boolean }) {
+function RailItem({ item }: { item: NavItem }) {
   const Icon = item.icon;
+  const section = useSection((s) => s.section);
+  const setSection = useSection((s) => s.setSection);
   const base =
     "flex w-14 flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium transition-colors active:scale-95";
 
-  if (item.enabled && item.href) {
+  if (item.section) {
+    const target = item.section;
+    const active = section === target;
     return (
-      <Link
-        href={item.href}
+      <button
+        type="button"
+        onClick={() => setSection(target)}
         className={cn(
           base,
           active
@@ -59,7 +58,7 @@ function RailItem({ item, active }: { item: NavItem; active: boolean }) {
       >
         <Icon className="size-5" />
         {item.label}
-      </Link>
+      </button>
     );
   }
 

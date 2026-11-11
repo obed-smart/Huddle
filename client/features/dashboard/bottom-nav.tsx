@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/notify";
 import { Avatar } from "@/components/ui/avatar";
 import { useSession } from "@/stores/session";
+import { useSection } from "@/stores/section";
 import { UserButton } from "./user-button";
 import { navItems, type NavItem } from "./nav-items";
 
@@ -15,7 +13,6 @@ const itemClass =
 
 /** Mobile bottom tab bar: Chats, Calls, Meet, and You (account). */
 export function BottomNav({ className }: { className?: string }) {
-  const pathname = usePathname();
   const user = useSession((s) => s.user);
   const name = user?.displayName || user?.username || "";
 
@@ -28,11 +25,7 @@ export function BottomNav({ className }: { className?: string }) {
       style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
     >
       {navItems.map((item) => (
-        <BottomItem
-          key={item.key}
-          item={item}
-          active={item.enabled && pathname === item.href}
-        />
+        <BottomItem key={item.key} item={item} />
       ))}
 
       <UserButton
@@ -50,19 +43,24 @@ export function BottomNav({ className }: { className?: string }) {
   );
 }
 
-function BottomItem({ item, active }: { item: NavItem; active: boolean }) {
+function BottomItem({ item }: { item: NavItem }) {
   const Icon = item.icon;
+  const section = useSection((s) => s.section);
+  const setSection = useSection((s) => s.setSection);
   const base = cn("flex-1", itemClass);
 
-  if (item.enabled && item.href) {
+  if (item.section) {
+    const target = item.section;
+    const active = section === target;
     return (
-      <Link
-        href={item.href}
+      <button
+        type="button"
+        onClick={() => setSection(target)}
         className={cn(base, active ? "text-primary" : "text-muted-foreground")}
       >
         <Icon className="size-5" />
         {item.label}
-      </Link>
+      </button>
     );
   }
 

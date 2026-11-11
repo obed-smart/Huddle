@@ -1,3 +1,4 @@
+import { HashRedirect } from "@/features/auth/hash-redirect";
 import { SiteHeader } from "@/features/marketing/site-header";
 import { Hero } from "@/features/marketing/hero";
 import { TrustStrip } from "@/features/marketing/trust-strip";
@@ -9,6 +10,7 @@ import { SiteFooter } from "@/features/marketing/site-footer";
 export default function Home() {
   return (
     <>
+      <HashRedirect />
       <SiteHeader />
       <main className="flex flex-1 flex-col">
         <Hero />

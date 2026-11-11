@@ -1,11 +1,14 @@
 import { MessageCircle, Phone, Video, type LucideIcon } from "lucide-react";
 
+import type { Section } from "@/stores/section";
+
 export type NavItem = {
   key: string;
   label: string;
   icon: LucideIcon;
-  href?: string;
-  /** Sections still to be built show as "Soon" for now. */
+  /** The sidebar section this item switches to. Items without one are not
+      built yet and show as "coming soon". */
+  section?: Section;
   enabled: boolean;
 };
 
@@ -13,7 +16,7 @@ export type NavItem = {
    notification bell at the top, since they are the only notifications Huddle
    raises. */
 export const navItems: NavItem[] = [
-  { key: "chats", label: "Chats", icon: MessageCircle, href: "/dashboard", enabled: true },
-  { key: "calls", label: "Calls", icon: Phone, enabled: false },
+  { key: "chats", label: "Chats", icon: MessageCircle, section: "chats", enabled: true },
+  { key: "calls", label: "Calls", icon: Phone, section: "calls", enabled: true },
   { key: "meet", label: "Meet", icon: Video, enabled: false },
 ];

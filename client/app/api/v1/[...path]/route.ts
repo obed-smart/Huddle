@@ -52,9 +52,11 @@ async function forward(request: NextRequest, path: string[]) {
   const response = new NextResponse(await upstream.arrayBuffer(), { status: upstream.status });
   const contentType = upstream.headers.get("content-type");
   if (contentType) response.headers.set("content-type", contentType);
-  const secure = isSecure(request);
+  // Relax cookies only for a plain-http dev origin. Production stays strict even
+  // if a misconfigured proxy reports http in x-forwarded-proto.
+  const keepStrict = isSecure(request) || process.env.NODE_ENV === "production";
   for (const cookie of upstream.headers.getSetCookie()) {
-    response.headers.append("set-cookie", normalizeCookie(cookie, secure));
+    response.headers.append("set-cookie", normalizeCookie(cookie, keepStrict));
   }
   return response;
 }

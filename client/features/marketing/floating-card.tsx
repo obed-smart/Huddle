@@ -17,22 +17,23 @@ export function FloatingCard({
 }) {
   const reduce = useReducedMotion();
 
+  // `initial` is rendered into the server HTML, so it must not depend on
+  // useReducedMotion (false on the server, true on a reduced-motion client),
+  // or hydration mismatches. Keep it constant; branch only the client-side
+  // animate and transition, which run after hydration. Reduced motion keeps the
+  // gentle fade and drops the endless float.
   return (
     <motion.div
       className={className}
-      initial={reduce ? false : { opacity: 0, scale: 0.96 }}
-      animate={
-        reduce ? undefined : { opacity: 1, scale: 1, y: [0, -9, 0] }
-      }
-      transition={
-        reduce
-          ? undefined
-          : {
-              opacity: { duration: 0.5, delay },
-              scale: { duration: 0.5, delay },
-              y: { duration: 5.5, repeat: Infinity, ease: "easeInOut", delay },
-            }
-      }
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1, y: reduce ? 0 : [0, -9, 0] }}
+      transition={{
+        opacity: { duration: 0.5, delay },
+        scale: { duration: 0.5, delay },
+        ...(reduce
+          ? {}
+          : { y: { duration: 5.5, repeat: Infinity, ease: "easeInOut", delay } }),
+      }}
     >
       {children}
     </motion.div>
