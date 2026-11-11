@@ -89,6 +89,7 @@ export function MediaLightbox({ open, onClose, src, name, kind }: Props) {
                 src={src}
                 controls
                 autoPlay
+                playsInline
                 className="max-h-[88vh] max-w-[92vw] rounded-lg"
               />
             )}

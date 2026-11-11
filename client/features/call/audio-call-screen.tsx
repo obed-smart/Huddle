@@ -60,14 +60,18 @@ export function AudioCallScreen() {
           <ShieldCheck className="size-3.5" />
           Audio call
         </span>
-        <button
-          type="button"
-          onClick={() => toast("Inviting people is coming soon.")}
-          aria-label="Add person"
-          className="grid size-10 place-items-center rounded-full text-white/80 outline-none transition-transform duration-150 ease-out hover:text-white active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70"
-        >
-          <UserPlus className="size-5.5" />
-        </button>
+        {call.phase === "active" ? (
+          <button
+            type="button"
+            onClick={() => toast("Inviting people is coming soon.")}
+            aria-label="Add person"
+            className="grid size-10 place-items-center rounded-full text-white/80 outline-none transition-transform duration-150 ease-out hover:text-white active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70"
+          >
+            <UserPlus className="size-5.5" />
+          </button>
+        ) : (
+          <span className="size-10" aria-hidden />
+        )}
       </header>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
