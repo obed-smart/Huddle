@@ -170,6 +170,8 @@ export function callEvent(io: Server, socket: Socket) {
       const { sessionId: rtcSessionId } = await cfRtc.newSession();
       const iceServers = await getTurnCredentials();
 
+      logger.debug({ iceServers, rtcSessionId }, "INIT CONFIG");
+
       const dbCall = await callService.createCall(
         conversationId,
         userId,
@@ -200,6 +202,8 @@ export function callEvent(io: Server, socket: Socket) {
           joinedAt: Date.now(),
         },
       });
+
+      logger.debug({ call }, "New call");
 
       socket.join(callRoom(call.callId));
 

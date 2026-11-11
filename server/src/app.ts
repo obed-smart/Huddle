@@ -62,8 +62,9 @@ app.use(cookieParser());
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   "http://localhost:3000",
+  "http://10.111.58.217:3000",
   "https://oauth.pstmn.io",
-  "https://mainland-essentials-roles-fitting.trycloudflare.com",
+  " https://sleeky-unlikeably-sirena.ngrok-free.dev",
 ];
 
 app.use(
