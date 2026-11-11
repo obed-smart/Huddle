@@ -34,7 +34,7 @@ export function AudioCallScreen() {
 
   if (!call) return null;
   const { peer, muted, speaker } = call;
-  const ringing = call.phase === "outgoing" || call.phase === "connecting";
+  const ringing = call.phase !== "active";
 
   return (
     <div
@@ -88,6 +88,7 @@ export function AudioCallScreen() {
         speaker={speaker}
         onToggleMute={() => callSession.setMuted(!muted)}
         onToggleSpeaker={() => callSession.setSpeaker(!speaker)}
+        onAccept={() => callSession.accept()}
         onHangUp={() => callSession.hangUp()}
       />
     </div>

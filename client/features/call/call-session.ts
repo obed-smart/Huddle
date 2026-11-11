@@ -80,8 +80,15 @@ class CallSession {
     const call = this.call();
     if (!call?.callId) return;
     void ensureWebrtcAdapter();
+    // Expand to the full screen so the connecting state is visible.
+    this.patch({ minimized: false });
     try {
-      const ack = await this.request<AcceptAck>(E.accept, { callId: call.callId, conversationId: call.conversationId, rejoin });
+      const ack = await this.request<AcceptAck>(E.accept, {
+        callId: call.callId,
+        conversationId: call.conversationId,
+        callMediaType: call.media,
+        rejoin,
+      });
       if (!ack?.success) return this.hangUp();
       this.iceServers = ack.iceServers ?? this.iceServers;
       await this.media.start();
@@ -118,7 +125,8 @@ class CallSession {
     void ensureWebrtcAdapter();
     const media: Media = d.callMediaType === "video" ? "video" : "audio";
     const peer: CallPeer = { id: d.fromId, name: d.fromName, avatar: d.avatarUrl ?? null };
-    this.set(this.fresh(d.callId, d.conversationId, peer, media, "incoming"));
+    // An inbound ring starts collapsed as the toast; tapping it expands.
+    this.set({ ...this.fresh(d.callId, d.conversationId, peer, media, "incoming"), minimized: true });
     this.armRing();
   }
 

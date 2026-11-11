@@ -21,6 +21,8 @@ export type InitiateAck = {
 export type AcceptReq = {
   callId: string;
   conversationId: string;
+  /** The media of the call being answered; the accept schema requires it. */
+  callMediaType: CallMediaType;
   /** True when answering an existing call after a network drop (not a fresh
       answer). The backend recovers the session instead of starting one. */
   rejoin: boolean;
