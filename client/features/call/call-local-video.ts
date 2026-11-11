@@ -33,9 +33,9 @@ export class LocalVideo {
     return (this.ctx.stream()?.getVideoTracks().length ?? 0) > 0;
   }
 
-  /** Turn our camera fully off: stop the track and tell the backend to close it
-      at Cloudflare, so it stops sending our video and no bandwidth is wasted.
-      Turning the camera back on re-publishes through upgrade(). */
+  /** Turn our camera fully off: stop the track and tell the backend (media-state)
+      to close it at Cloudflare, so it stops sending our video and no bandwidth
+      is wasted. Turning the camera back on re-publishes through upgrade(). */
   async stop() {
     const stream = this.ctx.stream();
     const track = stream?.getVideoTracks()[0];
@@ -47,7 +47,7 @@ export class LocalVideo {
     const call = this.ctx.deps.getCall();
     const userId = useSession.getState().user?.id;
     if (call?.callId && userId) {
-      void this.ctx.deps.request(E.close, {
+      void this.ctx.deps.request(E.mediaState, {
         callId: call.callId,
         conversationId: call.conversationId,
         userId,

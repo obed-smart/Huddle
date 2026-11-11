@@ -49,9 +49,9 @@ export function VideoCallScreen() {
       <div className="absolute inset-0">
         {remoteCam ? (
           <VideoTile stream={remoteCam} />
-        ) : camOn && local ? (
-          <VideoTile stream={local} muted mirror />
         ) : (
+          // No remote video (their camera is off, or not on yet): show them like
+          // an audio call, their portrait, never a blank frame or our own camera.
           <div className="grid size-full place-items-center">
             <Avatar src={peer.avatar} name={peer.name} className="size-28 text-3xl" />
           </div>
@@ -87,15 +87,9 @@ export function VideoCallScreen() {
         )}
       </header>
 
-      {remoteCam && local ? (
+      {camOn && local ? (
         <div className="absolute right-4 top-36 h-40 w-28 overflow-hidden rounded-2xl border border-white/15 bg-black/50 shadow-xl">
-          {camOn ? (
-            <VideoTile stream={local} muted mirror />
-          ) : (
-            <div className="grid size-full place-items-center">
-              <VideoOff className="size-6 text-white/60" />
-            </div>
-          )}
+          <VideoTile stream={local} muted mirror />
         </div>
       ) : null}
 

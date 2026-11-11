@@ -91,6 +91,13 @@ export class CallMedia {
     }
   }
 
+  /** A peer stopped a track: forget it (so it can be pulled again) and clear it. */
+  dropRemote(userId: string, kind: string) {
+    this.pulled.delete(`${userId}:${kind}`);
+    for (const [mid, w] of this.midToPublisher) if (w.userId === userId && w.kind === kind) this.midToPublisher.delete(mid);
+    useCallStreams.getState().removeRemote(userId, kind);
+  }
+
   /** A newcomer published. Pull them now, or hold them until we have published. */
   queuePublisher(userId: string, kinds: string[]) {
     const target: SubscribeTarget = { userId, kinds: kinds as SubscribeTarget["kinds"] };

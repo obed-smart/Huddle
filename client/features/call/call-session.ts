@@ -5,7 +5,8 @@ import { ensureWebrtcAdapter } from "@/lib/webrtc/adapter";
 import { useCall } from "./call-store";
 import { CALL_EVENTS as E } from "./signaling/events";
 import type {
-  AcceptAck, EndedEvt, HandledEvt, IncomingEvt, InitiateAck, NewAcceptEvt, NewPublishEvt, RejectedEvt,
+  AcceptAck, EndedEvt, HandledEvt, IncomingEvt, InitiateAck,
+  MediaStateEvt, NewAcceptEvt, NewPublishEvt, RejectedEvt,
 } from "./signaling/types";
 import type { CallMedia as Media, CallPeer, CallSnapshot } from "./call-types";
 import { CallMedia } from "./call-media";
@@ -43,6 +44,7 @@ class CallSession {
     this.listen(E.ended, (d) => this.endIfMine((d as EndedEvt).callId));
     this.listen(E.rejected, (d) => this.endIfMine((d as RejectedEvt).callId, "Call declined."));
     this.listen(E.handled, (d) => this.endIfMine((d as HandledEvt).callId));
+    this.listen(E.newMediaState, (d) => this.onMediaState(d as MediaStateEvt));
   }
 
   detach() {
@@ -60,8 +62,6 @@ class CallSession {
     if (!this.socket) return Promise.reject(new Error("call socket is not connected"));
     return this.socket.timeout(ACK_TIMEOUT).emitWithAck(event, payload) as Promise<T>;
   }
-
-  // ---- intents, called by the UI ----
 
   async initiate({ conversationId, peer, media }: { conversationId: string; peer: CallPeer; media: Media }) {
     void ensureWebrtcAdapter();
@@ -82,7 +82,6 @@ class CallSession {
     const call = this.call();
     if (!call?.callId) return;
     void ensureWebrtcAdapter();
-    // Expand to the full screen so the connecting state is visible.
     this.patch({ minimized: false });
     try {
       const ack = await this.request<AcceptAck>(E.accept, {
@@ -130,8 +129,6 @@ class CallSession {
     this.patch({ speaker });
   }
 
-  // ---- signaling handlers ----
-
   private onIncoming(d: IncomingEvt) {
     void ensureWebrtcAdapter();
     const media: Media = d.callMediaType === "video" ? "video" : "audio";
@@ -141,10 +138,10 @@ class CallSession {
     this.armRing();
   }
 
+  // The callee answered: now we (the caller) bring up our own media.
   private onNewAccept(d: NewAcceptEvt) {
     const call = this.call();
     if (!call || call.callId !== d.callId) return;
-    // The callee answered: now we (the caller) bring up our own media.
     void this.media.start();
   }
 
@@ -157,13 +154,15 @@ class CallSession {
     if (kinds.includes("cam") && call.media !== "video") this.patch({ media: "video", camOn: false });
   }
 
+  private onMediaState(d: MediaStateEvt) {
+    if (this.call()?.callId === d.callId) this.media.dropRemote(d.userId, d.kind);
+  }
+
   private endIfMine(callId: string, message?: string) {
     if (this.call()?.callId !== callId) return;
     if (message) toast(message);
     this.close();
   }
-
-  // ---- helpers ----
 
   private fresh(callId: string | null, conversationId: string, peer: CallPeer, media: Media, phase: CallSnapshot["phase"]): CallSnapshot {
     return { callId, conversationId, peer, media, phase, muted: false, camOn: true, speaker: true, minimized: false, startedAt: null };

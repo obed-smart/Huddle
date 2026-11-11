@@ -8,10 +8,10 @@ export const CALL_EVENTS = {
   subscribe: "call:subscribe",
   renegotiate: "call:renegotiate",
   status: "call:status",
-  mediaState: "call:media-state",
   leave: "call:leave",
   reject: "call:reject",
-  close: "call:close",
+  // We stopped sending a track (camera off): the backend closes it at the SFU.
+  mediaState: "call:media:state",
 
   // backend to client (listen)
   incoming: "call:incoming",
@@ -21,4 +21,6 @@ export const CALL_EVENTS = {
   ended: "call:new:ended",
   rejected: "call:new:rejected",
   handled: "call:new:handled",
+  // A peer stopped a track: drop it from the UI and fall back to their avatar.
+  newMediaState: "call:new:media:state",
 } as const;
