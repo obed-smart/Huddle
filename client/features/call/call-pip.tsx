@@ -48,7 +48,7 @@ export function CallPip({ onTap, children }: { onTap: () => void; children: Reac
       onPointerMove={onMove}
       onPointerUp={onUp}
       style={pos ? { left: pos.x, top: pos.y } : undefined}
-      className={`absolute z-20 h-40 w-28 cursor-grab touch-none overflow-hidden rounded-2xl border border-white/20 bg-black/60 shadow-xl active:cursor-grabbing ${pos ? "" : "right-4 top-28"}`}
+      className={`absolute z-20 h-40 w-28 cursor-grab touch-none overflow-hidden rounded-2xl border border-white/20 bg-black/60 shadow-xl active:cursor-grabbing ${pos ? "" : "right-4 top-40"}`}
     >
       {children}
     </div>

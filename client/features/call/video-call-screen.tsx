@@ -99,9 +99,16 @@ export function VideoCallScreen() {
           <CallStatus phase={call.phase} startedAt={call.startedAt} media={call.media} />
         </div>
         {active ? (
-          <button type="button" onClick={() => toast("Inviting people is coming soon.")} aria-label="Add person" className={chip}>
-            <UserPlus className="size-5.5" />
-          </button>
+          <div className="flex flex-col items-end gap-3">
+            <button type="button" onClick={() => toast("Inviting people is coming soon.")} aria-label="Add person" className={chip}>
+              <UserPlus className="size-5.5" />
+            </button>
+            {camOn ? (
+              <button type="button" onClick={() => callSession.flipCamera()} aria-label="Flip camera" className={chip}>
+                <SwitchCamera className="size-5.5" />
+              </button>
+            ) : null}
+          </div>
         ) : (
           <span className="size-10" aria-hidden />
         )}
@@ -117,10 +124,9 @@ export function VideoCallScreen() {
         className={`absolute inset-x-0 bottom-0 flex items-center justify-center gap-3 px-6 pb-10 sm:gap-4 ${chrome}`}
         style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))" }}
       >
-        <CallControlButton icon={<SwitchCamera />} srLabel="Flip camera" disabled={!camOn} onClick={() => callSession.flipCamera()} />
         <CallControlButton icon={camOn ? <Video /> : <VideoOff />} srLabel={camOn ? "Turn camera off" : "Turn camera on"} active={!camOn} onClick={() => callSession.setCamera(!camOn)} />
-        <CallControlButton icon={muted ? <MicOff /> : <Mic />} srLabel={muted ? "Unmute" : "Mute"} active={muted} onClick={() => callSession.setMuted(!muted)} />
         <CallControlButton variant="end" icon={<PhoneOff />} srLabel="End call" onClick={() => callSession.hangUp()} />
+        <CallControlButton icon={muted ? <MicOff /> : <Mic />} srLabel={muted ? "Unmute" : "Mute"} active={muted} onClick={() => callSession.setMuted(!muted)} />
       </div>
     </div>
   );
