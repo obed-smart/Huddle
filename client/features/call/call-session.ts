@@ -5,7 +5,7 @@ import { ensureWebrtcAdapter } from "@/lib/webrtc/adapter";
 import { useCall } from "./call-store";
 import { CALL_EVENTS as E } from "./signaling/events";
 import type {
-  AcceptAck, EndedEvt, IncomingEvt, InitiateAck, NewAcceptEvt, NewPublishEvt,
+  AcceptAck, EndedEvt, HandledEvt, IncomingEvt, InitiateAck, NewAcceptEvt, NewPublishEvt, RejectedEvt,
 } from "./signaling/types";
 import type { CallMedia as Media, CallPeer, CallSnapshot } from "./call-types";
 import { CallMedia } from "./call-media";
@@ -40,7 +40,9 @@ class CallSession {
     this.listen(E.incoming, (d) => this.onIncoming(d as IncomingEvt));
     this.listen(E.newAccept, (d) => this.onNewAccept(d as NewAcceptEvt));
     this.listen(E.newPublish, (d) => this.onNewPublish(d as NewPublishEvt));
-    this.listen(E.ended, (d) => this.onEnded(d as EndedEvt));
+    this.listen(E.ended, (d) => this.endIfMine((d as EndedEvt).callId));
+    this.listen(E.rejected, (d) => this.endIfMine((d as RejectedEvt).callId, "Call declined."));
+    this.listen(E.handled, (d) => this.endIfMine((d as HandledEvt).callId));
   }
 
   detach() {
@@ -99,7 +101,8 @@ class CallSession {
   hangUp() {
     const call = this.call();
     if (call?.callId) {
-      this.request(E.leave, { callId: call.callId, conversationId: call.conversationId }).catch(() => {});
+      const event = call.phase === "incoming" ? E.reject : E.leave;
+      this.request(event, { callId: call.callId, conversationId: call.conversationId }).catch(() => {});
     }
     this.close();
   }
@@ -109,18 +112,18 @@ class CallSession {
     this.patch({ muted });
   }
 
-  // Camera on with none published yet is an upgrade; otherwise just a toggle.
   setCamera(camOn: boolean) {
-    if (camOn && !this.media.hasVideo()) return void this.media.upgradeToVideo();
-    this.media.setCamEnabled(camOn);
-    this.patch({ camOn });
+    if (!camOn) { void this.media.localVideo.stop(); return this.patch({ camOn: false }); }
+    if (!this.media.localVideo.hasVideo()) return void this.media.localVideo.upgrade();
+    this.media.setCamEnabled(true);
+    this.patch({ camOn: true });
   }
 
   flipCamera() {
-    void this.media.flipCamera();
+    void this.media.localVideo.flip();
   }
   upgradeToVideo() {
-    void this.media.upgradeToVideo();
+    void this.media.localVideo.upgrade();
   }
 
   setSpeaker(speaker: boolean) {
@@ -154,9 +157,9 @@ class CallSession {
     if (kinds.includes("cam") && call.media !== "video") this.patch({ media: "video", camOn: false });
   }
 
-  private onEnded(d: EndedEvt) {
-    const call = this.call();
-    if (!call || call.callId !== d.callId) return;
+  private endIfMine(callId: string, message?: string) {
+    if (this.call()?.callId !== callId) return;
+    if (message) toast(message);
     this.close();
   }
 
@@ -171,12 +174,9 @@ class CallSession {
     this.clearRing();
     this.ringTimer = setTimeout(() => {
       const phase = this.call()?.phase;
-      if (phase === "outgoing" || phase === "connecting") {
-        toast("No answer.");
-        this.hangUp();
-      } else if (phase === "incoming") {
-        this.hangUp();
-      }
+      if (phase !== "outgoing" && phase !== "connecting" && phase !== "incoming") return;
+      if (phase !== "incoming") toast("No answer.");
+      this.hangUp();
     }, RING_TIMEOUT);
   }
 

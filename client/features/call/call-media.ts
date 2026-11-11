@@ -106,16 +106,9 @@ export class CallMedia {
     this.localStream?.getVideoTracks().forEach((t) => (t.enabled = enabled));
   }
 
-  hasVideo() {
-    return (this.localStream?.getVideoTracks().length ?? 0) > 0;
-  }
-
-  flipCamera() {
-    void this.video.flip();
-  }
-
-  upgradeToVideo() {
-    void this.video.upgrade();
+  /** The outgoing camera: flip, upgrade an audio call, turn the camera off. */
+  get localVideo() {
+    return this.video;
   }
 
   reset() {

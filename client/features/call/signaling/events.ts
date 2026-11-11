@@ -10,6 +10,8 @@ export const CALL_EVENTS = {
   status: "call:status",
   mediaState: "call:media-state",
   leave: "call:leave",
+  reject: "call:reject",
+  close: "call:close",
 
   // backend to client (listen)
   incoming: "call:incoming",
@@ -17,4 +19,6 @@ export const CALL_EVENTS = {
   newPublish: "call:new:publish",
   participantLeft: "call:new:participant:left",
   ended: "call:new:ended",
+  rejected: "call:new:rejected",
+  handled: "call:new:handled",
 } as const;

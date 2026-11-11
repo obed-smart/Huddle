@@ -1,4 +1,5 @@
 import { toast } from "@/lib/notify";
+import { useSession } from "@/stores/session";
 import { makeOffer, trackKind } from "./call-rtc";
 import { useCallStreams } from "./call-streams";
 import { CALL_EVENTS as E } from "./signaling/events";
@@ -25,6 +26,34 @@ export class LocalVideo {
 
   reset() {
     this.facing = "user";
+  }
+
+  /** Whether we are already publishing a camera track. */
+  hasVideo() {
+    return (this.ctx.stream()?.getVideoTracks().length ?? 0) > 0;
+  }
+
+  /** Turn our camera fully off: stop the track and tell the backend to close it
+      at Cloudflare, so it stops sending our video and no bandwidth is wasted.
+      Turning the camera back on re-publishes through upgrade(). */
+  async stop() {
+    const stream = this.ctx.stream();
+    const track = stream?.getVideoTracks()[0];
+    if (!stream || !track) return;
+    await this.ctx.pc()?.getSenders().find((s) => s.track?.kind === "video")?.replaceTrack(null);
+    stream.removeTrack(track);
+    track.stop();
+    useCallStreams.getState().setLocal(new MediaStream(stream.getTracks()));
+    const call = this.ctx.deps.getCall();
+    const userId = useSession.getState().user?.id;
+    if (call?.callId && userId) {
+      void this.ctx.deps.request(E.close, {
+        callId: call.callId,
+        conversationId: call.conversationId,
+        userId,
+        kind: "cam",
+      });
+    }
   }
 
   /** Front to rear and back: replace the track on the live sender, which needs
