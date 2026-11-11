@@ -105,23 +105,25 @@ class CallSession {
   }
 
   setMuted(muted: boolean) {
-    const call = this.call();
-    if (!call) return;
     this.media.setMicEnabled(!muted);
-    this.patch({ muted });
-    if (call.callId) {
-      this.request(E.mediaState, { callId: call.callId, audioOn: !muted, videoOn: call.media === "video" }).catch(() => {});
-    }
+    this.setMedia({ muted });
   }
 
   setCamera(camOn: boolean) {
+    this.media.setCamEnabled(camOn);
+    this.setMedia({ camOn });
+  }
+
+  flipCamera() {
+    void this.media.flipCamera();
+  }
+  private setMedia(partial: Partial<CallSnapshot>) {
     const call = this.call();
     if (!call) return;
-    this.media.setCamEnabled(camOn);
-    this.patch({ camOn });
-    if (call.callId) {
-      this.request(E.mediaState, { callId: call.callId, audioOn: !call.muted, videoOn: camOn }).catch(() => {});
-    }
+    this.patch(partial);
+    const c = { ...call, ...partial };
+    if (!c.callId) return;
+    this.request(E.mediaState, { callId: c.callId, audioOn: !c.muted, videoOn: c.media === "video" && c.camOn }).catch(() => {});
   }
 
   setSpeaker(speaker: boolean) {

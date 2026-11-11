@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { ChevronDown, Mic, MicOff, Video, VideoOff, Volume2, VolumeX, Repeat, PhoneOff, UserPlus } from "lucide-react";
+import { ChevronDown, Mic, MicOff, Video, VideoOff, Volume2, VolumeX, Repeat, PhoneOff, UserPlus, SwitchCamera } from "lucide-react";
 
 import { toast } from "@/lib/notify";
 import { Avatar } from "@/components/ui/avatar";
@@ -72,16 +72,23 @@ export function VideoCallScreen() {
           <CallStatus phase={call.phase} startedAt={call.startedAt} />
         </div>
         {active ? (
-          <button type="button" onClick={() => toast("Inviting people is coming soon.")} aria-label="Add person" className={chip}>
-            <UserPlus className="size-5.5" />
-          </button>
+          <div className="flex flex-col items-end gap-3">
+            <button type="button" onClick={() => toast("Inviting people is coming soon.")} aria-label="Add person" className={chip}>
+              <UserPlus className="size-5.5" />
+            </button>
+            {camOn ? (
+              <button type="button" onClick={() => callSession.flipCamera()} aria-label="Switch camera" className={chip}>
+                <SwitchCamera className="size-5.5" />
+              </button>
+            ) : null}
+          </div>
         ) : (
           <span className="size-10" aria-hidden />
         )}
       </header>
 
       {remoteCam && local ? (
-        <div className="absolute right-4 top-24 h-40 w-28 overflow-hidden rounded-2xl border border-white/15 bg-black/50 shadow-xl">
+        <div className="absolute right-4 top-36 h-40 w-28 overflow-hidden rounded-2xl border border-white/15 bg-black/50 shadow-xl">
           {camOn ? (
             <VideoTile stream={local} muted mirror />
           ) : (

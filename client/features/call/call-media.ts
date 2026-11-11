@@ -30,6 +30,7 @@ export class CallMedia {
   private published = false;
   private chain: Promise<void> = Promise.resolve();
   private audio = new RemoteAudio();
+  private facing: "user" | "environment" = "user";
 
   constructor(private deps: MediaDeps) {}
 
@@ -97,6 +98,31 @@ export class CallMedia {
     this.localStream?.getVideoTracks().forEach((t) => (t.enabled = enabled));
   }
 
+  /** Swap between the front and rear camera without an SDP renegotiation: grab a
+      track from the other camera and replace it on the live video sender. */
+  async flipCamera() {
+    const call = this.deps.getCall();
+    const sender = this.pc?.getSenders().find((s) => s.track?.kind === "video");
+    if (!this.localStream || !sender || call?.media !== "video") return;
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    const facing = this.facing === "user" ? "environment" : "user";
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing } });
+    } catch {
+      return toast("Could not switch the camera.");
+    }
+    const next = stream.getVideoTracks()[0];
+    if (!next) return;
+    next.enabled = call.camOn;
+    await sender.replaceTrack(next);
+    const old = this.localStream.getVideoTracks()[0];
+    if (old) { this.localStream.removeTrack(old); old.stop(); }
+    this.localStream.addTrack(next);
+    this.facing = facing;
+    useCallStreams.getState().setLocal(new MediaStream(this.localStream.getTracks()));
+  }
+
   reset() {
     this.localStream?.getTracks().forEach((t) => t.stop());
     this.localStream = null;
@@ -112,6 +138,7 @@ export class CallMedia {
     this.pulled.clear();
     this.pending = [];
     this.published = false;
+    this.facing = "user";
     this.chain = Promise.resolve();
   }
 
