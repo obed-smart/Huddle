@@ -67,12 +67,12 @@ class CallSession {
     this.set(this.fresh(null, conversationId, peer, media, "outgoing"));
     try {
       const ack = await this.request<InitiateAck>(E.initiate, { conversationId, callMediaType: media });
-      if (!ack?.success) return this.fail();
+      if (!ack?.success) return this.close();
       this.iceServers = ack.iceServers ?? [];
       this.patch({ callId: ack.callId });
       this.armRing();
     } catch {
-      this.fail();
+      this.close();
     }
   }
 
@@ -114,6 +114,16 @@ class CallSession {
     }
   }
 
+  setCamera(camOn: boolean) {
+    const call = this.call();
+    if (!call) return;
+    this.media.setCamEnabled(camOn);
+    this.patch({ camOn });
+    if (call.callId) {
+      this.request(E.mediaState, { callId: call.callId, audioOn: !call.muted, videoOn: camOn }).catch(() => {});
+    }
+  }
+
   setSpeaker(speaker: boolean) {
     this.patch({ speaker });
   }
@@ -151,7 +161,7 @@ class CallSession {
   // ---- helpers ----
 
   private fresh(callId: string | null, conversationId: string, peer: CallPeer, media: Media, phase: CallSnapshot["phase"]): CallSnapshot {
-    return { callId, conversationId, peer, media, phase, muted: false, speaker: true, minimized: false, startedAt: null };
+    return { callId, conversationId, peer, media, phase, muted: false, camOn: true, speaker: true, minimized: false, startedAt: null };
   }
 
   /** Ring for a while, then give up on an unanswered call on either side. */
@@ -177,10 +187,6 @@ class CallSession {
     this.clearRing();
     this.media.reset();
     this.set(null);
-  }
-
-  private fail() {
-    this.close();
   }
 
   private call() { return useCall.getState().call; }

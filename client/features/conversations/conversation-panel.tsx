@@ -6,7 +6,6 @@ import { Search, PenSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { toast } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/features/dashboard/notification-bell";
 import { UserSearchSheet } from "@/features/search/user-search-sheet";
@@ -63,12 +62,11 @@ export function ConversationPanel({ selectedId, onSelect, className }: Props) {
   }
   function redial(entry: CallLogEntry) {
     openChat(entry.conversationId);
-    if (entry.type === "video") return toast("Video calls are coming soon.");
     const other = entry.otherParticipants[0];
     callSession.initiate({
       conversationId: entry.conversationId,
       peer: { id: other?.userId ?? entry.conversationId, name: entry.label, avatar: entry.avatarUrl ?? null },
-      media: "audio",
+      media: entry.type,
     });
   }
 

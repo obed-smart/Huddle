@@ -4,6 +4,7 @@ import type { CallStatus, PublishAck, SubscribeAck, SubscribeTarget } from "./si
 import type { CallSnapshot } from "./call-types";
 import { makeAnswer, makeOffer, trackKind } from "./call-rtc";
 import { RemoteAudio } from "./call-audio";
+import { useCallStreams } from "./call-streams";
 
 /** What the media plane needs from the session: the live call, ICE servers, the
     backend channel, a way to patch UI state, and a bail-out. */
@@ -52,6 +53,7 @@ export class CallMedia {
         audio: true,
         video: call.media === "video",
       });
+      useCallStreams.getState().setLocal(this.localStream);
       const pc = new RTCPeerConnection({ iceServers: this.deps.getIce() });
       this.pc = pc;
       this.installHandlers(pc);
@@ -91,6 +93,10 @@ export class CallMedia {
     this.localStream?.getAudioTracks().forEach((t) => (t.enabled = enabled));
   }
 
+  setCamEnabled(enabled: boolean) {
+    this.localStream?.getVideoTracks().forEach((t) => (t.enabled = enabled));
+  }
+
   reset() {
     this.localStream?.getTracks().forEach((t) => t.stop());
     this.localStream = null;
@@ -101,6 +107,7 @@ export class CallMedia {
       this.pc = null;
     }
     this.audio.clear();
+    useCallStreams.getState().clear();
     this.midToPublisher.clear();
     this.pulled.clear();
     this.pending = [];
@@ -136,8 +143,13 @@ export class CallMedia {
   private installHandlers(pc: RTCPeerConnection) {
     pc.ontrack = (event) => {
       const who = this.midToPublisher.get(event.transceiver.mid ?? "");
-      if (!who || event.track.kind !== "audio") return;
-      this.audio.attach(`${who.userId}:${who.kind}`, new MediaStream([event.track]));
+      if (!who) return;
+      const stream = new MediaStream([event.track]);
+      if (event.track.kind === "audio") {
+        this.audio.attach(`${who.userId}:${who.kind}`, stream);
+      } else {
+        useCallStreams.getState().upsertRemote({ userId: who.userId, kind: who.kind, stream });
+      }
     };
     pc.onconnectionstatechange = () => {
       const call = this.deps.getCall();

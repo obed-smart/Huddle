@@ -4,7 +4,6 @@ import { ArrowLeft, Phone, Video } from "lucide-react";
 
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/lib/notify";
 import { callSession } from "@/features/call/call-session";
 import type { Conversation } from "@/lib/api/types";
 
@@ -17,15 +16,12 @@ export function ChatHeader({ conversation, onBack, onOpenInfo }: Props) {
   const subtitle = isGroup ? `${conversation.membersCount ?? "?"} members` : "Direct message";
   const canOpenInfo = Boolean(onOpenInfo);
 
-  // Audio calls for a direct chat or a group. For a group the peer is the group
-  // itself (its name and avatar); the backend rings every member. Video is next.
+  // Calls for a direct chat or a group. For a group the peer is the group
+  // itself (its name and avatar); the backend rings every member.
   const otherId = conversation.otherUserId ?? null;
-  const onVoice = () =>
-    callSession.initiate({
-      conversationId: conversation.id,
-      peer: { id: otherId ?? conversation.id, name: conversation.name, avatar: conversation.avatar },
-      media: "audio",
-    });
+  const peer = { id: otherId ?? conversation.id, name: conversation.name, avatar: conversation.avatar };
+  const place = (media: "audio" | "video") =>
+    callSession.initiate({ conversationId: conversation.id, peer, media });
 
   return (
     <header className="glass flex items-center gap-3 border-b px-3 py-3 sm:px-4">
@@ -55,7 +51,7 @@ export function ChatHeader({ conversation, onBack, onOpenInfo }: Props) {
         variant="ghost"
         size="icon"
         aria-label="Start a call"
-        onClick={onVoice}
+        onClick={() => place("audio")}
       >
         <Phone />
       </Button>
@@ -63,7 +59,7 @@ export function ChatHeader({ conversation, onBack, onOpenInfo }: Props) {
         variant="ghost"
         size="icon"
         aria-label="Start a video call"
-        onClick={() => toast("Video is coming soon.")}
+        onClick={() => place("video")}
       >
         <Video />
       </Button>
