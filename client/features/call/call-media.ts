@@ -1,3 +1,4 @@
+import { toast } from "@/lib/notify";
 import { CALL_EVENTS as E } from "./signaling/events";
 import type { CallStatus, PublishAck, SubscribeAck, SubscribeTarget } from "./signaling/types";
 import type { CallSnapshot } from "./call-types";
@@ -39,6 +40,12 @@ export class CallMedia {
   async start() {
     const call = this.deps.getCall();
     if (!call?.callId || this.pc) return;
+    // Mic and camera need a secure context: https, or localhost. Over plain
+    // http on a LAN ip the browser hides mediaDevices entirely, so say why.
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast("Calls need a secure connection. Open the app over https or on localhost.");
+      return this.deps.fail();
+    }
     this.deps.patch({ phase: "connecting" });
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({
@@ -62,7 +69,13 @@ export class CallMedia {
       const first = [...(ack.existing ?? []), ...this.pending];
       this.pending = [];
       if (first.length) this.enqueue(() => this.subscribe(first));
-    } catch {
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : "";
+      toast(
+        name === "NotAllowedError"
+          ? "Microphone permission was denied."
+          : "Could not start the call audio.",
+      );
       this.deps.fail();
     }
   }

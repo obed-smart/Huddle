@@ -5,6 +5,7 @@ import { ArrowLeft, Phone, Video } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/notify";
+import { callSession } from "@/features/call/call-session";
 import type { Conversation } from "@/lib/api/types";
 
 type Props = { conversation: Conversation; onBack: () => void; onOpenInfo?: () => void };
@@ -15,6 +16,18 @@ export function ChatHeader({ conversation, onBack, onOpenInfo }: Props) {
   const isGroup = conversation.type === "group";
   const subtitle = isGroup ? `${conversation.membersCount ?? "?"} members` : "Direct message";
   const canOpenInfo = Boolean(onOpenInfo);
+
+  // A direct chat places a real audio call; group and video land next.
+  const otherId = conversation.otherUserId ?? null;
+  const onVoice =
+    conversation.type === "direct" && otherId
+      ? () =>
+          callSession.initiate({
+            conversationId: conversation.id,
+            peer: { id: otherId, name: conversation.name, avatar: conversation.avatar },
+            media: "audio",
+          })
+      : () => toast("Calling is coming soon.");
 
   return (
     <header className="glass flex items-center gap-3 border-b px-3 py-3 sm:px-4">
@@ -44,7 +57,7 @@ export function ChatHeader({ conversation, onBack, onOpenInfo }: Props) {
         variant="ghost"
         size="icon"
         aria-label="Start a call"
-        onClick={() => toast("Calling is coming soon.")}
+        onClick={onVoice}
       >
         <Phone />
       </Button>

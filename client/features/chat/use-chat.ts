@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { emitWithAck, onSocketConnected, type Ack } from "@/lib/socket";
 import { useSocket } from "@/features/realtime/socket-provider";
 import { conversationIdOf, normalizeMessage } from "@/lib/messages/normalize";
+import { uid } from "@/lib/id";
 import type { Message } from "@/lib/messages/types";
 import { uploadFiles } from "@/lib/media/upload";
 import { describeMedia } from "@/lib/media/metadata";
@@ -71,7 +72,7 @@ export function useChat(conversationId: string) {
     const content = text.trim();
     if (!content || !conversationId) return;
 
-    const tempId = crypto.randomUUID();
+    const tempId = uid();
     const optimistic = normalizeMessage(
       { tempId, content, createdAt: new Date().toISOString(), sender: senderFromUser(user) },
       { conversationId, source: "local", pending: true, mine: true },
@@ -95,7 +96,7 @@ export function useChat(conversationId: string) {
   async function sendMedia(items: StagedItem[], caption: string) {
     if (!conversationId || items.length === 0) return;
 
-    const tempId = crypto.randomUUID();
+    const tempId = uid();
     const optimistic = normalizeMessage(
       {
         tempId,

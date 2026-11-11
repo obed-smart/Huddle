@@ -1,5 +1,6 @@
 import type { Socket } from "socket.io-client";
 
+import { toast } from "@/lib/notify";
 import { ensureWebrtcAdapter } from "@/lib/webrtc/adapter";
 import { useCall } from "./call-store";
 import { CALL_EVENTS as E } from "./signaling/events";
@@ -10,6 +11,8 @@ import type { CallMedia as Media, CallPeer, CallSnapshot } from "./call-types";
 import { CallMedia } from "./call-media";
 
 const ACK_TIMEOUT = 15000;
+/** How long a call rings before it gives up on its own. */
+const RING_TIMEOUT = 35000;
 type Listener = (data: unknown) => void;
 
 /**
@@ -21,6 +24,7 @@ class CallSession {
   private socket: Socket | null = null;
   private iceServers: RTCIceServer[] = [];
   private bound: Array<[string, Listener]> = [];
+  private ringTimer: ReturnType<typeof setTimeout> | null = null;
   private media = new CallMedia({
     getCall: () => this.call(),
     getIce: () => this.iceServers,
@@ -66,6 +70,7 @@ class CallSession {
       if (!ack?.success) return this.fail();
       this.iceServers = ack.iceServers ?? [];
       this.patch({ callId: ack.callId });
+      this.armRing();
     } catch {
       this.fail();
     }
@@ -90,8 +95,7 @@ class CallSession {
     if (call?.callId) {
       this.request(E.leave, { callId: call.callId, conversationId: call.conversationId }).catch(() => {});
     }
-    this.media.reset();
-    this.set(null);
+    this.close();
   }
 
   setMuted(muted: boolean) {
@@ -115,6 +119,7 @@ class CallSession {
     const media: Media = d.callMediaType === "video" ? "video" : "audio";
     const peer: CallPeer = { id: d.fromId, name: d.fromName, avatar: d.avatarUrl ?? null };
     this.set(this.fresh(d.callId, d.conversationId, peer, media, "incoming"));
+    this.armRing();
   }
 
   private onNewAccept(d: NewAcceptEvt) {
@@ -133,8 +138,7 @@ class CallSession {
   private onEnded(d: EndedEvt) {
     const call = this.call();
     if (!call || call.callId !== d.callId) return;
-    this.media.reset();
-    this.set(null);
+    this.close();
   }
 
   // ---- helpers ----
@@ -143,9 +147,33 @@ class CallSession {
     return { callId, conversationId, peer, media, phase, muted: false, speaker: true, minimized: false, startedAt: null };
   }
 
-  private fail() {
+  /** Ring for a while, then give up on an unanswered call on either side. */
+  private armRing() {
+    this.clearRing();
+    this.ringTimer = setTimeout(() => {
+      const phase = this.call()?.phase;
+      if (phase === "outgoing" || phase === "connecting") {
+        toast("No answer.");
+        this.hangUp();
+      } else if (phase === "incoming") {
+        this.hangUp();
+      }
+    }, RING_TIMEOUT);
+  }
+
+  private clearRing() {
+    if (this.ringTimer) clearTimeout(this.ringTimer);
+    this.ringTimer = null;
+  }
+
+  private close() {
+    this.clearRing();
     this.media.reset();
     this.set(null);
+  }
+
+  private fail() {
+    this.close();
   }
 
   private call() { return useCall.getState().call; }

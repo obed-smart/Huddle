@@ -6,6 +6,7 @@ import {
   type MessageType,
   type NormalizeContext,
 } from "./types";
+import { uid } from "@/lib/id";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Raw = Record<string, any>;
@@ -45,7 +46,7 @@ function normalizeAttachment(raw: Raw): Attachment | null {
   if (!raw) return null;
   const url = firstOf(raw.url, raw.localUrl, raw.previewUrl, raw.src);
   return {
-    id: firstOf(raw.id, raw.key, url) || crypto.randomUUID(),
+    id: firstOf(raw.id, raw.key, url) || uid(),
     type: attachmentType(raw),
     name: firstOf(raw.name, raw.filename, raw.fileName, raw.title) || "attachment",
     size: Number(firstOf(raw.size, raw.bytes, raw.fileSize) || 0),
