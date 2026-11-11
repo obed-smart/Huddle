@@ -88,6 +88,7 @@ export function AudioCallScreen() {
         speaker={speaker}
         onToggleMute={() => callSession.setMuted(!muted)}
         onToggleSpeaker={() => callSession.setSpeaker(!speaker)}
+        onSwitch={() => callSession.upgradeToVideo()}
         onAccept={() => callSession.accept()}
         onHangUp={() => callSession.hangUp()}
       />

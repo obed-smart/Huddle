@@ -5,6 +5,7 @@ import type { CallSnapshot } from "./call-types";
 import { makeAnswer, makeOffer, trackKind } from "./call-rtc";
 import { RemoteAudio } from "./call-audio";
 import { useCallStreams } from "./call-streams";
+import { LocalVideo } from "./call-local-video";
 
 /** What the media plane needs from the session: the live call, ICE servers, the
     backend channel, a way to patch UI state, and a bail-out. */
@@ -30,9 +31,16 @@ export class CallMedia {
   private published = false;
   private chain: Promise<void> = Promise.resolve();
   private audio = new RemoteAudio();
-  private facing: "user" | "environment" = "user";
+  private video: LocalVideo;
 
-  constructor(private deps: MediaDeps) {}
+  constructor(private deps: MediaDeps) {
+    this.video = new LocalVideo({
+      pc: () => this.pc,
+      stream: () => this.localStream,
+      deps,
+      run: (op) => this.runExclusive(op),
+    });
+  }
 
   active() {
     return this.pc !== null;
@@ -98,29 +106,16 @@ export class CallMedia {
     this.localStream?.getVideoTracks().forEach((t) => (t.enabled = enabled));
   }
 
-  /** Swap between the front and rear camera without an SDP renegotiation: grab a
-      track from the other camera and replace it on the live video sender. */
-  async flipCamera() {
-    const call = this.deps.getCall();
-    const sender = this.pc?.getSenders().find((s) => s.track?.kind === "video");
-    if (!this.localStream || !sender || call?.media !== "video") return;
-    if (!navigator.mediaDevices?.getUserMedia) return;
-    const facing = this.facing === "user" ? "environment" : "user";
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing } });
-    } catch {
-      return toast("Could not switch the camera.");
-    }
-    const next = stream.getVideoTracks()[0];
-    if (!next) return;
-    next.enabled = call.camOn;
-    await sender.replaceTrack(next);
-    const old = this.localStream.getVideoTracks()[0];
-    if (old) { this.localStream.removeTrack(old); old.stop(); }
-    this.localStream.addTrack(next);
-    this.facing = facing;
-    useCallStreams.getState().setLocal(new MediaStream(this.localStream.getTracks()));
+  hasVideo() {
+    return (this.localStream?.getVideoTracks().length ?? 0) > 0;
+  }
+
+  flipCamera() {
+    void this.video.flip();
+  }
+
+  upgradeToVideo() {
+    void this.video.upgrade();
   }
 
   reset() {
@@ -138,12 +133,19 @@ export class CallMedia {
     this.pulled.clear();
     this.pending = [];
     this.published = false;
-    this.facing = "user";
+    this.video.reset();
     this.chain = Promise.resolve();
   }
 
   private enqueue(op: () => Promise<void>) {
     this.chain = this.chain.then(op).catch(() => {});
+  }
+
+  /** Run one SDP exchange on the queue, so an upgrade never overlaps a subscribe. */
+  private runExclusive<T>(op: () => Promise<T>): Promise<T> {
+    const run = this.chain.then(op);
+    this.chain = run.then(() => {}, () => {});
+    return run;
   }
 
   private async subscribe(targets: SubscribeTarget[]) {

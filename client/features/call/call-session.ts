@@ -106,24 +106,21 @@ class CallSession {
 
   setMuted(muted: boolean) {
     this.media.setMicEnabled(!muted);
-    this.setMedia({ muted });
+    this.patch({ muted });
   }
 
+  // Camera on with none published yet is an upgrade; otherwise just a toggle.
   setCamera(camOn: boolean) {
+    if (camOn && !this.media.hasVideo()) return void this.media.upgradeToVideo();
     this.media.setCamEnabled(camOn);
-    this.setMedia({ camOn });
+    this.patch({ camOn });
   }
 
   flipCamera() {
     void this.media.flipCamera();
   }
-  private setMedia(partial: Partial<CallSnapshot>) {
-    const call = this.call();
-    if (!call) return;
-    this.patch(partial);
-    const c = { ...call, ...partial };
-    if (!c.callId) return;
-    this.request(E.mediaState, { callId: c.callId, audioOn: !c.muted, videoOn: c.media === "video" && c.camOn }).catch(() => {});
+  upgradeToVideo() {
+    void this.media.upgradeToVideo();
   }
 
   setSpeaker(speaker: boolean) {
@@ -151,7 +148,10 @@ class CallSession {
   private onNewPublish(d: NewPublishEvt) {
     const call = this.call();
     if (!call || call.callId !== d.callId) return;
-    this.media.queuePublisher(d.userId, d.tracks.map((t) => t.kind));
+    const kinds = d.tracks.map((t) => t.kind);
+    this.media.queuePublisher(d.userId, kinds);
+    // The other side added a camera: become a video call; our camera stays off.
+    if (kinds.includes("cam") && call.media !== "video") this.patch({ media: "video", camOn: false });
   }
 
   private onEnded(d: EndedEvt) {

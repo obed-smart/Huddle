@@ -2,7 +2,6 @@
 
 import { Mic, MicOff, Volume2, VolumeX, Video, Phone, PhoneOff } from "lucide-react";
 
-import { toast } from "@/lib/notify";
 import type { CallPhase } from "./call-types";
 import { CallControlButton } from "./call-control-button";
 
@@ -12,19 +11,21 @@ type Props = {
   speaker: boolean;
   onToggleMute: () => void;
   onToggleSpeaker: () => void;
+  onSwitch: () => void;
   onAccept: () => void;
   onHangUp: () => void;
 };
 
 /** The bottom cluster. An inbound ring expanded to the full screen offers
     decline and accept; every other phase shows the live controls over a single
-    end button. Inviting others and switching to video are stubs for now. */
+    end button. The video button upgrades the call to video once connected. */
 export function CallControls({
   phase,
   muted,
   speaker,
   onToggleMute,
   onToggleSpeaker,
+  onSwitch,
   onAccept,
   onHangUp,
 }: Props) {
@@ -59,7 +60,7 @@ export function CallControls({
           icon={<Video />}
           srLabel="Switch to video"
           disabled={!canSwitch}
-          onClick={() => toast("Switching to video is coming soon.")}
+          onClick={onSwitch}
         />
       </div>
       <CallControlButton variant="end" icon={<PhoneOff />} label="End" onClick={onHangUp} />
