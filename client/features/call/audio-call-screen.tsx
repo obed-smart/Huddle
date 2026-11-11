@@ -40,7 +40,7 @@ export function AudioCallScreen() {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Audio call with ${peer.name}`}
+      aria-label={`${call.media === "video" ? "Video" : "Audio"} call with ${peer.name}`}
       className="flex size-full flex-col px-6 pb-10 pt-5 text-white"
       style={{
         background: BACKDROP,
