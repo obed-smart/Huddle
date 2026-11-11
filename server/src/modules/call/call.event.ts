@@ -150,6 +150,8 @@ export function callEvent(io: Server, socket: Socket) {
         data,
       );
 
+      logger.debug("New call init");
+
       const user = socket.data.user;
       const { id: userId, sid } = user;
 

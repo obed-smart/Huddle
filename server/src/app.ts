@@ -64,7 +64,6 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://10.111.58.217:3000",
   "https://oauth.pstmn.io",
-  " https://sleeky-unlikeably-sirena.ngrok-free.dev",
 ];
 
 app.use(
