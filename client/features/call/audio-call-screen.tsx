@@ -40,7 +40,7 @@ export function AudioCallScreen() {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Audio call with ${peer.name}`}
+      aria-label={`${call.media === "video" ? "Video" : "Audio"} call with ${peer.name}`}
       className="flex size-full flex-col px-6 pb-10 pt-5 text-white"
       style={{
         background: BACKDROP,
@@ -58,7 +58,7 @@ export function AudioCallScreen() {
         </button>
         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-white/70">
           <ShieldCheck className="size-3.5" />
-          Audio call
+          {call.media === "video" ? "Video call" : "Audio call"}
         </span>
         {call.phase === "active" ? (
           <button
@@ -78,7 +78,7 @@ export function AudioCallScreen() {
         <CallAvatar name={peer.name} src={peer.avatar} pulsing={ringing} />
         <div className="flex flex-col items-center gap-1.5">
           <h2 className="font-display text-3xl font-bold tracking-tight">{peer.name}</h2>
-          <CallStatus phase={call.phase} startedAt={call.startedAt} />
+          <CallStatus phase={call.phase} startedAt={call.startedAt} media={call.media} />
         </div>
       </div>
 
