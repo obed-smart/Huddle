@@ -3,6 +3,7 @@ import type { Socket } from "socket.io-client";
 import { toast } from "@/lib/notify";
 import { ensureWebrtcAdapter } from "@/lib/webrtc/adapter";
 import { useCall } from "./call-store";
+import { clog } from "./call-log";
 import { CALL_EVENTS as E } from "./signaling/events";
 import type {
   AcceptAck, EndedEvt, HandledEvt, IncomingEvt, InitiateAck,
@@ -16,11 +17,8 @@ const ACK_TIMEOUT = 15000;
 const RING_TIMEOUT = 35000;
 type Listener = (data: unknown) => void;
 
-/**
- * The one live call. A module singleton (not React) so a call survives route
- * changes and re-renders. A root component binds the socket to it. This is the
- * control plane: intents and signaling. The media plane lives in CallMedia.
- */
+/** The one live call. A module singleton so it survives route changes. The
+    control plane (intents + signaling); the media plane lives in CallMedia. */
 class CallSession {
   private socket: Socket | null = null;
   private iceServers: RTCIceServer[] = [];
@@ -54,8 +52,9 @@ class CallSession {
   }
 
   private listen(event: string, fn: Listener) {
-    this.socket?.on(event, fn);
-    this.bound.push([event, fn]);
+    const logged: Listener = (d) => { clog("recv", event, d); fn(d); };
+    this.socket?.on(event, logged);
+    this.bound.push([event, logged]);
   }
 
   private request<T>(event: string, payload: unknown): Promise<T> {
