@@ -2,7 +2,7 @@ import { toast } from "@/lib/notify";
 import { CALL_EVENTS as E } from "./signaling/events";
 import type { CallStatus, PublishAck, SubscribeAck, SubscribeTarget } from "./signaling/types";
 import type { CallSnapshot } from "./call-types";
-import { makeAnswer, makeOffer, trackKind } from "./call-rtc";
+import { makeAnswer, makeOffer, openLocal, trackKind } from "./call-rtc";
 import { RemoteAudio } from "./call-audio";
 import { useCallStreams } from "./call-streams";
 import { LocalVideo } from "./call-local-video";
@@ -56,9 +56,9 @@ export class CallMedia {
     }
     this.deps.patch({ phase: "connecting" });
     try {
-      // Reuse the ring-time preview stream when there is one.
+      // Reuse the preview stream if any; else open mic (+ camera if video).
       if (!this.localStream) {
-        this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: call.media === "video" });
+        this.localStream = await openLocal(call.media === "video", () => this.deps.patch({ camOn: false }));
       }
       useCallStreams.getState().setLocal(this.localStream);
       const pc = new RTCPeerConnection({ iceServers: this.deps.getIce() });
