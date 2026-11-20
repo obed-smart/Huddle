@@ -41,24 +41,15 @@ export function VideoCallScreen() {
   const active = call.phase === "active";
   const remoteCam = remotes.find((r) => r.kind === "cam")?.stream ?? null;
   const self = camOn && local ? local : null;
-  const bothVideo = active && !!remoteCam && !!self;
 
-  let mainStream: MediaStream | null;
-  let mainMirror = false;
-  let pip: { stream: MediaStream; mirror: boolean } | null = null;
-  if (!active) {
-    mainStream = self; // while it rings, show our own camera
-    mainMirror = true;
-  } else if (bothVideo) {
-    mainStream = swapped ? self : remoteCam;
-    mainMirror = swapped;
-    pip = { stream: (swapped ? remoteCam : self) as MediaStream, mirror: !swapped };
-  } else if (remoteCam) {
-    mainStream = remoteCam;
-  } else {
-    mainStream = null; // their camera is off: show their portrait, self in the pip
-    if (self) pip = { stream: self, mirror: true };
-  }
+  // A live call with our camera on has a draggable corner that swaps with the
+  // main view. The main surface shows the remote (their video, or their portrait
+  // when their camera is off), or our own camera while connecting or swapped. The
+  // corner holds whichever is not in the main view; a null stream means a portrait.
+  const showPip = active && !!self;
+  const mainSelf = !active || (showPip && swapped);
+  const mainStream = mainSelf ? self : remoteCam;
+  const pipStream = swapped ? remoteCam : self;
 
   const chrome = `transition-opacity ${bare ? "pointer-events-none opacity-0" : "opacity-100"}`;
 
@@ -76,7 +67,7 @@ export function VideoCallScreen() {
         className="absolute inset-0 block size-full"
       >
         {mainStream ? (
-          <VideoTile stream={mainStream} muted mirror={mainMirror} />
+          <VideoTile stream={mainStream} muted mirror={mainSelf} />
         ) : (
           <div className="grid size-full place-items-center">
             <Avatar src={peer.avatar} name={peer.name} className="size-28 text-3xl" />
@@ -114,9 +105,15 @@ export function VideoCallScreen() {
         )}
       </header>
 
-      {pip ? (
+      {showPip ? (
         <CallPip onTap={() => setSwapped((s) => !s)}>
-          <VideoTile stream={pip.stream} muted mirror={pip.mirror} />
+          {pipStream ? (
+            <VideoTile stream={pipStream} muted mirror={!swapped} />
+          ) : (
+            <div className="grid size-full place-items-center bg-[#0b0b14]">
+              <Avatar src={peer.avatar} name={peer.name} className="size-14 text-lg" />
+            </div>
+          )}
         </CallPip>
       ) : null}
 

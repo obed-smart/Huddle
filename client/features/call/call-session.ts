@@ -120,17 +120,17 @@ class CallSession {
   }
 
   setCamera(camOn: boolean) {
-    if (!camOn) { void this.media.localVideo.stop(); return this.patch({ camOn: false }); }
-    if (!this.media.localVideo.hasVideo()) return void this.media.localVideo.upgrade();
+    if (!camOn) { void this.media.localVideo.stop().catch(() => {}); return this.patch({ camOn: false }); }
+    if (!this.media.localVideo.hasVideo()) return void this.media.localVideo.upgrade().catch(() => {});
     this.media.setCamEnabled(true);
     this.patch({ camOn: true });
   }
 
   flipCamera() {
-    void this.media.localVideo.flip();
+    void this.media.localVideo.flip().catch(() => {});
   }
   upgradeToVideo() {
-    void this.media.localVideo.upgrade();
+    void this.media.localVideo.upgrade().catch(() => {});
   }
   setSpeaker(speaker: boolean) {
     this.patch({ speaker });

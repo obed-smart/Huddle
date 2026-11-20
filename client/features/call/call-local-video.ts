@@ -54,7 +54,8 @@ export class LocalVideo {
     track.stop();
     useCallStreams.getState().setLocal(new MediaStream(stream.getTracks()));
     const callId = this.ctx.deps.getCall()?.callId;
-    if (callId) void this.ctx.deps.request(E.close, { callId, kinds: ["cam"] });
+    // Fire and forget, but swallow an ack timeout so it never crashes the call.
+    if (callId) this.ctx.deps.request(E.close, { callId, kinds: ["cam"] }).catch(() => {});
   }
 
   /** Front to rear and back: stop the old track FIRST, because most phones
