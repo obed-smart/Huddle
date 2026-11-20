@@ -3,24 +3,21 @@ import type { Socket } from "socket.io-client";
 import { toast } from "@/lib/notify";
 import { ensureWebrtcAdapter } from "@/lib/webrtc/adapter";
 import { useCall } from "./call-store";
+import { clog } from "./call-log";
 import { CALL_EVENTS as E } from "./signaling/events";
 import type {
-  AcceptAck, EndedEvt, HandledEvt, IncomingEvt, InitiateAck,
-  MediaStateEvt, NewAcceptEvt, NewPublishEvt, RejectedEvt,
+  AcceptAck, EndedEvt, HandledEvt, IncomingEvt, InitiateAck, MediaStateEvt,
+  NewAcceptEvt, NewPublishEvt, RejectedEvt, RosterEvt,
 } from "./signaling/types";
 import type { CallMedia as Media, CallPeer, CallSnapshot } from "./call-types";
 import { CallMedia } from "./call-media";
+import { rosterInfo } from "./call-rejoin";
 
 const ACK_TIMEOUT = 15000;
-/** How long a call rings before it gives up on its own. */
-const RING_TIMEOUT = 35000;
+const RING_TIMEOUT = 35000; // how long a call rings before it gives up on its own
 type Listener = (data: unknown) => void;
 
-/**
- * The one live call. A module singleton (not React) so a call survives route
- * changes and re-renders. A root component binds the socket to it. This is the
- * control plane: intents and signaling. The media plane lives in CallMedia.
- */
+/** The one live call: a module singleton (control plane) over CallMedia. */
 class CallSession {
   private socket: Socket | null = null;
   private iceServers: RTCIceServer[] = [];
@@ -45,6 +42,7 @@ class CallSession {
     this.listen(E.rejected, (d) => this.endIfMine((d as RejectedEvt).callId, "Call declined."));
     this.listen(E.handled, (d) => this.endIfMine((d as HandledEvt).callId));
     this.listen(E.newMediaState, (d) => this.onMediaState(d as MediaStateEvt));
+    this.listen(E.roster, (d) => this.rejoinFromRoster(d as RosterEvt));
   }
 
   detach() {
@@ -54,8 +52,9 @@ class CallSession {
   }
 
   private listen(event: string, fn: Listener) {
-    this.socket?.on(event, fn);
-    this.bound.push([event, fn]);
+    const logged: Listener = (d) => { clog("recv", event, d); fn(d); };
+    this.socket?.on(event, logged);
+    this.bound.push([event, logged]);
   }
 
   private request<T>(event: string, payload: unknown): Promise<T> {
@@ -79,22 +78,30 @@ class CallSession {
     }
   }
 
-  async accept(rejoin = false) {
+  accept() {
+    void this.joinMedia(false, () => this.hangUp());
+  }
+
+  // A failed rejoin only closes us locally, never leaves the call for others.
+  rejoinFromRoster(d: RosterEvt) {
+    const info = this.call() ? null : rosterInfo(d);
+    if (!info) return;
+    this.set({ ...this.fresh(d.callId, d.conversationId, info.peer, info.media, "connecting"), startedAt: info.startedAt });
+    void this.joinMedia(true, () => this.close());
+  }
+
+  private async joinMedia(rejoin: boolean, onFail: () => void) {
     const call = this.call();
     if (!call?.callId) return;
     void ensureWebrtcAdapter();
     this.patch({ minimized: false });
     try {
-      const ack = await this.request<AcceptAck>(E.accept, {
-        callId: call.callId,
-        conversationId: call.conversationId,
-        rejoin,
-      });
-      if (!ack?.success) return this.hangUp();
+      const ack = await this.request<AcceptAck>(E.accept, { callId: call.callId, conversationId: call.conversationId, rejoin });
+      if (!ack?.success) return onFail();
       this.iceServers = ack.iceServers ?? this.iceServers;
       await this.media.start();
     } catch {
-      this.hangUp();
+      onFail();
     }
   }
 
@@ -125,7 +132,6 @@ class CallSession {
   upgradeToVideo() {
     void this.media.localVideo.upgrade();
   }
-
   setSpeaker(speaker: boolean) {
     this.patch({ speaker });
   }
@@ -134,16 +140,12 @@ class CallSession {
     void ensureWebrtcAdapter();
     const media: Media = d.callMediaType === "video" ? "video" : "audio";
     const peer: CallPeer = { id: d.fromId, name: d.fromName, avatar: d.avatarUrl ?? null };
-    // An inbound ring starts collapsed as the toast; tapping it expands.
     this.set({ ...this.fresh(d.callId, d.conversationId, peer, media, "incoming"), minimized: true });
     this.armRing();
   }
 
-  // The callee answered: now we (the caller) bring up our own media.
   private onNewAccept(d: NewAcceptEvt) {
-    const call = this.call();
-    if (!call || call.callId !== d.callId) return;
-    void this.media.start();
+    if (this.call()?.callId === d.callId) void this.media.start();
   }
 
   private onNewPublish(d: NewPublishEvt) {
@@ -151,7 +153,6 @@ class CallSession {
     if (!call || call.callId !== d.callId) return;
     const kinds = d.tracks.map((t) => t.kind);
     this.media.queuePublisher(d.userId, kinds);
-    // The other side added a camera: become a video call; our camera stays off.
     if (kinds.includes("cam") && call.media !== "video") this.patch({ media: "video", camOn: false });
   }
 
@@ -169,7 +170,6 @@ class CallSession {
     return { callId, conversationId, peer, media, phase, muted: false, camOn: true, speaker: true, minimized: false, startedAt: null };
   }
 
-  /** Ring for a while, then give up on an unanswered call on either side. */
   private armRing() {
     this.clearRing();
     this.ringTimer = setTimeout(() => {

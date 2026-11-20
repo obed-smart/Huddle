@@ -2,10 +2,11 @@ import { toast } from "@/lib/notify";
 import { CALL_EVENTS as E } from "./signaling/events";
 import type { CallStatus, PublishAck, SubscribeAck, SubscribeTarget } from "./signaling/types";
 import type { CallSnapshot } from "./call-types";
-import { makeAnswer, makeOffer, trackKind } from "./call-rtc";
+import { makeAnswer, makeOffer, openLocal, trackKind } from "./call-rtc";
 import { RemoteAudio } from "./call-audio";
 import { useCallStreams } from "./call-streams";
 import { LocalVideo } from "./call-local-video";
+import { clog } from "./call-log";
 
 /** What the media plane needs from the session: the live call, ICE servers, the
     backend channel, a way to patch UI state, and a bail-out. */
@@ -17,11 +18,8 @@ export type MediaDeps = {
   fail: () => void;
 };
 
-/**
- * The media plane: one peer connection that publishes our tracks and pulls
- * everyone else's. Every SDP exchange runs through one queue, because a session
- * negotiates one at a time. Subscriptions are deduped by `userId:kind`.
- */
+/** The media plane: one peer connection that publishes our tracks and pulls the
+    others. SDP exchanges run on one queue; subscriptions dedupe on userId:kind. */
 export class CallMedia {
   private pc: RTCPeerConnection | null = null;
   private localStream: MediaStream | null = null;
@@ -51,17 +49,16 @@ export class CallMedia {
   async start() {
     const call = this.deps.getCall();
     if (!call?.callId || this.pc) return;
-    // Mic and camera need a secure context: https, or localhost. Over plain
-    // http on a LAN ip the browser hides mediaDevices entirely, so say why.
+    // Mic and camera need https or localhost; on plain http they are hidden.
     if (!navigator.mediaDevices?.getUserMedia) {
       toast("Calls need a secure connection. Open the app over https or on localhost.");
       return this.deps.fail();
     }
     this.deps.patch({ phase: "connecting" });
     try {
-      // Reuse the ring-time preview stream when there is one.
+      // Reuse the preview stream if any; else open mic (+ camera if video).
       if (!this.localStream) {
-        this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: call.media === "video" });
+        this.localStream = await openLocal(call.media === "video", () => this.deps.patch({ camOn: false }));
       }
       useCallStreams.getState().setLocal(this.localStream);
       const pc = new RTCPeerConnection({ iceServers: this.deps.getIce() });
@@ -156,7 +153,9 @@ export class CallMedia {
       .map((t) => ({ userId: t.userId, kinds: (t.kinds ?? []).filter((k) => !this.pulled.has(`${t.userId}:${k}`)) }))
       .filter((t) => t.kinds.length > 0);
     if (!fresh.length) return;
+    clog("send", "call:subscribe", fresh);
     const ack = await this.deps.request<SubscribeAck>(E.subscribe, { callId: call.callId, targets: fresh });
+    clog("ack", "call:subscribe", ack);
     if (!ack?.success) return;
     for (const t of ack.subscribed) {
       this.midToPublisher.set(t.mid, { userId: t.userId, kind: t.kind });
@@ -172,6 +171,7 @@ export class CallMedia {
   private installHandlers(pc: RTCPeerConnection) {
     pc.ontrack = (event) => {
       const who = this.midToPublisher.get(event.transceiver.mid ?? "");
+      clog("track", `${event.track.kind} mid=${event.transceiver.mid}`, who ?? "(no publisher mapped)");
       if (!who) return;
       const stream = new MediaStream([event.track]);
       if (event.track.kind === "audio") {

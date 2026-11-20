@@ -78,6 +78,24 @@ export type IncomingEvt = {
 export type NewAcceptEvt = { callId: string; from: string };
 export type RejectedEvt = { callId: string; from: string };
 export type HandledEvt = { callId: string; conversationId: string; reason: string };
+
+/** A participant as the roster lists it. The roster carries no call type, so the
+    kind is read from the tracks: a published "cam" (or videoOn) means video. */
+export type RosterParticipant = {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  videoOn: boolean;
+  tracks?: Partial<Record<TrackKind, { kind: TrackKind }>>;
+};
+/** Sent to everyone in a call when someone (re)joins, so a reconnected client
+    can rebuild the call it is already back in. */
+export type RosterEvt = {
+  callId: string;
+  conversationId: string;
+  startedAt?: number | string;
+  participants: RosterParticipant[];
+};
 /** A peer stopped a track (same shape as a subscribe target): drop it. */
 export type MediaStateEvt = { callId: string; userId: string; kind: TrackKind };
 export type NewPublishEvt = { callId: string; userId: string; tracks: { kind: TrackKind }[] };

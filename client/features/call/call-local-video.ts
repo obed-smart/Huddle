@@ -2,6 +2,7 @@ import { toast } from "@/lib/notify";
 import { useSession } from "@/stores/session";
 import { makeOffer, trackKind } from "./call-rtc";
 import { useCallStreams } from "./call-streams";
+import { clog } from "./call-log";
 import { CALL_EVENTS as E } from "./signaling/events";
 import type { PublishAck } from "./signaling/types";
 import type { MediaDeps } from "./call-media";
@@ -99,13 +100,17 @@ export class LocalVideo {
     if (!track) return;
     const tx = pc.addTransceiver(track, { direction: "sendonly" });
     await this.ctx.run(async () => {
-      if (!tx.mid) return track.stop();
+      // makeOffer sets the local description, which is what assigns tx.mid; the
+      // mid is null before this, so the check has to come after the offer.
       const description = await makeOffer(pc);
+      if (!tx.mid) return track.stop();
+      clog("send", "call:publish (upgrade)", { mid: tx.mid, kind: trackKind(track) });
       const ack = await this.ctx.deps.request<PublishAck>(E.publish, {
         callId: call.callId,
         description,
         tracks: [{ mid: tx.mid, kind: trackKind(track) }],
       });
+      clog("ack", "call:publish (upgrade)", { success: ack?.success, published: ack?.published, failed: ack?.failed });
       if (!ack?.success) return track.stop();
       await pc.setRemoteDescription(ack.description);
       stream.addTrack(track);
