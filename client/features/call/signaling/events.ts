@@ -23,4 +23,6 @@ export const CALL_EVENTS = {
   handled: "call:new:handled",
   // A peer stopped a track: drop it from the UI and fall back to their avatar.
   newMediaState: "call:new:media:state",
+  // Someone (re)joined: a reconnected client rebuilds the call from this.
+  roster: "call:new:roster",
 } as const;
