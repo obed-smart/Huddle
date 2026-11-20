@@ -90,12 +90,16 @@ export class LocalVideo {
     if (stream.getVideoTracks().length > 0) return; // already publishing a camera
     const track = await this.camera();
     if (!track) return;
+    // Show our camera and flip the UI to video right away, so the switch never
+    // waits on the backend. Publishing to the SFU follows in the background.
+    stream.addTrack(track);
+    useCallStreams.getState().setLocal(new MediaStream(stream.getTracks()));
+    this.ctx.deps.patch({ media: "video", camOn: true });
     const tx = pc.addTransceiver(track, { direction: "sendonly" });
     await this.ctx.run(async () => {
-      // makeOffer sets the local description, which is what assigns tx.mid; the
-      // mid is null before this, so the check has to come after the offer.
+      // makeOffer sets the local description, which is what assigns tx.mid.
       const description = await makeOffer(pc);
-      if (!tx.mid) return track.stop();
+      if (!tx.mid) return;
       clog("send", "call:publish (upgrade)", { mid: tx.mid, kind: trackKind(track) });
       const ack = await this.ctx.deps.request<PublishAck>(E.publish, {
         callId: call.callId,
@@ -103,11 +107,7 @@ export class LocalVideo {
         tracks: [{ mid: tx.mid, kind: trackKind(track) }],
       });
       clog("ack", "call:publish (upgrade)", { success: ack?.success, published: ack?.published, failed: ack?.failed });
-      if (!ack?.success) return track.stop();
-      await pc.setRemoteDescription(ack.description);
-      stream.addTrack(track);
-      useCallStreams.getState().setLocal(new MediaStream(stream.getTracks()));
-      this.ctx.deps.patch({ media: "video", camOn: true });
+      if (ack?.success) await pc.setRemoteDescription(ack.description);
     });
   }
 
