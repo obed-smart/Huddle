@@ -1,5 +1,4 @@
 import { toast } from "@/lib/notify";
-import { useSession } from "@/stores/session";
 import { makeOffer, trackKind } from "./call-rtc";
 import { useCallStreams } from "./call-streams";
 import { clog } from "./call-log";
@@ -43,7 +42,7 @@ export class LocalVideo {
     }
   }
 
-  /** Turn our camera fully off: stop the track and tell the backend (media-state)
+  /** Turn our camera fully off: stop the track and tell the backend (call:close)
       to close it at Cloudflare, so it stops sending our video and no bandwidth
       is wasted. Turning the camera back on re-publishes through upgrade(). */
   async stop() {
@@ -54,16 +53,8 @@ export class LocalVideo {
     stream.removeTrack(track);
     track.stop();
     useCallStreams.getState().setLocal(new MediaStream(stream.getTracks()));
-    const call = this.ctx.deps.getCall();
-    const userId = useSession.getState().user?.id;
-    if (call?.callId && userId) {
-      void this.ctx.deps.request(E.mediaState, {
-        callId: call.callId,
-        conversationId: call.conversationId,
-        userId,
-        kind: "cam",
-      });
-    }
+    const callId = this.ctx.deps.getCall()?.callId;
+    if (callId) void this.ctx.deps.request(E.close, { callId, kinds: ["cam"] });
   }
 
   /** Front to rear and back: stop the old track FIRST, because most phones

@@ -61,9 +61,9 @@ export type RenegotiateReq = { callId: string; description: RtcDescription };
 export type CallStatus = "connected" | "reconnecting";
 export type StatusReq = { callId: string; conversationId: string; status: CallStatus };
 export type LeaveReq = { callId: string; conversationId: string };
-/** Reject reuses the leave shape. Media-state names one of our tracks (userId +
-    kind, like a subscribe target) so the backend can close it at the SFU. */
-export type MediaStateReq = { callId: string; conversationId: string; userId: string; kind: TrackKind };
+/** Close our own tracks at the SFU. Omit kinds to close all of ours; the
+    backend reads who we are from the socket, so no userId is sent. */
+export type CloseReq = { callId: string; kinds?: TrackKind[] };
 
 /* ---- backend to client (listen payloads) ---- */
 
@@ -96,8 +96,8 @@ export type RosterEvt = {
   startedAt?: number | string;
   participants: RosterParticipant[];
 };
-/** A peer stopped a track (same shape as a subscribe target): drop it. */
-export type MediaStateEvt = { callId: string; userId: string; kind: TrackKind };
+/** A peer closed one or more of their tracks: drop those from the UI. */
+export type CloseEvt = { userId: string; kinds: TrackKind[] };
 export type NewPublishEvt = { callId: string; userId: string; tracks: { kind: TrackKind }[] };
 export type ParticipantLeftEvt = { callId: string; from: string; participants: unknown[] };
 export type EndedEvt = { callId: string; reason: string };

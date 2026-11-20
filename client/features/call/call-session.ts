@@ -6,7 +6,7 @@ import { useCall } from "./call-store";
 import { clog } from "./call-log";
 import { CALL_EVENTS as E } from "./signaling/events";
 import type {
-  AcceptAck, EndedEvt, HandledEvt, IncomingEvt, InitiateAck, MediaStateEvt,
+  AcceptAck, CloseEvt, EndedEvt, HandledEvt, IncomingEvt, InitiateAck,
   NewAcceptEvt, NewPublishEvt, RejectedEvt, RosterEvt,
 } from "./signaling/types";
 import type { CallMedia as Media, CallPeer, CallSnapshot } from "./call-types";
@@ -41,7 +41,7 @@ class CallSession {
     this.listen(E.ended, (d) => this.endIfMine((d as EndedEvt).callId));
     this.listen(E.rejected, (d) => this.endIfMine((d as RejectedEvt).callId, "Call declined."));
     this.listen(E.handled, (d) => this.endIfMine((d as HandledEvt).callId));
-    this.listen(E.newMediaState, (d) => this.onMediaState(d as MediaStateEvt));
+    this.listen(E.newClose, (d) => this.onClose(d as CloseEvt));
     this.listen(E.roster, (d) => this.rejoinFromRoster(d as RosterEvt));
   }
 
@@ -156,8 +156,8 @@ class CallSession {
     if (kinds.includes("cam") && call.media !== "video") this.patch({ media: "video", camOn: false });
   }
 
-  private onMediaState(d: MediaStateEvt) {
-    if (this.call()?.callId === d.callId) this.media.dropRemote(d.userId, d.kind);
+  private onClose(d: CloseEvt) {
+    if (this.call()) d.kinds.forEach((k) => this.media.dropRemote(d.userId, k));
   }
 
   private endIfMine(callId: string, message?: string) {
