@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { useCall } from "./call-store";
+import { useIsGroup } from "./use-call-tiles";
 import { AudioCallScreen } from "./audio-call-screen";
 import { VideoCallScreen } from "./video-call-screen";
 import { CallBanner } from "./call-banner";
@@ -27,6 +28,7 @@ export function CallRoot() {
   const call = useCall((s) => s.call);
   const reduce = useReducedMotion();
   const isClient = useIsClient();
+  const group = useIsGroup();
 
   if (!isClient) return null;
 
@@ -37,7 +39,9 @@ export function CallRoot() {
   const incoming = call?.phase === "incoming";
   const minimized = !!call?.minimized;
   const showScreen = !!call && !minimized;
-  const useVideo = !!call && !incoming && call.media === "video";
+  // The stage (one to one or grid) takes any video call, and an active group
+  // audio call too, so group audio gets the same tiles rather than one avatar.
+  const useStage = !!call && !incoming && (call.media === "video" || (group && call.phase === "active"));
   const topCard = call && minimized ? (incoming ? "incoming" : "banner") : null;
 
   return createPortal(
@@ -52,7 +56,7 @@ export function CallRoot() {
             exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.98, transition: { duration: 0.18 } }}
             transition={{ duration: 0.26, ease: EASE_OUT }}
           >
-            {useVideo ? <VideoCallScreen /> : <AudioCallScreen />}
+            {useStage ? <VideoCallScreen /> : <AudioCallScreen />}
           </motion.div>
         ) : null}
       </AnimatePresence>

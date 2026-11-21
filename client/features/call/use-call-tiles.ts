@@ -54,14 +54,23 @@ export function useCallTiles(): Tile[] {
       };
     });
 
+  // Only show our own feed when it actually carries a camera: on an audio call
+  // the local stream is mic-only, and a video element bound to it is just black.
+  const haveCam = !!local && local.getVideoTracks().length > 0;
   const localTile: Tile = {
     id: LOCAL_ID,
     name: me?.displayName || me?.username || "You",
     avatar: me?.avatarUrl ?? null,
     isLocal: true,
-    stream: call.camOn && local ? local : null,
+    stream: call.camOn && haveCam ? local : null,
     muted: call.muted,
   };
 
   return [...remoteTiles, localTile];
+}
+
+/** True once a call has two or more other people on it: the point where the
+    grid replaces the one to one stage, for audio and video alike. */
+export function useIsGroup(): boolean {
+  return useCallTiles().filter((t) => !t.isLocal).length >= 2;
 }

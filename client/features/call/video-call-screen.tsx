@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, Mic, MicOff, Video, VideoOff, SwitchCamera, PhoneOff, UserPlus, LayoutGrid, SquareUser } from "lucide-react";
+import { ChevronDown, Mic, MicOff, Video, VideoOff, SwitchCamera, PhoneOff, UserPlus, LayoutGrid, SquareUser, Volume2, VolumeX } from "lucide-react";
 
 import { useCall } from "./call-store";
 import { useCallStreams } from "./call-streams";
@@ -39,7 +39,8 @@ export function VideoCallScreen() {
   }, [setMinimized]);
 
   if (!call) return null;
-  const { peer, muted, camOn } = call;
+  const { peer, muted, camOn, speaker } = call;
+  const isVideo = call.media === "video";
   const active = call.phase === "active";
   const remoteTiles = tiles.filter((t) => !t.isLocal);
   const group = remoteTiles.length >= 2;
@@ -58,7 +59,7 @@ export function VideoCallScreen() {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Video call with ${peer.name}`}
+      aria-label={`${isVideo ? "Video" : "Audio"} call with ${peer.name}`}
       className="relative size-full overflow-hidden bg-[#0b0b14] text-white"
     >
       {group ? (
@@ -96,14 +97,21 @@ export function VideoCallScreen() {
               <UserPlus className="size-5.5" />
             </button>
             {group ? (
-              <button
-                type="button"
-                onClick={() => (layout === "grid" ? promote(remoteTiles[0]?.id || "") : setLayout("grid"))}
-                aria-label={layout === "grid" ? "Speaker view" : "Grid view"}
-                className={chip}
-              >
-                {layout === "grid" ? <SquareUser className="size-5.5" /> : <LayoutGrid className="size-5.5" />}
-              </button>
+              <>
+                {!isVideo ? (
+                  <button type="button" onClick={() => callSession.upgradeToVideo()} aria-label="Turn on camera" className={chip}>
+                    <Video className="size-5.5" />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => (layout === "grid" ? promote(remoteTiles[0]?.id || "") : setLayout("grid"))}
+                  aria-label={layout === "grid" ? "Speaker view" : "Grid view"}
+                  className={chip}
+                >
+                  {layout === "grid" ? <SquareUser className="size-5.5" /> : <LayoutGrid className="size-5.5" />}
+                </button>
+              </>
             ) : camOn ? (
               <button type="button" onClick={() => callSession.flipCamera()} aria-label="Flip camera" className={chip}>
                 <SwitchCamera className="size-5.5" />
@@ -119,7 +127,11 @@ export function VideoCallScreen() {
         className={`absolute inset-x-0 bottom-0 flex items-center justify-center gap-3 px-6 pb-10 sm:gap-4 ${chrome}`}
         style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))" }}
       >
-        <CallControlButton icon={camOn ? <Video /> : <VideoOff />} srLabel={camOn ? "Turn camera off" : "Turn camera on"} active={!camOn} onClick={() => callSession.setCamera(!camOn)} />
+        {isVideo ? (
+          <CallControlButton icon={camOn ? <Video /> : <VideoOff />} srLabel={camOn ? "Turn camera off" : "Turn camera on"} active={!camOn} onClick={() => callSession.setCamera(!camOn)} />
+        ) : (
+          <CallControlButton icon={speaker ? <Volume2 /> : <VolumeX />} srLabel={speaker ? "Speaker off" : "Speaker on"} onClick={() => callSession.setSpeaker(!speaker)} />
+        )}
         <CallControlButton variant="end" icon={<PhoneOff />} srLabel="End call" onClick={() => callSession.hangUp()} />
         <CallControlButton icon={muted ? <MicOff /> : <Mic />} srLabel={muted ? "Unmute" : "Mute"} active={muted} onClick={() => callSession.setMuted(!muted)} />
       </div>
