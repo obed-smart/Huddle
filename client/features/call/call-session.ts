@@ -12,6 +12,7 @@ import type {
 import type { CallMedia as Media, CallPeer, CallSnapshot } from "./call-types";
 import { CallMedia } from "./call-media";
 import { rosterInfo } from "./call-rejoin";
+import { syncParticipants, clearParticipants } from "./call-roster";
 
 const ACK_TIMEOUT = 15000;
 const RING_TIMEOUT = 35000; // how long a call rings before it gives up on its own
@@ -42,7 +43,7 @@ class CallSession {
     this.listen(E.rejected, (d) => this.endIfMine((d as RejectedEvt).callId, "Call declined."));
     this.listen(E.handled, (d) => this.endIfMine((d as HandledEvt).callId));
     this.listen(E.newClose, (d) => this.onClose(d as CloseEvt));
-    this.listen(E.roster, (d) => this.rejoinFromRoster(d as RosterEvt));
+    this.listen(E.roster, (d) => { syncParticipants(d as RosterEvt); this.rejoinFromRoster(d as RosterEvt); });
   }
 
   detach() {
@@ -82,7 +83,7 @@ class CallSession {
     void this.joinMedia(false, () => this.hangUp());
   }
 
-  // A failed rejoin only closes us locally, never leaves the call for others.
+  // Runs on every roster; closes us locally if a rejoin fails, never for others.
   rejoinFromRoster(d: RosterEvt) {
     const info = this.call() ? null : rosterInfo(d);
     if (!info) return;
@@ -113,7 +114,6 @@ class CallSession {
     }
     this.close();
   }
-
   setMuted(muted: boolean) {
     this.media.setMicEnabled(!muted);
     this.patch({ muted });
@@ -159,7 +159,6 @@ class CallSession {
   private onClose(d: CloseEvt) {
     if (this.call()) d.kinds.forEach((k) => this.media.dropRemote(d.userId, k));
   }
-
   private endIfMine(callId: string, message?: string) {
     if (this.call()?.callId !== callId) return;
     if (message) toast(message);
@@ -188,6 +187,7 @@ class CallSession {
   private close() {
     this.clearRing();
     this.media.reset();
+    clearParticipants();
     this.set(null);
   }
 

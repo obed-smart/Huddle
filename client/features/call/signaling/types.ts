@@ -87,6 +87,7 @@ export type RosterParticipant = {
   userId: string;
   username: string;
   avatarUrl: string | null;
+  audioOn?: boolean;
   videoOn: boolean;
   tracks?: Partial<Record<TrackKind, { kind: TrackKind }>>;
 };
