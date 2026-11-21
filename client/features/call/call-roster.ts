@@ -1,5 +1,6 @@
-import { fetchGroupDetails } from "@/lib/api/group";
+import { ensureGroup } from "@/stores/groups";
 import { useCallParticipants } from "./call-participants";
+import { useCallInvites } from "./call-invites";
 import type { RosterEvt } from "./signaling/types";
 
 /** The conversation we have already pulled member names for, so a busy call
@@ -14,7 +15,7 @@ export function syncParticipants(d: RosterEvt) {
   useCallParticipants.getState().applyRoster(d.participants);
   if (namedConversation === d.conversationId) return;
   namedConversation = d.conversationId;
-  void fetchGroupDetails(d.conversationId)
+  void ensureGroup(d.conversationId)
     .then((g) =>
       useCallParticipants.getState().addNames(
         g.participants.map((m) => ({
@@ -32,4 +33,5 @@ export function syncParticipants(d: RosterEvt) {
 export function clearParticipants() {
   namedConversation = null;
   useCallParticipants.getState().clear();
+  useCallInvites.getState().clear();
 }

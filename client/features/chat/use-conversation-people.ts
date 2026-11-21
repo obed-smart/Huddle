@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 import type { AuthUser, Conversation } from "@/lib/contracts";
-import { fetchGroupDetails } from "@/lib/api/group";
+import { prefetchGroup } from "@/stores/groups";
 import { usePeople, type Person } from "@/stores/people";
 
 /**
@@ -28,26 +28,10 @@ export function useConversationPeople(conversation: Conversation, me: AuthUser |
     if (seed.length) merge(seed);
   }, [type, otherUserId, name, avatar, me, merge]);
 
+  // Warm the group cache in the background the moment the conversation opens, so
+  // its name and members are ready (and cached for next time) before anything,
+  // the call invite included, needs them. Caching and merging live in the store.
   useEffect(() => {
-    if (type !== "group") return;
-    let cancelled = false;
-    fetchGroupDetails(id)
-      .then((group) => {
-        if (cancelled) return;
-        merge(
-          group.participants.map((p) => ({
-            id: p.id,
-            username: p.username,
-            displayName: p.displayName,
-            avatarUrl: p.avatarUrl,
-          })),
-        );
-      })
-      .catch(() => {
-        // Names just stay unresolved if the fetch fails; not worth a toast.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [id, type, merge]);
+    if (type === "group") prefetchGroup(id);
+  }, [id, type]);
 }
