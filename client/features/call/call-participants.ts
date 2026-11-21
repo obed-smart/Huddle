@@ -20,6 +20,10 @@ type Store = {
   /** The ids the latest roster listed as in the call (includes ourselves). */
   present: string[];
   applyRoster: (list: RosterParticipant[]) => void;
+  /** Mark these ids present without a roster: whoever we subscribe to is in the
+      call, which is the one presence signal every joiner gets (a late joiner is
+      never sent a roster). Names arrive from the people directory or a roster. */
+  addPresent: (ids: string[]) => void;
   /** Fill in names and avatars from the group members, without claiming anyone
       is present. Never overwrites a name the roster already gave us. */
   addNames: (people: { id: string; name: string; avatar: string | null }[]) => void;
@@ -42,6 +46,13 @@ export const useCallParticipants = create<Store>((set) => ({
         };
       }
       return { byId, present: list.map((p) => p.userId) };
+    }),
+  addPresent: (ids) =>
+    set((s) => {
+      const byId = { ...s.byId };
+      for (const id of ids)
+        if (!byId[id]) byId[id] = { id, name: "", avatar: null, audioOn: true, videoOn: false };
+      return { byId, present: Array.from(new Set([...s.present, ...ids])) };
     }),
   addNames: (people) =>
     set((s) => {

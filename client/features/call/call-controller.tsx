@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import { useSocket } from "@/features/realtime/socket-provider";
+import { prefetchGroup } from "@/stores/groups";
 import { callSession } from "./call-session";
 import { useCall } from "./call-store";
 
@@ -14,12 +15,19 @@ import { useCall } from "./call-store";
 export function CallController() {
   const socket = useSocket();
   const resumeCamera = useRef(false);
+  const conversationId = useCall((s) => s.call?.conversationId);
 
   useEffect(() => {
     if (!socket) return;
     callSession.attach(socket);
     return () => callSession.detach();
   }, [socket]);
+
+  // Warm the group cache for whatever call is up, so the grid can name a late
+  // joiner even if they never opened the conversation this session.
+  useEffect(() => {
+    if (conversationId) prefetchGroup(conversationId);
+  }, [conversationId]);
 
   useEffect(() => {
     function onVisibility() {

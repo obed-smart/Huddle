@@ -1,4 +1,5 @@
 import { useSession } from "@/stores/session";
+import { usePeople } from "@/stores/people";
 import { useCall } from "./call-store";
 import { useCallStreams } from "./call-streams";
 import { useCallParticipants } from "./call-participants";
@@ -27,6 +28,7 @@ export function useCallTiles(): Tile[] {
   const remotes = useCallStreams((s) => s.remotes);
   const byId = useCallParticipants((s) => s.byId);
   const present = useCallParticipants((s) => s.present);
+  const directory = usePeople((s) => s.byId);
   if (!call) return [];
 
   const myId = me?.id;
@@ -43,11 +45,12 @@ export function useCallTiles(): Tile[] {
     .sort()
     .map((id) => {
       const meta = byId[id];
+      const person = directory[id];
       const isPeer = id === peer.id;
       return {
         id,
-        name: meta?.name || (isPeer ? peer.name : ""),
-        avatar: meta?.avatar ?? (isPeer ? peer.avatar ?? null : null),
+        name: meta?.name || person?.displayName || person?.username || (isPeer ? peer.name : ""),
+        avatar: meta?.avatar ?? person?.avatarUrl ?? (isPeer ? peer.avatar ?? null : null),
         isLocal: false,
         stream: camOf(id),
         muted: meta ? !meta.audioOn : false,
