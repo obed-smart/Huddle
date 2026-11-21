@@ -118,14 +118,12 @@ class CallSession {
     this.media.setMicEnabled(!muted);
     this.patch({ muted });
   }
-
   setCamera(camOn: boolean) {
     if (!camOn) { void this.media.localVideo.stop().catch(() => {}); return this.patch({ camOn: false }); }
     if (!this.media.localVideo.hasVideo()) return void this.media.localVideo.upgrade().catch(() => {});
     this.media.setCamEnabled(true);
     this.patch({ camOn: true });
   }
-
   flipCamera() {
     void this.media.localVideo.flip().catch(() => {});
   }
@@ -135,19 +133,22 @@ class CallSession {
   setSpeaker(speaker: boolean) {
     this.patch({ speaker });
   }
+  invite(to: string) {
+    const c = this.call();
+    if (c?.callId) void this.request(E.invite, { callId: c.callId, conversationId: c.conversationId, to, callMediaType: c.media }).catch(() => {});
+  }
 
   private onIncoming(d: IncomingEvt) {
+    if (this.call()?.callId === d.callId) return; // already in/ringing this call
     void ensureWebrtcAdapter();
     const media: Media = d.callMediaType === "video" ? "video" : "audio";
     const peer: CallPeer = { id: d.fromId, name: d.fromName, avatar: d.avatarUrl ?? null };
     this.set({ ...this.fresh(d.callId, d.conversationId, peer, media, "incoming"), minimized: true });
     this.armRing();
   }
-
   private onNewAccept(d: NewAcceptEvt) {
     if (this.call()?.callId === d.callId) void this.media.start();
   }
-
   private onNewPublish(d: NewPublishEvt) {
     const call = this.call();
     if (!call || call.callId !== d.callId) return;
@@ -155,7 +156,6 @@ class CallSession {
     this.media.queuePublisher(d.userId, kinds);
     if (kinds.includes("cam") && call.media !== "video") this.patch({ media: "video", camOn: false });
   }
-
   private onClose(d: CloseEvt) {
     if (this.call()) d.kinds.forEach((k) => this.media.dropRemote(d.userId, k));
   }

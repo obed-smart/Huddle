@@ -61,6 +61,8 @@ export type RenegotiateReq = { callId: string; description: RtcDescription };
 export type CallStatus = "connected" | "reconnecting";
 export type StatusReq = { callId: string; conversationId: string; status: CallStatus };
 export type LeaveReq = { callId: string; conversationId: string };
+/** Invite a user into the call; the backend rings them with call:incoming. */
+export type InviteReq = { callId: string; conversationId: string; to: string; callMediaType: CallMediaType };
 /** Close our own tracks at the SFU. Omit kinds to close all of ours; the
     backend reads who we are from the socket, so no userId is sent. */
 export type CloseReq = { callId: string; kinds?: TrackKind[] };

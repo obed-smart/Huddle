@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, ShieldCheck, UserPlus } from "lucide-react";
 
-import { toast } from "@/lib/notify";
 import { useCall } from "./call-store";
 import { callSession } from "./call-session";
 import { CallAvatar } from "./call-avatar";
 import { CallControls } from "./call-controls";
 import { CallStatus } from "./call-status";
+import { CallInviteSheet } from "./call-invite-sheet";
 
 /** The branded immersive surface. Independent of light or dark theme on
     purpose, so a call always looks and feels the same calm place. */
@@ -20,6 +20,7 @@ export function AudioCallScreen() {
   const call = useCall((s) => s.call);
   const setMinimized = useCall((s) => s.setMinimized);
   const phase = call?.phase;
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   // Escape tucks the call into the pill. An inbound ring is a toast, not this
   // screen, so this only ever runs for a call we placed or are in.
@@ -63,7 +64,7 @@ export function AudioCallScreen() {
         {call.phase === "active" ? (
           <button
             type="button"
-            onClick={() => toast("Inviting people is coming soon.")}
+            onClick={() => setInviteOpen(true)}
             aria-label="Add person"
             className="grid size-10 place-items-center rounded-full text-white/80 outline-none transition-transform duration-150 ease-out hover:text-white active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70"
           >
@@ -92,6 +93,8 @@ export function AudioCallScreen() {
         onAccept={() => callSession.accept()}
         onHangUp={() => callSession.hangUp()}
       />
+
+      <CallInviteSheet conversationId={call.conversationId} open={inviteOpen} onClose={() => setInviteOpen(false)} />
     </div>
   );
 }

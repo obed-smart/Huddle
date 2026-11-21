@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, Mic, MicOff, Video, VideoOff, SwitchCamera, PhoneOff, UserPlus } from "lucide-react";
 
-import { toast } from "@/lib/notify";
 import { Avatar } from "@/components/ui/avatar";
 import { useCall } from "./call-store";
 import { useCallStreams } from "./call-streams";
@@ -12,6 +11,7 @@ import { CallControlButton } from "./call-control-button";
 import { CallStatus } from "./call-status";
 import { VideoTile } from "./video-tile";
 import { CallPip } from "./call-pip";
+import { CallInviteSheet } from "./call-invite-sheet";
 
 const chip =
   "grid size-10 place-items-center rounded-full bg-black/35 text-white/90 backdrop-blur-sm outline-none transition-transform duration-150 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70";
@@ -27,6 +27,7 @@ export function VideoCallScreen() {
   const remotes = useCallStreams((s) => s.remotes);
   const [swapped, setSwapped] = useState(false);
   const [bare, setBare] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -91,7 +92,7 @@ export function VideoCallScreen() {
         </div>
         {active ? (
           <div className="flex flex-col items-end gap-3">
-            <button type="button" onClick={() => toast("Inviting people is coming soon.")} aria-label="Add person" className={chip}>
+            <button type="button" onClick={() => setInviteOpen(true)} aria-label="Add person" className={chip}>
               <UserPlus className="size-5.5" />
             </button>
             {camOn ? (
@@ -125,6 +126,8 @@ export function VideoCallScreen() {
         <CallControlButton variant="end" icon={<PhoneOff />} srLabel="End call" onClick={() => callSession.hangUp()} />
         <CallControlButton icon={muted ? <MicOff /> : <Mic />} srLabel={muted ? "Unmute" : "Mute"} active={muted} onClick={() => callSession.setMuted(!muted)} />
       </div>
+
+      <CallInviteSheet conversationId={call.conversationId} open={inviteOpen} onClose={() => setInviteOpen(false)} />
     </div>
   );
 }

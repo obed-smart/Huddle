@@ -10,6 +10,8 @@ export const CALL_EVENTS = {
   status: "call:status",
   leave: "call:leave",
   reject: "call:reject",
+  // Invite someone into this call; they receive it as a normal call:incoming.
+  invite: "call:invite",
   // Close our own tracks at the SFU (camera off). Omit kinds to close all mine.
   close: "call:close",
 
