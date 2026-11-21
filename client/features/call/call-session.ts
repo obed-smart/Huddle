@@ -6,12 +6,13 @@ import { useCall } from "./call-store";
 import { clog } from "./call-log";
 import { CALL_EVENTS as E } from "./signaling/events";
 import type {
-  AcceptAck, EndedEvt, HandledEvt, IncomingEvt, InitiateAck, MediaStateEvt,
+  AcceptAck, CloseEvt, EndedEvt, HandledEvt, IncomingEvt, InitiateAck,
   NewAcceptEvt, NewPublishEvt, RejectedEvt, RosterEvt,
 } from "./signaling/types";
 import type { CallMedia as Media, CallPeer, CallSnapshot } from "./call-types";
 import { CallMedia } from "./call-media";
 import { rosterInfo } from "./call-rejoin";
+import { syncParticipants, clearParticipants } from "./call-roster";
 
 const ACK_TIMEOUT = 15000;
 const RING_TIMEOUT = 35000; // how long a call rings before it gives up on its own
@@ -41,8 +42,8 @@ class CallSession {
     this.listen(E.ended, (d) => this.endIfMine((d as EndedEvt).callId));
     this.listen(E.rejected, (d) => this.endIfMine((d as RejectedEvt).callId, "Call declined."));
     this.listen(E.handled, (d) => this.endIfMine((d as HandledEvt).callId));
-    this.listen(E.newMediaState, (d) => this.onMediaState(d as MediaStateEvt));
-    this.listen(E.roster, (d) => this.rejoinFromRoster(d as RosterEvt));
+    this.listen(E.newClose, (d) => this.onClose(d as CloseEvt));
+    this.listen(E.roster, (d) => { syncParticipants(d as RosterEvt); this.rejoinFromRoster(d as RosterEvt); });
   }
 
   detach() {
@@ -82,7 +83,7 @@ class CallSession {
     void this.joinMedia(false, () => this.hangUp());
   }
 
-  // A failed rejoin only closes us locally, never leaves the call for others.
+  // Runs on every roster; closes us locally if a rejoin fails, never for others.
   rejoinFromRoster(d: RosterEvt) {
     const info = this.call() ? null : rosterInfo(d);
     if (!info) return;
@@ -113,41 +114,41 @@ class CallSession {
     }
     this.close();
   }
-
   setMuted(muted: boolean) {
     this.media.setMicEnabled(!muted);
     this.patch({ muted });
   }
-
   setCamera(camOn: boolean) {
-    if (!camOn) { void this.media.localVideo.stop(); return this.patch({ camOn: false }); }
-    if (!this.media.localVideo.hasVideo()) return void this.media.localVideo.upgrade();
+    if (!camOn) { void this.media.localVideo.stop().catch(() => {}); return this.patch({ camOn: false }); }
+    if (!this.media.localVideo.hasVideo()) return void this.media.localVideo.upgrade().catch(() => {});
     this.media.setCamEnabled(true);
     this.patch({ camOn: true });
   }
-
   flipCamera() {
-    void this.media.localVideo.flip();
+    void this.media.localVideo.flip().catch(() => {});
   }
   upgradeToVideo() {
-    void this.media.localVideo.upgrade();
+    void this.media.localVideo.upgrade().catch(() => {});
   }
   setSpeaker(speaker: boolean) {
     this.patch({ speaker });
   }
+  invite(to: string) {
+    const c = this.call();
+    if (c?.callId) void this.request(E.invite, { callId: c.callId, conversationId: c.conversationId, to, callMediaType: c.media }).catch(() => {});
+  }
 
   private onIncoming(d: IncomingEvt) {
+    if (this.call()?.callId === d.callId) return; // already in/ringing this call
     void ensureWebrtcAdapter();
     const media: Media = d.callMediaType === "video" ? "video" : "audio";
     const peer: CallPeer = { id: d.fromId, name: d.fromName, avatar: d.avatarUrl ?? null };
     this.set({ ...this.fresh(d.callId, d.conversationId, peer, media, "incoming"), minimized: true });
     this.armRing();
   }
-
   private onNewAccept(d: NewAcceptEvt) {
     if (this.call()?.callId === d.callId) void this.media.start();
   }
-
   private onNewPublish(d: NewPublishEvt) {
     const call = this.call();
     if (!call || call.callId !== d.callId) return;
@@ -155,11 +156,9 @@ class CallSession {
     this.media.queuePublisher(d.userId, kinds);
     if (kinds.includes("cam") && call.media !== "video") this.patch({ media: "video", camOn: false });
   }
-
-  private onMediaState(d: MediaStateEvt) {
-    if (this.call()?.callId === d.callId) this.media.dropRemote(d.userId, d.kind);
+  private onClose(d: CloseEvt) {
+    if (this.call()) d.kinds.forEach((k) => this.media.dropRemote(d.userId, k));
   }
-
   private endIfMine(callId: string, message?: string) {
     if (this.call()?.callId !== callId) return;
     if (message) toast(message);
@@ -188,6 +187,7 @@ class CallSession {
   private close() {
     this.clearRing();
     this.media.reset();
+    clearParticipants();
     this.set(null);
   }
 

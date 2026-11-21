@@ -10,8 +10,10 @@ export const CALL_EVENTS = {
   status: "call:status",
   leave: "call:leave",
   reject: "call:reject",
-  // We stopped sending a track (camera off): the backend closes it at the SFU.
-  mediaState: "call:media:state",
+  // Invite someone into this call; they receive it as a normal call:incoming.
+  invite: "call:invite",
+  // Close our own tracks at the SFU (camera off). Omit kinds to close all mine.
+  close: "call:close",
 
   // backend to client (listen)
   incoming: "call:incoming",
@@ -21,8 +23,8 @@ export const CALL_EVENTS = {
   ended: "call:new:ended",
   rejected: "call:new:rejected",
   handled: "call:new:handled",
-  // A peer stopped a track: drop it from the UI and fall back to their avatar.
-  newMediaState: "call:new:media:state",
+  // A peer closed tracks: drop them from the UI and fall back to their avatar.
+  newClose: "call:new:close",
   // Someone (re)joined: a reconnected client rebuilds the call from this.
   roster: "call:new:roster",
 } as const;
