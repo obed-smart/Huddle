@@ -5,6 +5,7 @@ import { Mic, MicOff, Video, VideoOff, MonitorUp, Smile, Users, MessageSquare, P
 
 import { useMeet } from "./meet-store";
 import { meetMedia } from "./meet-media";
+import { meetSignaling } from "./meet-signaling";
 import { ReactionBar } from "./meet-reactions";
 
 function Ctrl({ on = true, danger = false, active = false, label, onClick, children }: { on?: boolean; danger?: boolean; active?: boolean; label: string; onClick: () => void; children: ReactNode }) {
@@ -27,7 +28,6 @@ function Ctrl({ on = true, danger = false, active = false, label, onClick, child
 export function MeetControls({ onLeave }: { onLeave: () => void }) {
   const { mic, cam, sharing, panel } = useMeet();
   const togglePanel = useMeet((s) => s.togglePanel);
-  const react = useMeet((s) => s.react);
   const [picker, setPicker] = useState(false);
 
   return (
@@ -36,7 +36,7 @@ export function MeetControls({ onLeave }: { onLeave: () => void }) {
         <div className="absolute bottom-16 left-1/2 -translate-x-1/2">
           <ReactionBar
             onPick={(e) => {
-              react(e);
+              meetSignaling.react(e);
               setPicker(false);
             }}
           />
