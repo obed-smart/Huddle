@@ -7,12 +7,12 @@ import { clog } from "./call-log";
 import { CALL_EVENTS as E } from "./signaling/events";
 import type {
   AcceptAck, CloseEvt, EndedEvt, HandledEvt, IncomingEvt, InitiateAck,
-  NewAcceptEvt, NewPublishEvt, RejectedEvt, RosterEvt,
+  NewAcceptEvt, NewPublishEvt, ParticipantLeftEvt, RejectedEvt, RosterEvt,
 } from "./signaling/types";
 import type { CallMedia as Media, CallPeer, CallSnapshot } from "./call-types";
 import { CallMedia } from "./call-media";
 import { rosterInfo } from "./call-rejoin";
-import { syncParticipants, clearParticipants } from "./call-roster";
+import { syncParticipants, participantLeft, clearParticipants } from "./call-roster";
 
 const ACK_TIMEOUT = 15000;
 const RING_TIMEOUT = 35000; // how long a call rings before it gives up on its own
@@ -43,6 +43,7 @@ class CallSession {
     this.listen(E.rejected, (d) => this.endIfMine((d as RejectedEvt).callId, "Call declined."));
     this.listen(E.handled, (d) => this.endIfMine((d as HandledEvt).callId));
     this.listen(E.newClose, (d) => this.onClose(d as CloseEvt));
+    this.listen(E.participantLeft, (d) => this.onParticipantLeft(d as ParticipantLeftEvt));
     this.listen(E.roster, (d) => { syncParticipants(d as RosterEvt); this.rejoinFromRoster(d as RosterEvt); });
   }
 
@@ -109,7 +110,7 @@ class CallSession {
   hangUp() {
     const call = this.call();
     if (call?.callId) {
-      const event = call.phase === "incoming" ? E.reject : E.leave;
+      const event = call.phase === "incoming" ? E.reject : E.end;
       this.request(event, { callId: call.callId, conversationId: call.conversationId }).catch(() => {});
     }
     this.close();
@@ -159,16 +160,18 @@ class CallSession {
   private onClose(d: CloseEvt) {
     if (this.call()) d.kinds.forEach((k) => this.media.dropRemote(d.userId, k));
   }
+  private onParticipantLeft(d: ParticipantLeftEvt) {
+    const call = this.call();
+    if (call?.callId === d.callId) participantLeft(d, call.conversationId);
+  }
   private endIfMine(callId: string, message?: string) {
     if (this.call()?.callId !== callId) return;
     if (message) toast(message);
     this.close();
   }
-
   private fresh(callId: string | null, conversationId: string, peer: CallPeer, media: Media, phase: CallSnapshot["phase"]): CallSnapshot {
     return { callId, conversationId, peer, media, phase, muted: false, camOn: true, speaker: true, minimized: false, startedAt: null };
   }
-
   private armRing() {
     this.clearRing();
     this.ringTimer = setTimeout(() => {
@@ -178,19 +181,16 @@ class CallSession {
       this.hangUp();
     }, RING_TIMEOUT);
   }
-
   private clearRing() {
     if (this.ringTimer) clearTimeout(this.ringTimer);
     this.ringTimer = null;
   }
-
   private close() {
     this.clearRing();
     this.media.reset();
     clearParticipants();
     this.set(null);
   }
-
   private call() { return useCall.getState().call; }
   private set(call: CallSnapshot | null) { useCall.getState().setCall(call); }
   private patch(partial: Partial<CallSnapshot>) { useCall.getState().patch(partial); }

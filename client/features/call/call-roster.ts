@@ -1,7 +1,8 @@
 import { ensureGroup } from "@/stores/groups";
 import { useCallParticipants } from "./call-participants";
 import { useCallInvites } from "./call-invites";
-import type { RosterEvt } from "./signaling/types";
+import { useCallStreams } from "./call-streams";
+import type { ParticipantLeftEvt, RosterEvt } from "./signaling/types";
 
 /** The conversation we have already pulled member names for, so a busy call
     with many roster updates fetches the group once, not on every join. */
@@ -28,6 +29,14 @@ export function syncParticipants(d: RosterEvt) {
     .catch(() => {
       namedConversation = null;
     });
+}
+
+/** Someone left a call that is still going. Refresh the roster from the
+    authoritative remaining list and drop the leaver's tiles, so they stop
+    showing on every other device, not only ours. */
+export function participantLeft(d: ParticipantLeftEvt, conversationId: string) {
+  syncParticipants({ callId: d.callId, conversationId, participants: d.participants });
+  for (const kind of ["cam", "mic", "screen"]) useCallStreams.getState().removeRemote(d.from, kind);
 }
 
 export function clearParticipants() {

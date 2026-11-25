@@ -8,7 +8,9 @@ export const CALL_EVENTS = {
   subscribe: "call:subscribe",
   renegotiate: "call:renegotiate",
   status: "call:status",
-  leave: "call:leave",
+  // Leaving the call. The backend decides from who is left whether the call
+  // continues for others or ends, so one event covers leave and end alike.
+  end: "call:end",
   reject: "call:reject",
   // Invite someone into this call; they receive it as a normal call:incoming.
   invite: "call:invite",
