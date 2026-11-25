@@ -8,12 +8,16 @@ export type Meet = {
   conversationId: string;
 };
 
-/** Create a meeting for a conversation and get its room back, ready to open at
-    /meet/[meetId]. */
-export function createMeet(conversationId: string, title?: string) {
+/** Create a meeting for a conversation and get its room back. Without
+    `scheduledFor` it is an instant meeting to open now at /meet/[meetId]; with
+    one it is scheduled for later. An instant meeting needs no title. */
+export function createMeet(
+  conversationId: string,
+  opts: { title?: string; scheduledFor?: string } = {},
+) {
   return request<Meet>("/api/v1/meet", {
     method: "POST",
-    body: JSON.stringify({ conversationId, title }),
+    body: JSON.stringify({ conversationId, title: opts.title, scheduledFor: opts.scheduledFor }),
   });
 }
 
