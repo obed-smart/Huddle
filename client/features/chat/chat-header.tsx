@@ -1,10 +1,13 @@
 "use client";
 
-import { ArrowLeft, Phone, Video } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Phone, Video, Users } from "lucide-react";
 
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { callSession } from "@/features/call/call-session";
+import { MeetCreateSheet } from "@/features/meet/meet-create-sheet";
 import type { Conversation } from "@/lib/api/types";
 
 type Props = { conversation: Conversation; onBack: () => void; onOpenInfo?: () => void };
@@ -22,6 +25,13 @@ export function ChatHeader({ conversation, onBack, onOpenInfo }: Props) {
   const peer = { id: otherId ?? conversation.id, name: conversation.name, avatar: conversation.avatar };
   const place = (media: "audio" | "video") =>
     callSession.initiate({ conversationId: conversation.id, peer, media });
+
+  const router = useRouter();
+  const [meetOpen, setMeetOpen] = useState(false);
+  function openRoom(meetId: string) {
+    setMeetOpen(false);
+    router.push(`/meet/${meetId}?conversationId=${encodeURIComponent(conversation.id)}`);
+  }
 
   return (
     <header className="glass flex items-center gap-3 border-b px-3 py-3 sm:px-4">
@@ -63,6 +73,15 @@ export function ChatHeader({ conversation, onBack, onOpenInfo }: Props) {
       >
         <Video />
       </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Start a meeting"
+        onClick={() => setMeetOpen(true)}
+      >
+        <Users />
+      </Button>
+      <MeetCreateSheet conversationId={conversation.id} open={meetOpen} onClose={() => setMeetOpen(false)} onStarted={openRoom} />
     </header>
   );
 }
