@@ -102,5 +102,7 @@ export type RosterEvt = {
 /** A peer closed one or more of their tracks: drop those from the UI. */
 export type CloseEvt = { userId: string; kinds: TrackKind[] };
 export type NewPublishEvt = { callId: string; userId: string; tracks: { kind: TrackKind }[] };
-export type ParticipantLeftEvt = { callId: string; from: string; participants: unknown[] };
+/** Someone left a call that still has people in it. `participants` is the
+    authoritative remaining roster, so the client refreshes from it. */
+export type ParticipantLeftEvt = { callId: string; from: string; participants: RosterParticipant[] };
 export type EndedEvt = { callId: string; reason: string };
