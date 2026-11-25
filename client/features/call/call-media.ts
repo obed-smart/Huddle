@@ -5,11 +5,11 @@ import type { CallSnapshot } from "./call-types";
 import { makeAnswer, makeOffer, openLocal, trackKind } from "./call-rtc";
 import { RemoteAudio } from "./call-audio";
 import { useCallStreams } from "./call-streams";
+import { useCallParticipants } from "./call-participants";
 import { LocalVideo } from "./call-local-video";
 import { clog } from "./call-log";
 
-/** What the media plane needs from the session: the live call, ICE servers, the
-    backend channel, a way to patch UI state, and a bail-out. */
+/** What the media plane needs from the session: call, ICE, channel, patch, bail. */
 export type MediaDeps = {
   getCall: () => CallSnapshot | null;
   getIce: () => RTCIceServer[];
@@ -18,8 +18,7 @@ export type MediaDeps = {
   fail: () => void;
 };
 
-/** The media plane: one peer connection that publishes our tracks and pulls the
-    others. SDP exchanges run on one queue; subscriptions dedupe on userId:kind. */
+/** The media plane: one peer connection that publishes us and pulls the others. */
 export class CallMedia {
   private pc: RTCPeerConnection | null = null;
   private localStream: MediaStream | null = null;
@@ -157,6 +156,8 @@ export class CallMedia {
     const ack = await this.deps.request<SubscribeAck>(E.subscribe, { callId: call.callId, targets: fresh });
     clog("ack", "call:subscribe", ack);
     if (!ack?.success) return;
+    // Whoever we subscribe to is present (a late joiner gets no roster).
+    useCallParticipants.getState().addPresent(ack.subscribed.map((t) => t.userId));
     for (const t of ack.subscribed) {
       this.midToPublisher.set(t.mid, { userId: t.userId, kind: t.kind });
       this.pulled.add(`${t.userId}:${t.kind}`);
@@ -174,11 +175,8 @@ export class CallMedia {
       clog("track", `${event.track.kind} mid=${event.transceiver.mid}`, who ?? "(no publisher mapped)");
       if (!who) return;
       const stream = new MediaStream([event.track]);
-      if (event.track.kind === "audio") {
-        this.audio.attach(`${who.userId}:${who.kind}`, stream);
-      } else {
-        useCallStreams.getState().upsertRemote({ userId: who.userId, kind: who.kind, stream });
-      }
+      if (event.track.kind === "audio") this.audio.attach(`${who.userId}:${who.kind}`, stream);
+      else useCallStreams.getState().upsertRemote({ userId: who.userId, kind: who.kind, stream });
     };
     pc.onconnectionstatechange = () => {
       const call = this.deps.getCall();
