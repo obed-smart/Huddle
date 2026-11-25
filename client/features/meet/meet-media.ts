@@ -1,5 +1,6 @@
 import { toast } from "@/lib/notify";
 import { useMeet } from "./meet-store";
+import { meetSignaling } from "./meet-signaling";
 
 /** The local media for a meet: camera and mic for the lobby preview and the
     self tile, plus screen sharing. Signaling (publish/subscribe over the SFU)
@@ -70,13 +71,15 @@ class MeetMedia {
     useMeet.getState().setSharing(false);
   }
 
-  /** Put a track into the local stream as its only video, and publish the new
-      stream object so the self tile re-renders. */
+  /** Put a track into the local stream as its only video, publish the new
+      stream object so the self tile re-renders, and hand it to the SFU sender so
+      everyone else sees the change too. */
   private swapVideo(track: MediaStreamTrack) {
     if (!this.stream) this.stream = new MediaStream();
     this.stream.getVideoTracks().forEach((t) => this.stream?.removeTrack(t));
     this.stream.addTrack(track);
     useMeet.getState().setLocal(new MediaStream(this.stream.getTracks()));
+    meetSignaling.replaceVideo(track);
   }
 
   leave() {
