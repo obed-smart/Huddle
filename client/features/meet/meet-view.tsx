@@ -15,6 +15,7 @@ import { MeetRoom } from "./meet-room";
     publish, subscribe); leaving tears media and signaling down. */
 export function MeetView({ meetId, conversationId = "", title }: { meetId: string; conversationId?: string; title?: string }) {
   const phase = useMeet((s) => s.phase);
+  const hasLocal = useMeet((s) => !!s.local);
   const setTitle = useMeet((s) => s.setTitle);
   const socket = useSocket();
   const router = useRouter();
@@ -33,10 +34,12 @@ export function MeetView({ meetId, conversationId = "", title }: { meetId: strin
     return () => meetSignaling.detach();
   }, [socket]);
 
-  // The lobby flips the phase; that is our cue to run the join handshake.
+  // The lobby flips the phase; that is our cue to run the join handshake, once
+  // the camera is actually open (tapping Join before it is ready is common).
+  // join() guards against running twice.
   useEffect(() => {
-    if (phase === "joined") void meetSignaling.join(meetId, conversationId);
-  }, [phase, meetId, conversationId]);
+    if (phase === "joined" && hasLocal) void meetSignaling.join(meetId, conversationId);
+  }, [phase, hasLocal, meetId, conversationId]);
 
   function leave() {
     meetSignaling.leave();
