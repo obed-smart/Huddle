@@ -1,34 +1,35 @@
 import type { Socket } from "socket.io-client";
 
+import { useSession } from "@/stores/session";
 import { makeOffer, makeAnswer, trackKind } from "@/features/call/call-rtc";
 import { RemoteAudio } from "@/features/call/call-audio";
-import { useMeet, type MeetParticipant } from "./meet-store";
+import { useMeet } from "./meet-store";
+import { applyRoster, putRemote, dropRemote, clearRoster } from "./meet-roster";
 import { MEET_EVENTS as E } from "./signaling/events";
 import type {
-  JoinAck, MeetParticipantWire, NewJoinEvt, NewLeaveEvt, NewPublishEvt, NewReactionEvt,
-  PublishAck, SubscribeAck, SubscribeTarget,
+  JoinAck, NewCloseEvt, NewJoinEvt, NewLeaveEvt, NewPublishEvt, PublishAck,
+  RosterEvt, SubscribeAck, SubscribeTarget,
 } from "./signaling/types";
 
 const ACK_TIMEOUT = 15000;
 type Listener = (data: unknown) => void;
 
 /** The meet's SFU media plane: one peer connection that publishes our tracks
-    and pulls everyone else's, the same shape as the call. Participants are keyed
-    by sessionId. Remote streams and names land in the meet store. */
+    and pulls everyone else's, the same shape as the call, keyed by userId. */
 class MeetSignaling {
   private socket: Socket | null = null;
   private pc: RTCPeerConnection | null = null;
   private iceServers: RTCIceServer[] = [];
   private meetId = "";
   private conversationId = "";
-  private mySession = "";
+  private myId = "";
   private bound: Array<[string, Listener]> = [];
-  private midToPub = new Map<string, { sessionId: string; kind: string }>();
+  private midToPub = new Map<string, { userId: string; kind: string }>();
   private pulled = new Set<string>();
   private pending: SubscribeTarget[] = [];
   private published = false;
+  private reported = false;
   private chain: Promise<void> = Promise.resolve();
-  private names = new Map<string, { name: string; avatar: string | null }>();
   private audio = new RemoteAudio();
 
   attach(socket: Socket) {
@@ -37,8 +38,9 @@ class MeetSignaling {
     this.socket = socket;
     this.on(E.newJoin, (d) => this.onNewJoin(d as NewJoinEvt));
     this.on(E.newPublish, (d) => this.onNewPublish(d as NewPublishEvt));
+    this.on(E.newClose, (d) => this.onNewClose(d as NewCloseEvt));
+    this.on(E.newRoster, (d) => applyRoster((d as RosterEvt).participants ?? [], this.myId));
     this.on(E.newLeave, (d) => this.onNewLeave(d as NewLeaveEvt));
-    this.on(E.newReaction, (d) => this.onReaction(d as NewReactionEvt));
   }
 
   detach() {
@@ -63,19 +65,19 @@ class MeetSignaling {
     if (!local || this.pc) return;
     this.meetId = meetId;
     this.conversationId = conversationId;
+    this.myId = useSession.getState().user?.id ?? "";
     try {
       const ack = await this.request<JoinAck>(E.join, { meetId, conversationId });
-      if (!ack?.success || !ack.data) return;
-      this.mySession = ack.data.sessionId;
-      this.iceServers = ack.data.iceServers ?? [];
-      this.register(ack.data.participants ?? []);
+      if (!ack?.success) return;
+      this.iceServers = ack.iceServers ?? [];
+      applyRoster(ack.participants ?? [], this.myId);
       await this.publish(local);
     } catch {
-      // A failed join leaves the lobby's local preview up; the user can retry.
+      // A failed join leaves the lobby preview up; the user can retry.
     }
   }
 
-  private async publish(local: MediaStream) {
+  private async publish(local: MediaStream, retried = false): Promise<void> {
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     this.pc = pc;
     this.installHandlers(pc);
@@ -85,8 +87,13 @@ class MeetSignaling {
       .filter((t) => t.sender.track && t.mid)
       .map((t) => ({ mid: t.mid as string, kind: trackKind(t.sender.track as MediaStreamTrack) }));
     const ack = await this.request<PublishAck>(E.publish, { meetId: this.meetId, description, tracks });
-    if (!ack?.success) return;
-    await pc.setRemoteDescription(ack.description);
+    if (!ack?.success) {
+      pc.close();
+      this.pc = null;
+      if (ack?.reason === "session_expired" && !retried) return this.publish(local, true);
+      return;
+    }
+    if (ack.description) await pc.setRemoteDescription(ack.description);
     this.published = true;
     const first = [...(ack.existing ?? []), ...this.pending];
     this.pending = [];
@@ -94,8 +101,8 @@ class MeetSignaling {
   }
 
   private onNewPublish(d: NewPublishEvt) {
-    if (d.meetId !== this.meetId || d.sessionId === this.mySession) return;
-    const target: SubscribeTarget = { sessionId: d.sessionId, kinds: d.tracks.map((t) => t.kind) };
+    if (d.meetId !== this.meetId || d.userId === this.myId) return;
+    const target: SubscribeTarget = { userId: d.userId, kinds: d.tracks.map((t) => t.kind) };
     if (!this.published) this.pending.push(target);
     else this.enqueue(() => this.subscribe([target]));
   }
@@ -104,14 +111,14 @@ class MeetSignaling {
     const pc = this.pc;
     if (!pc) return;
     const fresh = targets
-      .map((t) => ({ sessionId: t.sessionId, kinds: (t.kinds ?? []).filter((k) => !this.pulled.has(`${t.sessionId}:${k}`)) }))
+      .map((t) => ({ userId: t.userId, kinds: (t.kinds ?? []).filter((k) => !this.pulled.has(`${t.userId}:${k}`)) }))
       .filter((t) => t.kinds.length > 0);
     if (!fresh.length) return;
     const ack = await this.request<SubscribeAck>(E.subscribe, { meetId: this.meetId, targets: fresh });
     if (!ack?.success) return;
     for (const t of ack.subscribed) {
-      this.midToPub.set(t.mid, { sessionId: t.sessionId, kind: t.kind });
-      this.pulled.add(`${t.sessionId}:${t.kind}`);
+      this.midToPub.set(t.mid, { userId: t.userId, kind: t.kind });
+      this.pulled.add(`${t.userId}:${t.kind}`);
     }
     if (ack.requiresRenegotiation && ack.description) {
       await pc.setRemoteDescription(ack.description);
@@ -125,68 +132,63 @@ class MeetSignaling {
       const who = this.midToPub.get(event.transceiver.mid ?? "");
       if (!who) return;
       const stream = new MediaStream([event.track]);
-      if (event.track.kind === "audio") this.audio.attach(`${who.sessionId}:${who.kind}`, stream);
-      else this.putRemote(who.sessionId, { stream, camOn: true });
+      if (event.track.kind === "audio") this.audio.attach(`${who.userId}:${who.kind}`, stream);
+      else putRemote(who.userId, { stream, camOn: true });
+    };
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "connected" && !this.reported) {
+        this.reported = true;
+        this.request(E.connected, { meetId: this.meetId, conversationId: this.conversationId }).catch(() => {});
+      }
     };
   }
 
-  private register(ps: MeetParticipantWire[]) {
-    for (const p of ps) {
-      if (p.sessionId === this.mySession) continue;
-      this.names.set(p.sessionId, { name: p.name, avatar: p.avatarUrl ?? null });
-      this.putRemote(p.sessionId, { micOn: p.audioOn ?? true, camOn: p.videoOn ?? false });
-    }
-  }
-
-  /** Merge a change into a remote participant, keeping their existing stream. */
-  private putRemote(sessionId: string, patch: Partial<MeetParticipant>) {
-    const prev = useMeet.getState().remotes.find((r) => r.id === sessionId);
-    const known = this.names.get(sessionId);
-    useMeet.getState().upsertRemote({
-      id: sessionId,
-      name: patch.name ?? prev?.name ?? known?.name ?? "",
-      avatar: patch.avatar ?? prev?.avatar ?? known?.avatar ?? null,
-      stream: patch.stream !== undefined ? patch.stream : prev?.stream ?? null,
-      micOn: patch.micOn ?? prev?.micOn ?? true,
-      camOn: patch.camOn ?? prev?.camOn ?? false,
-    });
-  }
-
   private onNewJoin(d: NewJoinEvt) {
-    if (d.meetId === this.meetId) this.register([d.participant]);
-  }
-  private onNewLeave(d: NewLeaveEvt) {
-    if (d.meetId !== this.meetId) return;
-    this.names.delete(d.from);
-    for (const [mid, w] of this.midToPub) if (w.sessionId === d.from) this.midToPub.delete(mid);
-    this.pulled.forEach((k) => k.startsWith(`${d.from}:`) && this.pulled.delete(k));
-    useMeet.getState().removeRemote(d.from);
-  }
-  private onReaction(d: NewReactionEvt) {
-    useMeet.getState().react(d.emoji, d.name || this.names.get(d.from)?.name || "Someone");
+    if (d.meetId === this.meetId && d.participant) applyRoster([d.participant], this.myId);
   }
 
-  /** Float a reaction locally and, once joined, send it to everyone. */
+  /** A peer turned a track off: drop it, and a closed camera shows their avatar. */
+  private onNewClose(d: NewCloseEvt) {
+    if (d.meetId !== this.meetId) return;
+    for (const kind of d.kinds) {
+      this.pulled.delete(`${d.userId}:${kind}`);
+      for (const [mid, w] of this.midToPub) if (w.userId === d.userId && w.kind === kind) this.midToPub.delete(mid);
+    }
+    if (d.kinds.includes("cam") || d.kinds.includes("screen")) putRemote(d.userId, { stream: null, camOn: false });
+  }
+
+  private onNewLeave(d: NewLeaveEvt) {
+    const who = d.userId ?? d.from;
+    if (!who) return;
+    for (const [mid, w] of this.midToPub) if (w.userId === who) this.midToPub.delete(mid);
+    dropRemote(who);
+  }
+  /** Swap the video sender's track (camera to screen and back) without renegotiating. */
+  replaceVideo(track: MediaStreamTrack | null) {
+    void this.pc?.getSenders().find((s) => s.track?.kind === "video")?.replaceTrack(track);
+  }
+  /** Reactions are local only until the backend's meet:send data channel lands. */
   react(emoji: string) {
     useMeet.getState().react(emoji, "You");
-    if (this.pc) void this.request(E.reaction, { meetId: this.meetId, emoji }).catch(() => {});
   }
 
   leave() {
     if (this.pc) this.request(E.leave, { meetId: this.meetId, conversationId: this.conversationId }).catch(() => {});
     if (this.pc) {
       this.pc.ontrack = null;
+      this.pc.onconnectionstatechange = null;
       this.pc.close();
     }
     this.pc = null;
     this.audio.clear();
+    clearRoster();
     this.midToPub.clear();
     this.pulled.clear();
-    this.names.clear();
     this.pending = [];
     this.published = false;
+    this.reported = false;
     this.chain = Promise.resolve();
-    this.mySession = "";
+    this.myId = "";
   }
 
   private enqueue(op: () => Promise<void>) {

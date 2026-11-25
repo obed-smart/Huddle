@@ -1,12 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Video, Users } from "lucide-react";
 
 import { toast } from "@/lib/notify";
-import { createMeet } from "@/lib/api/meet";
 import { InfoAction } from "@/features/group-info/info-action";
 import { callSession } from "@/features/call/call-session";
+import { MeetCreateSheet } from "@/features/meet/meet-create-sheet";
 import type { CallPeer } from "@/features/call/call-types";
 
 type Props = {
@@ -17,30 +18,28 @@ type Props = {
 };
 
 /** Voice, video, and meet, shown inside an info panel. Voice and video place a
-    real call when we know who to ring; meet opens a meeting room for everyone
-    in the conversation. */
+    real call when we know who to ring; meet opens the new-meeting sheet, where
+    you start one instantly or schedule it. */
 export function CallActions({ conversationId, peer }: Props) {
   const router = useRouter();
+  const [meetOpen, setMeetOpen] = useState(false);
 
   const place = (media: "audio" | "video") =>
     peer
       ? callSession.initiate({ conversationId, peer, media })
       : toast("Calling is coming soon.");
 
-  async function startMeet() {
-    try {
-      const { meetId } = await createMeet(conversationId, peer?.name ?? undefined);
-      router.push(`/meet/${meetId}?conversationId=${encodeURIComponent(conversationId)}`);
-    } catch {
-      toast("Could not start the meeting.");
-    }
+  function openRoom(meetId: string) {
+    setMeetOpen(false);
+    router.push(`/meet/${meetId}?conversationId=${encodeURIComponent(conversationId)}`);
   }
 
   return (
     <div className="flex items-center justify-center gap-7 border-y px-4 py-3">
       <InfoAction icon={<Phone className="size-5" />} label="Voice" onClick={() => place("audio")} />
       <InfoAction icon={<Video className="size-5" />} label="Video" onClick={() => place("video")} />
-      <InfoAction icon={<Users className="size-5" />} label="Meet" onClick={startMeet} />
+      <InfoAction icon={<Users className="size-5" />} label="Meet" onClick={() => setMeetOpen(true)} />
+      <MeetCreateSheet conversationId={conversationId} open={meetOpen} onClose={() => setMeetOpen(false)} onStarted={openRoom} />
     </div>
   );
 }
