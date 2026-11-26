@@ -1,37 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Phone, Video, Users } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { callSession } from "@/features/call/call-session";
-import { MeetCreateSheet } from "@/features/meet/meet-create-sheet";
+import { CallMenu } from "./call-menu";
 import type { Conversation } from "@/lib/api/types";
 
 type Props = { conversation: Conversation; onBack: () => void; onOpenInfo?: () => void };
 
-/** The open-conversation header: who you are talking to, plus call actions.
-    Tapping a group's name/avatar opens its info screen. */
+/** The open-conversation header: who you are talking to, plus the one call and
+    meet entry point. Tapping a group's name/avatar opens its info screen. */
 export function ChatHeader({ conversation, onBack, onOpenInfo }: Props) {
   const isGroup = conversation.type === "group";
   const subtitle = isGroup ? `${conversation.membersCount ?? "?"} members` : "Direct message";
   const canOpenInfo = Boolean(onOpenInfo);
-
-  // Calls for a direct chat or a group. For a group the peer is the group
-  // itself (its name and avatar); the backend rings every member.
-  const otherId = conversation.otherUserId ?? null;
-  const peer = { id: otherId ?? conversation.id, name: conversation.name, avatar: conversation.avatar };
-  const place = (media: "audio" | "video") =>
-    callSession.initiate({ conversationId: conversation.id, peer, media });
-
-  const router = useRouter();
-  const [meetOpen, setMeetOpen] = useState(false);
-  function openRoom(meetId: string) {
-    setMeetOpen(false);
-    router.push(`/meet/${meetId}?conversationId=${encodeURIComponent(conversation.id)}`);
-  }
 
   return (
     <header className="glass flex items-center gap-3 border-b px-3 py-3 sm:px-4">
@@ -57,31 +40,7 @@ export function ChatHeader({ conversation, onBack, onOpenInfo }: Props) {
           <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
         </div>
       </button>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label="Start a call"
-        onClick={() => place("audio")}
-      >
-        <Phone />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label="Start a video call"
-        onClick={() => place("video")}
-      >
-        <Video />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label="Start a meeting"
-        onClick={() => setMeetOpen(true)}
-      >
-        <Users />
-      </Button>
-      <MeetCreateSheet conversationId={conversation.id} open={meetOpen} onClose={() => setMeetOpen(false)} onStarted={openRoom} />
+      <CallMenu conversation={conversation} />
     </header>
   );
 }
