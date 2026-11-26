@@ -10,6 +10,7 @@ import { ChatComposer } from "./chat-composer";
 import { useChat } from "./use-chat";
 import { useTyping } from "./use-typing";
 import { useConversationPeople } from "./use-conversation-people";
+import { MeetBanner } from "@/features/meet/meet-banner";
 import { GroupInfo } from "@/features/group-info/group-info";
 import { DmInfo } from "@/features/dm-info/dm-info";
 
@@ -32,6 +33,7 @@ export function ChatView({ conversation, onBack }: Props) {
     <div className="flex min-h-0 flex-1">
       <div className="flex min-h-0 flex-1 flex-col bg-secondary/40">
         <ChatHeader conversation={conversation} onBack={onBack} onOpenInfo={() => setInfoOpen(true)} />
+        <MeetBanner conversationId={conversation.id} />
 
         <MessageList
           messages={messages}

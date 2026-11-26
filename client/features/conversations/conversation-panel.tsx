@@ -11,6 +11,7 @@ import { NotificationBell } from "@/features/dashboard/notification-bell";
 import { UserSearchSheet } from "@/features/search/user-search-sheet";
 import { GroupCreateSheet } from "@/features/groups/group-create-sheet";
 import { CallLogList } from "@/features/calls/call-log-list";
+import { MeetList } from "@/features/meet/meet-list";
 import { callSession } from "@/features/call/call-session";
 import { useConversations } from "@/stores/conversations";
 import { useSection } from "@/stores/section";
@@ -71,16 +72,19 @@ export function ConversationPanel({ selectedId, onSelect, className }: Props) {
   }
 
   const calls = section === "calls";
+  const meet = section === "meet";
+  const chats = section === "chats";
+  const title = calls ? "Calls" : meet ? "Meet" : "Chats";
 
   return (
     <div className={cn("flex min-h-0 flex-col bg-background", className)}>
       <header className="glass sticky top-0 z-10 flex flex-col border-b px-4 py-3">
         <div className="flex items-center justify-between gap-1">
-          <h1 className="font-display text-xl font-bold tracking-tight">{calls ? "Calls" : "Chats"}</h1>
+          <h1 className="font-display text-xl font-bold tracking-tight">{title}</h1>
           <div className="flex items-center gap-1">
             <ThemeToggle className="md:hidden" />
             <NotificationBell />
-            {!calls ? (
+            {chats ? (
               <Button variant="ghost" size="icon" aria-label="New chat" onClick={() => setNewChatOpen(true)}>
                 <PenSquare />
               </Button>
@@ -88,7 +92,7 @@ export function ConversationPanel({ selectedId, onSelect, className }: Props) {
           </div>
         </div>
 
-        {!calls ? (
+        {chats ? (
           <>
             <div
               className={cn(
@@ -117,6 +121,8 @@ export function ConversationPanel({ selectedId, onSelect, className }: Props) {
       <div onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto pb-20 md:pb-0">
         {calls ? (
           <CallLogList onOpen={openChat} onRedial={redial} />
+        ) : meet ? (
+          <MeetList />
         ) : (
           <ConversationList filter={filter} query={query} selectedId={selectedId} onSelect={onSelect} />
         )}

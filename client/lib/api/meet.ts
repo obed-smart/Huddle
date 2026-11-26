@@ -6,6 +6,8 @@ export type Meet = {
   meetId: string;
   title?: string | null;
   conversationId: string;
+  /** Set when the meeting is for later; absent or null means it is live now. */
+  scheduledFor?: string | number | null;
 };
 
 /** Create a meeting for a conversation and get its room back. Without

@@ -18,5 +18,5 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { key: "chats", label: "Chats", icon: MessageCircle, section: "chats", enabled: true },
   { key: "calls", label: "Calls", icon: Phone, section: "calls", enabled: true },
-  { key: "meet", label: "Meet", icon: Video, enabled: false },
+  { key: "meet", label: "Meet", icon: Video, section: "meet", enabled: true },
 ];

@@ -13,6 +13,7 @@ import { ChatView } from "@/features/chat/chat-view";
 import { useConversationRealtime } from "./use-conversation-realtime";
 import { useChatHistory } from "./use-chat-history";
 import { useRequestRealtime } from "@/features/requests/use-request-realtime";
+import { useActiveMeetsSync } from "@/features/meet/use-active-meets";
 
 /** The whole app shell: nav + conversation list + open-conversation pane. */
 export function DashboardView() {
@@ -28,6 +29,7 @@ export function DashboardView() {
 
   useConversationRealtime(selectedId);
   useRequestRealtime();
+  useActiveMeetsSync();
   const { open, close } = useChatHistory(selectedId, setSelectedId);
 
   function onSelect(id: string) {
